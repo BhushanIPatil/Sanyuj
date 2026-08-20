@@ -1,0 +1,9 @@
+# Sanyuj workspace
+.DS_Store
+*.log
+.vercel
+
+# Env secrets (never commit)
+.env
+.env.local
+.env.*.local

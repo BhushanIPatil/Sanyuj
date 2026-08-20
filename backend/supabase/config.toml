@@ -1,0 +1,14 @@
+# Sanyuj Backend — Supabase project
+
+[project]
+id = "sanyuj"
+name = "sanyuj"
+
+[api]
+enabled = true
+
+[db]
+major_version = 15
+
+[functions]
+verify_jwt = false
