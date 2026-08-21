@@ -4,17 +4,29 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { CATEGORIES, categoryLabel } from "@/lib/auth/phone";
+import {
+  categoryDisplayName,
+  fetchCategoryTree,
+  flattenCategories,
+  type Category,
+  type CategoryTreeGroup,
+} from "@/lib/categories";
 import { useToast } from "@/components/Toast";
 
-type Biz = { id: string; name: string; category: string; rating: number };
+type Biz = {
+  id: string;
+  name: string;
+  rating: number;
+  categories: { id: string; name: string; slug: string; emoji: string | null } | null;
+};
 
 function ExploreInner() {
   const params = useSearchParams();
-  const initialCat = params.get("category") ?? "";
+  const initialSlug = params.get("category") ?? "";
   const { showToast } = useToast();
   const [q, setQ] = useState("");
-  const [category, setCategory] = useState(initialCat);
+  const [categorySlug, setCategorySlug] = useState(initialSlug);
+  const [tree, setTree] = useState<CategoryTreeGroup[]>([]);
   const [sort, setSort] = useState<"nearest" | "rated">("rated");
   const [items, setItems] = useState<Biz[]>([]);
   const [pincode, setPincode] = useState<string | null>(null);
@@ -26,19 +38,25 @@ function ExploreInner() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("pincode")
-        .eq("id", user.id)
-        .single();
-      setPincode(prof?.pincode ?? null);
 
-      let query = supabase.from("businesses").select("id, name, category, rating, owner_id");
-      if (category) query = query.eq("category", category);
+      const [profRes, groups] = await Promise.all([
+        supabase.from("profiles").select("pincode").eq("id", user.id).single(),
+        fetchCategoryTree(supabase),
+      ]);
+      setPincode(profRes.data?.pincode ?? null);
+      setTree(groups);
+
+      const allCats = flattenCategories(groups);
+      const selected = allCats.find((c) => c.slug === categorySlug);
+
+      let query = supabase
+        .from("businesses")
+        .select("id, name, rating, owner_id, categories(id, name, slug, emoji)");
+      if (selected) query = query.eq("category_id", selected.id);
       const { data: all } = await query.order("rating", { ascending: false }).limit(40);
 
-      if (!prof?.pincode || !all?.length) {
-        setItems(all ?? []);
+      if (!profRes.data?.pincode || !all?.length) {
+        setItems((all as unknown as Biz[]) ?? []);
         return;
       }
 
@@ -48,17 +66,19 @@ function ExploreInner() {
         .select("id, pincode")
         .in("id", ownerIds);
       const pinSet = new Set(
-        (profiles ?? []).filter((p) => p.pincode === prof.pincode).map((p) => p.id),
+        (profiles ?? []).filter((p) => p.pincode === profRes.data?.pincode).map((p) => p.id),
       );
       const filtered = all.filter((b) => pinSet.has(b.owner_id));
-      setItems(filtered.length ? filtered : all);
+      setItems((filtered.length ? filtered : all) as unknown as Biz[]);
     };
     void load();
-  }, [category]);
+  }, [categorySlug]);
+
+  const chips: Category[] = flattenCategories(tree);
 
   const filtered = items.filter((b) => {
     if (!q.trim()) return true;
-    const hay = `${b.name} ${categoryLabel(b.category)}`.toLowerCase();
+    const hay = `${b.name} ${categoryDisplayName(b.categories)}`.toLowerCase();
     return hay.includes(q.toLowerCase());
   });
 
@@ -67,60 +87,26 @@ function ExploreInner() {
   );
 
   return (
-    <div>
-      <div className="relative h-56 overflow-hidden bg-gradient-to-br from-[#DCEEFB] to-[#E1F9EE]">
-        <div className="absolute inset-0 opacity-50" style={{
-          backgroundImage:
-            "repeating-linear-gradient(115deg, rgba(46,134,214,0.18) 0 2px, transparent 2px 46px)",
-        }} />
-        <Link
-          href="/app"
-          className="absolute left-4 top-4 flex h-10 w-10 items-center justify-center rounded-[13px] border border-line bg-white shadow-card"
-        >
-          ←
-        </Link>
-        <p className="absolute bottom-10 left-0 right-0 text-center font-display text-sm font-bold text-blue-deep">
-          Map view · {pincode ?? "your area"}
+    <div className="page-pad">
+      <header className="mb-6">
+        <p className="eyebrow">Discover</p>
+        <h1 className="mt-1 font-display text-2xl font-extrabold sm:text-3xl">Explore providers</h1>
+        <p className="mt-2 max-w-2xl text-sm text-ink-soft sm:text-base">
+          Browse trusted local businesses near {pincode ?? "your area"}.
         </p>
-      </div>
+      </header>
 
-      <div className="relative z-10 -mt-6 rounded-t-[28px] bg-white pt-3.5 shadow-card">
-        <div className="mx-auto mb-3.5 h-1 w-10 rounded bg-line" />
-        <div className="mx-5 mb-3.5 flex items-center gap-2.5 rounded-[18px] border-[1.5px] border-line bg-surface px-3.5 py-3">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row">
+        <div className="flex flex-1 items-center gap-2.5 rounded-[16px] border-[1.5px] border-line bg-white px-4 py-3 shadow-card">
           <span className="text-ink-faint">⌕</span>
           <input
-            className="flex-1 bg-transparent text-[13.5px] outline-none"
+            className="flex-1 bg-transparent text-sm outline-none"
             placeholder="Search providers…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
-
-        <div className="no-scrollbar mb-3 flex gap-2 overflow-x-auto px-5">
-          <button
-            className={`shrink-0 rounded-full border px-3.5 py-2 text-xs font-bold ${
-              !category ? "border-blue-deep bg-blue-deep text-white" : "border-line bg-surface text-ink-soft"
-            }`}
-            onClick={() => setCategory("")}
-          >
-            All
-          </button>
-          {CATEGORIES.map((c) => (
-            <button
-              key={c.id}
-              className={`shrink-0 rounded-full border px-3.5 py-2 text-xs font-bold ${
-                category === c.id
-                  ? "border-blue-deep bg-blue-deep text-white"
-                  : "border-line bg-surface text-ink-soft"
-              }`}
-              onClick={() => setCategory(c.id)}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="no-scrollbar mb-3 flex gap-2 overflow-x-auto px-5">
+        <div className="flex gap-2">
           {(
             [
               ["rated", "Top rated"],
@@ -129,10 +115,10 @@ function ExploreInner() {
           ).map(([id, label]) => (
             <button
               key={id}
-              className={`shrink-0 rounded-full border px-3.5 py-2 text-xs font-bold ${
+              className={`rounded-[14px] border px-4 py-3 text-sm font-bold ${
                 sort === id
                   ? "border-blue-deep bg-blue-deep text-white"
-                  : "border-line bg-surface text-ink-soft"
+                  : "border-line bg-white text-ink-soft"
               }`}
               onClick={() => setSort(id)}
             >
@@ -140,41 +126,73 @@ function ExploreInner() {
             </button>
           ))}
         </div>
+      </div>
 
-        <div className="px-5 pb-4">
-          {sorted.map((b) => (
-            <div
-              key={b.id}
-              className="flex items-center gap-3 border-b border-line py-3"
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-blue-soft text-sm">
-                📍
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[13.5px] font-bold">{b.name}</p>
-                <p className="text-[11px] text-ink-soft">
-                  {b.rating.toFixed(1)} ★ · {categoryLabel(b.category)}
-                </p>
-              </div>
-              <button
-                className="text-xs font-bold text-blue-deep"
-                onClick={() => showToast(`Calling ${b.name}…`)}
-              >
-                Call
-              </button>
+      <div className="no-scrollbar mb-6 flex gap-2 overflow-x-auto pb-1">
+        <button
+          className={`shrink-0 rounded-full border px-4 py-2 text-sm font-bold ${
+            !categorySlug
+              ? "border-blue-deep bg-blue-deep text-white"
+              : "border-line bg-white text-ink-soft"
+          }`}
+          onClick={() => setCategorySlug("")}
+        >
+          All
+        </button>
+        {chips.map((c) => (
+          <button
+            key={c.id}
+            className={`shrink-0 rounded-full border px-4 py-2 text-sm font-bold ${
+              categorySlug === c.slug
+                ? "border-blue-deep bg-blue-deep text-white"
+                : "border-line bg-white text-ink-soft"
+            }`}
+            onClick={() => setCategorySlug(c.slug)}
+          >
+            {c.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {sorted.map((b) => (
+          <div
+            key={b.id}
+            className="flex items-center gap-3 rounded-[18px] border border-line bg-white p-4 shadow-card"
+          >
+            <div className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-blue-soft text-base">
+              {b.categories?.emoji ?? "📍"}
             </div>
-          ))}
-          {!sorted.length ? (
-            <p className="py-6 text-center text-sm text-ink-soft">No providers found.</p>
-          ) : null}
-        </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold">{b.name}</p>
+              <p className="text-xs text-ink-soft">
+                {b.rating.toFixed(1)} ★ · {categoryDisplayName(b.categories)}
+              </p>
+            </div>
+            <button
+              className="text-sm font-bold text-blue-deep"
+              onClick={() => showToast(`Calling ${b.name}…`)}
+            >
+              Call
+            </button>
+          </div>
+        ))}
+      </div>
 
-        <div className="mx-5 mb-4 flex items-center justify-between gap-3 rounded-[26px] bg-indigo-soft p-4">
-          <h3 className="font-display text-[14.5px] font-bold text-indigo">Not seeing the right fit?</h3>
-          <Link href="/app/post-job" className="rounded-full bg-indigo px-3.5 py-2.5 text-xs font-bold text-white">
-            Post a Job
-          </Link>
-        </div>
+      {!sorted.length ? (
+        <p className="py-10 text-center text-sm text-ink-soft">No providers found.</p>
+      ) : null}
+
+      <div className="mt-8 flex flex-col items-start justify-between gap-4 rounded-[24px] bg-indigo-soft p-5 sm:flex-row sm:items-center">
+        <h3 className="font-display text-base font-bold text-indigo sm:text-lg">
+          Not seeing the right fit?
+        </h3>
+        <Link
+          href="/app/post-job"
+          className="rounded-full bg-indigo px-5 py-2.5 text-sm font-bold text-white"
+        >
+          Post a Job
+        </Link>
       </div>
     </div>
   );
@@ -182,7 +200,7 @@ function ExploreInner() {
 
 export default function ExplorePage() {
   return (
-    <Suspense fallback={<div className="p-8 text-ink-soft">Loading…</div>}>
+    <Suspense fallback={<div className="page-pad text-ink-soft">Loading…</div>}>
       <ExploreInner />
     </Suspense>
   );

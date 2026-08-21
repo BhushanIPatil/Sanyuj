@@ -62,8 +62,8 @@ function OtpForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md rounded-[28px] border border-line bg-white p-7 shadow-pop sm:p-9">
+    <div className="flex min-h-screen items-center justify-center bg-bg-page px-4 py-10">
+      <div className="w-full max-w-lg rounded-[28px] border border-line bg-white p-7 shadow-pop sm:p-10">
         <Link href="/auth/login" className="mb-5 inline-flex h-10 w-10 items-center justify-center rounded-[13px] border border-line bg-white shadow-card">
           ←
         </Link>
@@ -74,7 +74,7 @@ function OtpForm() {
         </p>
         {hint ? (
           <p className="mt-3 rounded-[14px] bg-green-soft px-3 py-2 text-xs font-bold text-green-deep">
-            Dev mode OTP: {hint}
+            SMS bypassed — use code: {hint}
           </p>
         ) : null}
 

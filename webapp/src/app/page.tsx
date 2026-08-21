@@ -56,7 +56,7 @@ export default function LandingPage() {
                 Sanyuj
               </h1>
               <p className="mt-4 max-w-md text-base leading-relaxed text-ink-soft sm:text-lg">
-                Find trusted local help near your landmark — or list your business for free and get
+                Find trusted local help near your pincode — or list your business for free and get
                 job requests from neighbours.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
@@ -129,7 +129,7 @@ export default function LandingPage() {
           <div className="mx-auto max-w-6xl px-5">
             <h2 className="font-display text-2xl font-bold text-ink sm:text-3xl">How Sanyuj works</h2>
             <p className="mt-2 max-w-xl text-ink-soft">
-              Built for Indian neighbourhoods — match by pincode and landmark, then call directly.
+              Built for Indian neighbourhoods — match by pincode and address, then call directly.
             </p>
             <div className="mt-10 grid gap-5 md:grid-cols-3">
               {[

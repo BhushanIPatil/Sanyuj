@@ -4,18 +4,18 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { categoryLabel } from "@/lib/auth/phone";
+import { categoryDisplayName } from "@/lib/categories";
 import { useToast } from "@/components/Toast";
 
 type Job = {
   id: string;
   title: string;
   description: string;
-  category: string;
   urgency: string;
   budget_min: number | null;
   budget_max: number | null;
   pincode: string;
+  categories: { id: string; name: string; slug: string } | null;
 };
 
 export default function ProviderJobDetailPage() {
@@ -41,8 +41,14 @@ export default function ProviderJobDetailPage() {
         .maybeSingle();
       setBusinessId(biz?.id ?? null);
 
-      const { data: j } = await supabase.from("jobs").select("*").eq("id", id).single();
-      setJob(j);
+      const { data: j } = await supabase
+        .from("jobs")
+        .select(
+          "id, title, description, urgency, budget_min, budget_max, pincode, categories(id, name, slug)",
+        )
+        .eq("id", id)
+        .single();
+      setJob(j as unknown as Job | null);
 
       const { count } = await supabase
         .from("job_interests")
@@ -87,8 +93,8 @@ export default function ProviderJobDetailPage() {
   if (!job) return <div className="p-8 text-ink-soft">Loading…</div>;
 
   return (
-    <div>
-      <header className="flex items-center gap-3 px-5 pb-3 pt-5">
+    <div className="page-pad">
+      <header className="mb-4 flex items-center gap-3">
         <Link
           href="/app/jobs-feed"
           className="flex h-10 w-10 items-center justify-center rounded-[13px] border border-line bg-white shadow-card"
@@ -101,9 +107,9 @@ export default function ProviderJobDetailPage() {
         </div>
       </header>
 
-      <div className="mx-5 rounded-[26px] border border-line bg-white p-4.5 shadow-card">
+      <div className="rounded-[26px] border border-line bg-white p-4.5 shadow-card">
         <p className="eyebrow">
-          {categoryLabel(job.category)} · {job.pincode}
+          {categoryDisplayName(job.categories)} · {job.pincode}
         </p>
         <h2 className="mt-1.5 font-display text-[16.5px] font-bold leading-snug">{job.title}</h2>
         <p className="mt-2 text-[12.5px] leading-relaxed text-ink-soft">{job.description}</p>
@@ -126,11 +132,11 @@ export default function ProviderJobDetailPage() {
         </div>
       </div>
 
-      <p className="mx-5 mt-4 text-xs text-ink-soft">
+      <p className="mt-4 text-xs text-ink-soft">
         {others} provider{others === 1 ? "" : "s"} interested in this job
       </p>
 
-      <div className="mx-5 mt-4">
+      <div className="mt-4">
         <button
           className="btn-primary"
           style={sent ? { background: "var(--green-deep)", boxShadow: "none" } : undefined}

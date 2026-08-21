@@ -24,18 +24,3 @@ export function displayPhone(phone: string) {
   }
   return phone;
 }
-
-export const CATEGORIES = [
-  { id: "plumber", label: "Plumber", emoji: "🔧" },
-  { id: "electrician", label: "Electrician", emoji: "⚡" },
-  { id: "auto_cab", label: "Auto & Cab", emoji: "🚗" },
-  { id: "carpenter", label: "Carpenter", emoji: "🔨" },
-  { id: "travels", label: "Travels", emoji: "🧳" },
-  { id: "house_rent", label: "House Rent", emoji: "🏠" },
-] as const;
-
-export type ServiceCategory = (typeof CATEGORIES)[number]["id"];
-
-export function categoryLabel(id: string) {
-  return CATEGORIES.find((c) => c.id === id)?.label ?? id;
-}

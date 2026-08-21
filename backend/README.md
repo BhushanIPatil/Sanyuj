@@ -47,10 +47,11 @@ npx supabase functions deploy verify-otp
 
 ## Tables (overview)
 
-- `profiles` — user name, phone, pincode, landmark
-- `landmarks` — seeded landmarks per pincode
-- `businesses` — optional provider listing
-- `jobs` — customer requests
+- `profiles` — user name, phone, pincode, address, current_address (live)
+- `category_groups` — super categories (Food, Services, Daily) — manage in dashboard
+- `categories` — subcategories under a group — manage in dashboard
+- `businesses` — optional provider listing (`category_id`)
+- `jobs` — customer requests (`category_id`)
 - `job_interests` — provider responses
 - `live_sessions` — “Go Live” check-ins
 - `otp_codes` — short-lived OTP (service role only)

@@ -4,22 +4,25 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { categoryLabel, displayPhone } from "@/lib/auth/phone";
+import { displayPhone } from "@/lib/auth/phone";
+import { categoryDisplayName } from "@/lib/categories";
 import { useToast } from "@/components/Toast";
 
 type Profile = {
   full_name: string | null;
   phone: string;
   pincode: string | null;
+  address: string | null;
+  current_address: string | null;
 };
 
 type Business = {
   id: string;
   name: string;
-  category: string;
   rating: number;
   jobs_done: number;
   response_rate: number;
+  categories: { id: string; name: string; slug: string } | null;
 };
 
 export default function ProfilePage() {
@@ -39,10 +42,10 @@ export default function ProfilePage() {
       setProfile(prof);
       const { data: biz } = await supabase
         .from("businesses")
-        .select("id, name, category, rating, jobs_done, response_rate")
+        .select("id, name, rating, jobs_done, response_rate, categories(id, name, slug)")
         .eq("owner_id", user.id)
         .maybeSingle();
-      setBusiness(biz);
+      setBusiness(biz as unknown as Business | null);
     };
     void load();
   }, []);
@@ -63,13 +66,13 @@ export default function ProfilePage() {
       .toUpperCase() ?? "U";
 
   return (
-    <div>
-      <header className="px-5 pt-5">
+    <div className="page-pad">
+      <header>
         <p className="eyebrow">Account</p>
         <h1 className="mt-1 font-display text-[19px] font-bold">Profile</h1>
       </header>
 
-      <div className="flex flex-col items-center px-5 pt-2 text-center">
+      <div className="flex flex-col items-center pt-2 text-center">
         <div className="mb-3 flex h-20 w-20 items-center justify-center rounded-[26px] grad-hero font-display text-[26px] font-extrabold text-white shadow-pop">
           {initials}
         </div>
@@ -79,21 +82,31 @@ export default function ProfilePage() {
         </p>
       </div>
 
-      <div className="mx-5 mt-4 flex items-center justify-between rounded-[18px] border border-line bg-white p-3.5 shadow-card">
-        <div>
-          <p className="text-[10.5px] font-bold uppercase tracking-wide text-ink-soft">Saved pincode</p>
-          <p className="mt-1 font-mono text-sm font-bold">{profile?.pincode ?? "—"}</p>
+      <div className="mt-4 rounded-[18px] border border-line bg-white p-3.5 shadow-card">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10.5px] font-bold uppercase tracking-wide text-ink-soft">Location</p>
+            <p className="mt-1 font-mono text-sm font-bold">{profile?.pincode ?? "—"}</p>
+            {profile?.address ? (
+              <p className="mt-1 text-xs leading-relaxed text-ink-soft">{profile.address}</p>
+            ) : null}
+            {profile?.current_address ? (
+              <p className="mt-2 text-[11px] leading-relaxed text-green-deep">
+                Live · {profile.current_address}
+              </p>
+            ) : null}
+          </div>
+          <button
+            className="shrink-0 rounded-full bg-blue-soft px-3 py-1.5 text-[11px] font-bold text-blue-deep"
+            onClick={() => showToast("Edit location from onboarding data in a later update")}
+          >
+            Edit
+          </button>
         </div>
-        <button
-          className="rounded-full bg-blue-soft px-3 py-1.5 text-[11px] font-bold text-blue-deep"
-          onClick={() => showToast("Edit pincode from onboarding data in a later update")}
-        >
-          Edit
-        </button>
       </div>
 
       {!business ? (
-        <div className="mx-5 mt-4 rounded-[26px] border-[1.5px] border-dashed border-line p-4.5">
+        <div className="mt-4 rounded-[26px] border-[1.5px] border-dashed border-line p-4.5">
           <div className="flex items-center gap-3.5">
             <div className="flex h-11 w-11 items-center justify-center rounded-[15px] bg-blue-soft text-lg">
               🏪
@@ -111,7 +124,7 @@ export default function ProfilePage() {
         </div>
       ) : (
         <div
-          className="mx-5 mt-4 rounded-[26px] p-4.5 shadow-card"
+          className="mt-4 rounded-[26px] p-4.5 shadow-card"
           style={{ background: "linear-gradient(135deg,#F2F9FF 0%,#EFFBF5 100%)" }}
         >
           <div className="flex items-center gap-3">
@@ -121,7 +134,7 @@ export default function ProfilePage() {
             <div>
               <p className="text-[15px] font-bold">{business.name}</p>
               <span className="mt-1 inline-block rounded-full bg-blue-soft px-2.5 py-1 text-[10.5px] font-bold text-blue-deep">
-                {categoryLabel(business.category)}
+                {categoryDisplayName(business.categories)}
               </span>
             </div>
           </div>
@@ -154,7 +167,7 @@ export default function ProfilePage() {
         </div>
       )}
 
-      <div className="mx-5 mt-4 overflow-hidden rounded-[18px] border border-line bg-white shadow-card">
+      <div className="mt-4 overflow-hidden rounded-[18px] border border-line bg-white shadow-card">
         {[
           { href: "/app/my-jobs", label: "My Jobs" },
           { href: "/app/explore", label: "Saved Providers" },

@@ -22,7 +22,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <Ctx.Provider value={value}>
       {children}
       <div
-        className={`fixed bottom-24 left-1/2 z-50 w-[min(100%-2.5rem,420px)] -translate-x-1/2 rounded-[18px] bg-ink px-4 py-3.5 text-xs font-semibold text-white transition-all ${
+        className={`fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-1/2 z-50 w-[min(100%-2rem,28rem)] -translate-x-1/2 rounded-[16px] bg-ink px-4 py-3.5 text-sm font-semibold text-white shadow-pop transition-all lg:bottom-8 ${
           open ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0"
         }`}
       >

@@ -3,26 +3,30 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { categoryLabel } from "@/lib/auth/phone";
+import { categoryDisplayName } from "@/lib/categories";
+import { updateCurrentAddress } from "@/lib/geo/location";
 import { useToast } from "@/components/Toast";
+
+type CatRef = { id: string; name: string; slug: string } | null;
 
 type Job = {
   id: string;
   title: string;
   description: string;
-  category: string;
   budget_min: number | null;
   budget_max: number | null;
   pincode: string;
   created_at: string;
+  categories: CatRef;
 };
 
 type Business = {
   id: string;
   name: string;
-  category: string;
+  category_id: string;
   rating: number;
   response_rate: number;
+  categories: CatRef;
 };
 
 export default function JobsFeedPage() {
@@ -33,8 +37,8 @@ export default function JobsFeedPage() {
   const [isLive, setIsLive] = useState(false);
   const [liveId, setLiveId] = useState<string | null>(null);
   const [pincode, setPincode] = useState("");
-  const [landmarkId, setLandmarkId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "today">("all");
+  const [goingLive, setGoingLive] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -46,18 +50,17 @@ export default function JobsFeedPage() {
 
       const { data: prof } = await supabase
         .from("profiles")
-        .select("pincode, landmark_id")
+        .select("pincode")
         .eq("id", user.id)
         .single();
       setPincode(prof?.pincode ?? "");
-      setLandmarkId(prof?.landmark_id ?? null);
 
       const { data: biz } = await supabase
         .from("businesses")
-        .select("id, name, category, rating, response_rate")
+        .select("id, name, category_id, rating, response_rate, categories(id, name, slug)")
         .eq("owner_id", user.id)
         .maybeSingle();
-      setBusiness(biz);
+      setBusiness(biz as unknown as Business | null);
 
       if (!biz) return;
 
@@ -75,14 +78,16 @@ export default function JobsFeedPage() {
 
       let q = supabase
         .from("jobs")
-        .select("id, title, description, category, budget_min, budget_max, pincode, created_at")
+        .select(
+          "id, title, description, budget_min, budget_max, pincode, created_at, categories(id, name, slug)",
+        )
         .eq("status", "open")
-        .eq("category", biz.category)
+        .eq("category_id", biz.category_id)
         .order("created_at", { ascending: false })
         .limit(30);
       if (prof?.pincode) q = q.eq("pincode", prof.pincode);
       const { data: jobRows } = await q;
-      setJobs(jobRows ?? []);
+      setJobs((jobRows as unknown as Job[]) ?? []);
 
       const { data: ints } = await supabase
         .from("job_interests")
@@ -107,25 +112,36 @@ export default function JobsFeedPage() {
       showToast("Live status turned off");
       return;
     }
-    const ends = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
-    const { data, error } = await supabase
-      .from("live_sessions")
-      .insert({
-        business_id: business.id,
-        pincode,
-        landmark_id: landmarkId,
-        ends_at: ends,
-        is_active: true,
-      })
-      .select("id")
-      .single();
-    if (error) {
-      showToast(error.message);
-      return;
+
+    setGoingLive(true);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+
+      await updateCurrentAddress(supabase, user.id);
+
+      const ends = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from("live_sessions")
+        .insert({
+          business_id: business.id,
+          pincode,
+          ends_at: ends,
+          is_active: true,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      setIsLive(true);
+      setLiveId(data.id);
+      showToast("You are live — nearby customers can see & call you");
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Could not go live");
+    } finally {
+      setGoingLive(false);
     }
-    setIsLive(true);
-    setLiveId(data.id);
-    showToast("You are live — nearby customers can see & call you");
   }
 
   async function toggleInterest(jobId: string) {
@@ -157,7 +173,7 @@ export default function JobsFeedPage() {
 
   if (!business) {
     return (
-      <div className="px-5 pt-8 text-center">
+      <div className="page-pad text-center">
         <h1 className="font-display text-xl font-bold">Job Feed</h1>
         <p className="mt-2 text-sm text-ink-soft">
           List your business to see open requests in your category and pincode.
@@ -176,9 +192,11 @@ export default function JobsFeedPage() {
     return d.toDateString() === now.toDateString();
   });
 
+  const catName = categoryDisplayName(business.categories).toLowerCase() || "provider";
+
   return (
-    <div>
-      <header className="flex items-center gap-3 px-5 pb-2 pt-5">
+    <div className="page-pad">
+      <header className="mb-4 flex items-center gap-3">
         <Link
           href="/app/profile"
           className="flex h-10 w-10 items-center justify-center rounded-[13px] border border-line bg-white shadow-card"
@@ -191,14 +209,14 @@ export default function JobsFeedPage() {
         </div>
       </header>
 
-      <div className="relative mx-5 overflow-hidden rounded-[26px] grad-hero p-5 text-white shadow-pop">
+      <div className="relative overflow-hidden rounded-[26px] grad-hero p-5 text-white shadow-pop">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-white/75">
               Your response rate
             </p>
             <h2 className="mt-1.5 max-w-[200px] font-display text-[17px] font-bold leading-snug">
-              You respond faster than {business.response_rate}% of nearby {categoryLabel(business.category).toLowerCase()}s
+              You respond faster than {business.response_rate}% of nearby {catName}s
             </h2>
           </div>
           <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full border-[7px] border-white/30">
@@ -211,7 +229,8 @@ export default function JobsFeedPage() {
       <button
         type="button"
         onClick={() => void toggleLive()}
-        className={`mx-5 mt-3.5 w-[calc(100%-2.5rem)] rounded-[26px] border-[1.5px] p-4 text-left transition ${
+        disabled={goingLive}
+        className={`mt-3.5 w-full rounded-[26px] border-[1.5px] p-4 text-left transition disabled:opacity-70 ${
           isLive
             ? "border-green-deep bg-green-soft shadow-card"
             : "border-dashed border-line bg-white"
@@ -230,7 +249,9 @@ export default function JobsFeedPage() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="flex items-center gap-2 text-[13.5px] font-bold">
-              {isLive ? (
+              {goingLive ? (
+                "Updating live location…"
+              ) : isLive ? (
                 <>
                   <span className="relative inline-block h-1.5 w-1.5 rounded-full bg-green-deep">
                     <span className="absolute inset-[-4px] animate-pulse-ring rounded-full border border-green-deep" />
@@ -244,7 +265,7 @@ export default function JobsFeedPage() {
             <p className="mt-1 text-[11px] leading-snug text-ink-soft">
               {isLive
                 ? `Visible to customers near ${pincode} · Auto-off in 2h`
-                : "Tap to let nearby customers know you're here — they can call you directly."}
+                : "Tap to share live location and let nearby customers call you."}
             </p>
           </div>
           <span
@@ -254,12 +275,12 @@ export default function JobsFeedPage() {
                 : "grad-hero text-white"
             }`}
           >
-            {isLive ? "Stop" : "Go Live"}
+            {goingLive ? "…" : isLive ? "Stop" : "Go Live"}
           </span>
         </div>
       </button>
 
-      <div className="mt-4 grid grid-cols-3 gap-2.5 px-5">
+      <div className="mt-4 grid grid-cols-3 gap-2.5">
         {[
           [String(shown.length), "Open nearby"],
           [String(interestedIds.size), "Interested"],
@@ -275,7 +296,7 @@ export default function JobsFeedPage() {
         ))}
       </div>
 
-      <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto px-5">
+      <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto">
         {(
           [
             ["all", "All nearby"],
@@ -296,12 +317,12 @@ export default function JobsFeedPage() {
         ))}
       </div>
 
-      <div className="mt-4 flex items-baseline justify-between px-5">
+      <div className="mt-4 flex items-baseline justify-between">
         <h2 className="font-display text-base font-bold">Open requests</h2>
         <span className="text-xs font-bold text-blue-deep">{shown.length} posts</span>
       </div>
 
-      <div className="mt-3 space-y-3 px-5 pb-4">
+      <div className="mt-3 space-y-3 pb-4">
         {shown.map((j) => {
           const sent = interestedIds.has(j.id);
           return (
@@ -310,7 +331,7 @@ export default function JobsFeedPage() {
                 {j.pincode}
               </span>
               <span className="mb-2 inline-block rounded-full bg-blue-soft px-2.5 py-1 text-[10px] font-bold text-blue-deep">
-                {categoryLabel(j.category)}
+                {categoryDisplayName(j.categories)}
               </span>
               <Link href={`/app/jobs-feed/${j.id}`} className="block text-sm font-bold leading-snug">
                 {j.title}

@@ -22,7 +22,9 @@ create table public.profiles (
   phone text not null unique,
   full_name text,
   pincode text,
-  landmark_id uuid,
+  address text,
+  lat double precision,
+  lng double precision,
   onboarding_complete boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -39,10 +41,6 @@ create table public.landmarks (
 );
 
 create index landmarks_pincode_idx on public.landmarks (pincode);
-
-alter table public.profiles
-  add constraint profiles_landmark_id_fkey
-  foreign key (landmark_id) references public.landmarks (id) on delete set null;
 
 -- ---------- businesses ----------
 create table public.businesses (

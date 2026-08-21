@@ -1,52 +1,58 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-
-type Landmark = {
-  id: string;
-  name: string;
-  area_label: string | null;
-  city: string;
-  pincode: string;
-};
+import { detectLocation } from "@/lib/geo/location";
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2>(1);
   const [fullName, setFullName] = useState("");
-  const [pincode, setPincode] = useState("425001");
-  const [landmarks, setLandmarks] = useState<Landmark[]>([]);
-  const [landmarkId, setLandmarkId] = useState<string>("");
+  const [pincode, setPincode] = useState("");
+  const [address, setAddress] = useState("");
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationNote, setLocationNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [note, setNote] = useState("");
+
+  const fetchLocation = useCallback(async () => {
+    setLocating(true);
+    setError("");
+    setLocationNote("Detecting your location…");
+    try {
+      const loc = await detectLocation();
+      setAddress(loc.address);
+      setLat(loc.lat);
+      setLng(loc.lng);
+      if (loc.pincode) {
+        setPincode(loc.pincode);
+        setLocationNote("Location detected — confirm or edit if needed.");
+      } else {
+        setLocationNote("Address found, but no pincode detected. Enter your 6-digit pincode.");
+      }
+    } catch (err) {
+      setLocationNote("");
+      setError(err instanceof Error ? err.message : "Could not detect location");
+    } finally {
+      setLocating(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (step !== 2) return;
-    const run = async () => {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("landmarks")
-        .select("*")
-        .eq("pincode", pincode)
-        .order("name");
-      setLandmarks(data ?? []);
-      setNote(
-        data && data.length
-          ? `Found ${data.length} landmarks for ${pincode}${data[0]?.city ? `, ${data[0].city}` : ""}`
-          : "No landmarks for this pincode yet — you can still continue.",
-      );
-      if (data?.[0]) setLandmarkId(data[0].id);
-    };
-    void run();
-  }, [step, pincode]);
+    void fetchLocation();
+  }, [step, fetchLocation]);
 
   async function finish() {
     setLoading(true);
     setError("");
     try {
+      if (pincode.length !== 6) throw new Error("Enter a valid 6-digit pincode");
+      if (!address.trim()) throw new Error("Enter your address");
+
       const supabase = createClient();
       const {
         data: { user },
@@ -58,7 +64,9 @@ export default function OnboardingPage() {
         .update({
           full_name: fullName.trim(),
           pincode,
-          landmark_id: landmarkId || null,
+          address: address.trim(),
+          lat,
+          lng,
           onboarding_complete: true,
         })
         .eq("id", user.id);
@@ -73,10 +81,10 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md rounded-[28px] border border-line bg-white p-7 shadow-pop sm:p-9">
+    <div className="flex min-h-screen items-center justify-center bg-bg-page px-4 py-10">
+      <div className="w-full max-w-lg rounded-[28px] border border-line bg-white p-7 shadow-pop sm:p-10">
         <div className="mb-6 flex gap-1.5">
-          {[1, 2, 3].map((s) => (
+          {[1, 2].map((s) => (
             <div
               key={s}
               className={`h-1 flex-1 rounded ${s <= step ? "grad-hero" : "bg-line"}`}
@@ -111,72 +119,51 @@ export default function OnboardingPage() {
             <button className="mb-4 text-sm font-bold text-blue-deep" onClick={() => setStep(1)}>
               ← Back
             </button>
-            <h1 className="font-display text-2xl font-extrabold">Where are you located?</h1>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-green-deep">Step 2</p>
+            <h1 className="mt-2 font-display text-2xl font-extrabold">Where are you located?</h1>
             <p className="mt-2 text-sm text-ink-soft">
-              This helps us show help nearby, and connect you with nearby customers if you list a
-              business.
+              We use your GPS to fill address and pincode so we can show help nearby.
             </p>
-            <label className="mb-2 mt-5 block text-xs font-bold">Pincode</label>
+
+            <button
+              type="button"
+              className="mt-4 w-full rounded-[16px] border border-line bg-blue-soft px-3.5 py-3 text-sm font-bold text-blue-deep disabled:opacity-60"
+              disabled={locating}
+              onClick={() => void fetchLocation()}
+            >
+              {locating ? "Detecting location…" : "Use my current location"}
+            </button>
+
+            {locationNote ? (
+              <div className="mt-3 rounded-[14px] bg-green-soft px-3.5 py-3 text-xs font-bold text-green-deep">
+                {locationNote}
+              </div>
+            ) : null}
+
+            <label className="mb-2 mt-5 block text-xs font-bold">Address</label>
+            <textarea
+              className="input-box min-h-[96px] resize-y"
+              placeholder="House / street, area, city"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+
+            <label className="mb-2 mt-4 block text-xs font-bold">Pincode</label>
             <input
               className="input-box font-mono text-base font-bold tracking-wide"
               inputMode="numeric"
               maxLength={6}
+              placeholder="425001"
               value={pincode}
               onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
             />
-            {note ? (
-              <div className="mt-4 flex items-center gap-2 rounded-[14px] bg-green-soft px-3.5 py-3 text-xs font-bold text-green-deep">
-                ✓ {note}
-              </div>
-            ) : null}
+
+            {error ? <p className="mt-3 text-sm font-semibold text-rose">{error}</p> : null}
             <button
               className="btn-primary mt-6"
-              disabled={pincode.length !== 6}
-              onClick={() => setStep(3)}
+              disabled={loading || locating || pincode.length !== 6 || !address.trim()}
+              onClick={() => void finish()}
             >
-              Continue
-            </button>
-          </>
-        )}
-
-        {step === 3 && (
-          <>
-            <button className="mb-4 text-sm font-bold text-blue-deep" onClick={() => setStep(2)}>
-              ← Back
-            </button>
-            <h1 className="font-display text-2xl font-extrabold">Select your landmark</h1>
-            <p className="mt-2 text-sm text-ink-soft">Pick the closest one — this helps match accurately.</p>
-            <div className="mt-4 max-h-72 space-y-2.5 overflow-y-auto">
-              {landmarks.map((lm) => (
-                <button
-                  key={lm.id}
-                  type="button"
-                  onClick={() => setLandmarkId(lm.id)}
-                  className={`flex w-full items-center gap-3 rounded-[16px] border-[1.5px] p-3.5 text-left ${
-                    landmarkId === lm.id
-                      ? "border-blue-deep bg-blue-soft"
-                      : "border-line bg-white"
-                  }`}
-                >
-                  <span
-                    className={`h-4.5 w-4.5 rounded-full border-2 ${
-                      landmarkId === lm.id ? "border-blue-deep bg-blue-deep" : "border-line"
-                    }`}
-                  />
-                  <span>
-                    <span className="block text-sm font-bold">{lm.name}</span>
-                    <span className="font-mono text-[11px] text-ink-soft">
-                      {lm.pincode} · {lm.area_label ?? lm.city}
-                    </span>
-                  </span>
-                </button>
-              ))}
-              {!landmarks.length ? (
-                <p className="text-sm text-ink-soft">No landmarks listed — continue with pincode only.</p>
-              ) : null}
-            </div>
-            {error ? <p className="mt-3 text-sm font-semibold text-rose">{error}</p> : null}
-            <button className="btn-primary mt-6" disabled={loading} onClick={() => void finish()}>
               {loading ? "Saving…" : "Continue to Sanyuj"}
             </button>
           </>

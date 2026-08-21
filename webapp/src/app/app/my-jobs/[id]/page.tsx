@@ -4,26 +4,33 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { categoryLabel } from "@/lib/auth/phone";
+import { categoryDisplayName } from "@/lib/categories";
 import { useToast } from "@/components/Toast";
+
+type CatRef = { id: string; name: string; slug: string } | null;
 
 type Interest = {
   id: string;
   offered_amount: number | null;
   status: string;
-  businesses: { id: string; name: string; rating: number; category: string } | null;
+  businesses: {
+    id: string;
+    name: string;
+    rating: number;
+    categories: CatRef;
+  } | null;
 };
 
 type Job = {
   id: string;
   title: string;
   description: string;
-  category: string;
   status: string;
   urgency: string;
   budget_min: number | null;
   budget_max: number | null;
   pincode: string;
+  categories: CatRef;
 };
 
 export default function JobDetailPage() {
@@ -35,11 +42,17 @@ export default function JobDetailPage() {
 
   async function load() {
     const supabase = createClient();
-    const { data: j } = await supabase.from("jobs").select("*").eq("id", id).single();
-    setJob(j);
+    const { data: j } = await supabase
+      .from("jobs")
+      .select(
+        "id, title, description, status, urgency, budget_min, budget_max, pincode, categories(id, name, slug)",
+      )
+      .eq("id", id)
+      .single();
+    setJob(j as unknown as Job | null);
     const { data: ints } = await supabase
       .from("job_interests")
-      .select("id, offered_amount, status, businesses(id, name, rating, category)")
+      .select("id, offered_amount, status, businesses(id, name, rating, categories(id, name, slug))")
       .eq("job_id", id)
       .neq("status", "withdrawn");
     setInterests((ints as unknown as Interest[]) ?? []);
@@ -59,8 +72,8 @@ export default function JobDetailPage() {
   if (!job) return <div className="p-8 text-ink-soft">Loading…</div>;
 
   return (
-    <div>
-      <header className="flex items-center gap-3 px-5 pb-3 pt-5">
+    <div className="page-pad">
+      <header className="mb-4 flex items-center gap-3">
         <Link
           href="/app/my-jobs"
           className="flex h-10 w-10 items-center justify-center rounded-[13px] border border-line bg-white shadow-card"
@@ -73,9 +86,9 @@ export default function JobDetailPage() {
         </div>
       </header>
 
-      <div className="mx-5 rounded-[26px] border border-line bg-white p-4.5 shadow-card">
+      <div className="rounded-[26px] border border-line bg-white p-4.5 shadow-card">
         <p className="eyebrow">
-          {categoryLabel(job.category)} · {job.pincode}
+          {categoryDisplayName(job.categories)} · {job.pincode}
         </p>
         <h2 className="mt-1.5 font-display text-[16.5px] font-bold leading-snug">{job.title}</h2>
         <p className="mt-2 text-[12.5px] leading-relaxed text-ink-soft">{job.description}</p>
@@ -98,7 +111,7 @@ export default function JobDetailPage() {
         </div>
       </div>
 
-      <div className="mt-5 px-5">
+      <div className="mt-5">
         <h2 className="font-display text-base font-bold">Interested providers</h2>
         <div className="mt-3 space-y-3">
           {interests.map((i) => {
@@ -143,7 +156,7 @@ export default function JobDetailPage() {
 
       {job.status === "open" ? (
         <button
-          className="mx-5 mt-5 block w-[calc(100%-2.5rem)] rounded-[18px] border-[1.5px] border-rose bg-white py-3.5 font-display text-sm font-bold text-rose"
+          className="mt-5 block w-full rounded-[18px] border-[1.5px] border-rose bg-white py-3.5 font-display text-sm font-bold text-rose"
           onClick={() => void closeJob()}
         >
           Close this job — I found someone

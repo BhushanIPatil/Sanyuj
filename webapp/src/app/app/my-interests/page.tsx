@@ -48,8 +48,8 @@ export default function MyInterestsPage() {
   const shown = tab === "waiting" ? waiting : tab === "selected" ? selected : closed;
 
   return (
-    <div>
-      <header className="flex items-center gap-3 px-5 pb-3 pt-5">
+    <div className="page-pad">
+      <header className="mb-4 flex items-center gap-3">
         <Link
           href="/app/profile"
           className="flex h-10 w-10 items-center justify-center rounded-[13px] border border-line bg-white shadow-card"
@@ -62,7 +62,7 @@ export default function MyInterestsPage() {
         </div>
       </header>
 
-      <div className="mx-5 flex rounded-full bg-surface p-1">
+      <div className="flex rounded-full bg-surface p-1">
         {(
           [
             ["waiting", `Waiting (${waiting.length})`],
@@ -82,7 +82,7 @@ export default function MyInterestsPage() {
         ))}
       </div>
 
-      <div className="mt-4 space-y-2.5 px-5">
+      <div className="mt-4 space-y-2.5">
         {shown.map((r) => (
           <div
             key={r.id}

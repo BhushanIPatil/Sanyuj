@@ -1,16 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { createAdminClient, mintSessionForEmail, sessionPayload } from "@/lib/auth/admin";
 import { normalizePhone, phoneToEmail, sha256 } from "@/lib/auth/phone";
 import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
-
-function admin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("Missing Supabase admin env");
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
-}
 
 export async function POST(req: Request) {
   try {
@@ -20,7 +13,7 @@ export async function POST(req: Request) {
     if (!phone) return NextResponse.json({ error: "Invalid phone" }, { status: 400 });
     if (otp.length < 4) return NextResponse.json({ error: "Invalid OTP" }, { status: 400 });
 
-    const supabase = admin();
+    const supabase = createAdminClient();
     const { data: rows, error: otpErr } = await supabase
       .from("otp_codes")
       .select("*")
@@ -48,7 +41,6 @@ export async function POST(req: Request) {
     await supabase.from("otp_codes").update({ consumed: true }).eq("id", row.id);
 
     const email = phoneToEmail(phone);
-    const password = randomUUID() + randomUUID();
 
     const { data: existingProfile } = await supabase
       .from("profiles")
@@ -58,14 +50,9 @@ export async function POST(req: Request) {
 
     let userId = existingProfile?.id as string | undefined;
 
-    if (userId) {
-      await supabase.auth.admin.updateUserById(userId, {
-        password,
-        phone,
-        phone_confirm: true,
-        user_metadata: { phone },
-      });
-    } else {
+    if (!userId) {
+      // OTP-only signup: temporary password; password accounts use /api/auth/register.
+      const password = randomUUID() + randomUUID();
       const { data: created, error: createErr } = await supabase.auth.admin.createUser({
         email,
         password,
@@ -78,27 +65,24 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: createErr?.message ?? "Could not create user" }, { status: 500 });
       }
       userId = created.user.id;
+    } else {
+      await supabase.auth.admin.updateUserById(userId, {
+        phone,
+        phone_confirm: true,
+        user_metadata: { phone },
+      });
     }
 
     await supabase.from("profiles").upsert({ id: userId, phone }, { onConflict: "id" });
 
-    const { data: sessionData, error: signErr } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (signErr || !sessionData.session) {
-      return NextResponse.json({ error: signErr?.message ?? "Could not create session" }, { status: 500 });
+    const { session, user, error: mintErr } = await mintSessionForEmail(email);
+    if (mintErr || !session || !user) {
+      return NextResponse.json({ error: mintErr ?? "Could not create session" }, { status: 500 });
     }
 
     return NextResponse.json({
       ok: true,
-      session: {
-        access_token: sessionData.session.access_token,
-        refresh_token: sessionData.session.refresh_token,
-        expires_in: sessionData.session.expires_in,
-        token_type: sessionData.session.token_type,
-        user: sessionData.user,
-      },
+      session: sessionPayload(session, user),
     });
   } catch (e) {
     console.error(e);

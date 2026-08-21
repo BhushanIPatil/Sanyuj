@@ -3,16 +3,16 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { categoryLabel } from "@/lib/auth/phone";
+import { categoryDisplayName } from "@/lib/categories";
 
 type Job = {
   id: string;
   title: string;
-  category: string;
   status: string;
   budget_min: number | null;
   budget_max: number | null;
   created_at: string;
+  categories: { id: string; name: string; slug: string } | null;
   interest_count?: number;
 };
 
@@ -29,11 +29,13 @@ export default function MyJobsPage() {
       if (!user) return;
       const { data } = await supabase
         .from("jobs")
-        .select("id, title, category, status, budget_min, budget_max, created_at")
+        .select(
+          "id, title, status, budget_min, budget_max, created_at, categories(id, name, slug)",
+        )
         .eq("customer_id", user.id)
         .order("created_at", { ascending: false });
 
-      const list = data ?? [];
+      const list = (data as unknown as Job[]) ?? [];
       const withCounts = await Promise.all(
         list.map(async (j) => {
           const { count } = await supabase
@@ -54,13 +56,13 @@ export default function MyJobsPage() {
   const shown = tab === "open" ? open : closed;
 
   return (
-    <div>
-      <header className="px-5 pt-5">
+    <div className="page-pad">
+      <header>
         <p className="eyebrow">Requests you&apos;ve posted</p>
         <h1 className="mt-1 font-display text-[19px] font-bold">My Jobs</h1>
       </header>
 
-      <div className="mx-5 mt-4 flex rounded-full bg-surface p-1">
+      <div className="mt-4 flex rounded-full bg-surface p-1">
         <button
           className={`flex-1 rounded-full py-2.5 text-xs font-bold ${
             tab === "open" ? "bg-white text-ink shadow-card" : "text-ink-soft"
@@ -79,7 +81,7 @@ export default function MyJobsPage() {
         </button>
       </div>
 
-      <div className="mt-4 space-y-3 px-5">
+      <div className="mt-4 space-y-3">
         {shown.map((j) => (
           <Link
             key={j.id}
@@ -99,7 +101,7 @@ export default function MyJobsPage() {
               </span>
             </div>
             <p className="mt-1.5 text-xs text-ink-soft">
-              {categoryLabel(j.category)} · {new Date(j.created_at).toLocaleDateString()}
+              {categoryDisplayName(j.categories)} · {new Date(j.created_at).toLocaleDateString()}
             </p>
             <div className="mt-3 flex items-center justify-between border-t border-dashed border-line pt-3">
               <span className="font-mono text-[13.5px] font-bold">
