@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, sessionPayload } from "@/lib/auth/admin";
+import { isAccountRestorable, isAccountUsable } from "@/lib/auth/account";
 import { normalizePhone, phoneToEmail } from "@/lib/auth/phone";
 
 export const runtime = "nodejs";
@@ -20,13 +21,33 @@ export async function POST(req: Request) {
     const supabase = createAdminClient();
     const email = phoneToEmail(phone);
 
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, is_active, is_deleted")
+      .eq("phone", phone)
+      .maybeSingle();
+
+    if (isAccountRestorable(profile)) {
+      return NextResponse.json(
+        {
+          restore_available: true,
+          error: "This account was deleted. Create an account with this number to restore it.",
+        },
+        { status: 409 },
+      );
+    }
+
     const { data: sessionData, error: signErr } = await supabase.auth.signInWithPassword({ email, password });
     if (signErr || !sessionData.session || !sessionData.user) {
       return NextResponse.json({ error: "Invalid mobile number or password" }, { status: 401 });
     }
 
+    if (profile && !isAccountUsable(profile)) {
+      return NextResponse.json({ error: "This account is not active" }, { status: 403 });
+    }
+
     await supabase.from("profiles").upsert(
-      { id: sessionData.user.id, phone },
+      { id: sessionData.user.id, phone, is_active: true, is_deleted: false },
       { onConflict: "id" },
     );
 

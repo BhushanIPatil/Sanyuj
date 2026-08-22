@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, mintSessionForEmail, sessionPayload } from "@/lib/auth/admin";
+import { isAccountRestorable, isAccountUsable } from "@/lib/auth/account";
 import { normalizePhone, phoneToEmail, sha256 } from "@/lib/auth/phone";
 import { randomUUID } from "crypto";
 
@@ -19,6 +20,8 @@ export async function POST(req: Request) {
       .select("*")
       .eq("phone", phone)
       .eq("consumed", false)
+      .eq("is_active", true)
+      .eq("is_deleted", false)
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -38,15 +41,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Incorrect OTP" }, { status: 400 });
     }
 
-    await supabase.from("otp_codes").update({ consumed: true }).eq("id", row.id);
+    await supabase.from("otp_codes").update({ consumed: true, is_active: false }).eq("id", row.id);
 
     const email = phoneToEmail(phone);
 
     const { data: existingProfile } = await supabase
       .from("profiles")
-      .select("id")
+      .select("id, is_active, is_deleted")
       .eq("phone", phone)
       .maybeSingle();
+
+    if (isAccountRestorable(existingProfile)) {
+      return NextResponse.json(
+        {
+          restore_available: true,
+          error: "An account already exists with this contact. Do you want to restore it?",
+        },
+        { status: 409 },
+      );
+    }
 
     let userId = existingProfile?.id as string | undefined;
 
@@ -65,6 +78,8 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: createErr?.message ?? "Could not create user" }, { status: 500 });
       }
       userId = created.user.id;
+    } else if (!isAccountUsable(existingProfile)) {
+      return NextResponse.json({ error: "This account is not active" }, { status: 403 });
     } else {
       await supabase.auth.admin.updateUserById(userId, {
         phone,
@@ -73,7 +88,10 @@ export async function POST(req: Request) {
       });
     }
 
-    await supabase.from("profiles").upsert({ id: userId, phone }, { onConflict: "id" });
+    await supabase.from("profiles").upsert(
+      { id: userId, phone, is_active: true, is_deleted: false },
+      { onConflict: "id" },
+    );
 
     const { session, user, error: mintErr } = await mintSessionForEmail(email);
     if (mintErr || !session || !user) {

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { displayPhone } from "@/lib/auth/phone";
+import { visible } from "@/lib/db/visible";
 
 function OtpForm() {
   const router = useRouter();
@@ -37,6 +38,11 @@ function OtpForm() {
         body: JSON.stringify({ phone, otp }),
       });
       const data = await res.json();
+      if (res.status === 409 && data.restore_available) {
+        const q = new URLSearchParams({ phone, restore: "1" });
+        router.replace(`/auth/login?${q.toString()}`);
+        return;
+      }
       if (!res.ok) throw new Error(data.error || "Verification failed");
 
       const supabase = createClient();
@@ -46,9 +52,9 @@ function OtpForm() {
       });
       if (sessErr) throw sessErr;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("onboarding_complete")
+      const { data: profile } = await visible(
+        supabase.from("profiles").select("onboarding_complete"),
+      )
         .eq("id", data.session.user.id)
         .maybeSingle();
 

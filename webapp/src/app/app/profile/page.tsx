@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { displayPhone } from "@/lib/auth/phone";
 import { categoryDisplayName } from "@/lib/categories";
 import { useToast } from "@/components/Toast";
+import { visible } from "@/lib/db/visible";
 
 type Profile = {
   full_name: string | null;
@@ -30,6 +31,8 @@ export default function ProfilePage() {
   const { showToast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [business, setBusiness] = useState<Business | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -38,11 +41,15 @@ export default function ProfilePage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: prof } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+      const { data: prof } = await visible(supabase.from("profiles").select("*"))
+        .eq("id", user.id)
+        .single();
       setProfile(prof);
-      const { data: biz } = await supabase
-        .from("businesses")
-        .select("id, name, rating, jobs_done, response_rate, categories(id, name, slug)")
+      const { data: biz } = await visible(
+        supabase
+          .from("businesses")
+          .select("id, name, rating, jobs_done, response_rate, categories(id, name, slug)"),
+      )
         .eq("owner_id", user.id)
         .maybeSingle();
       setBusiness(biz as unknown as Business | null);
@@ -55,6 +62,22 @@ export default function ProfilePage() {
     await supabase.auth.signOut();
     router.replace("/");
     router.refresh();
+  }
+
+  async function deleteAccount() {
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/account/delete", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not delete account");
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.replace("/auth/login");
+      router.refresh();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Could not delete account");
+      setDeleting(false);
+    }
   }
 
   const initials =
@@ -106,19 +129,22 @@ export default function ProfilePage() {
       </div>
 
       {!business ? (
-        <div className="mt-4 rounded-[26px] border-[1.5px] border-dashed border-line p-4.5">
-          <div className="flex items-center gap-3.5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-[15px] bg-blue-soft text-lg">
+        <div className="mt-4 rounded-[26px] border-[1.5px] border-dashed border-line p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[15px] bg-blue-soft text-lg">
               🏪
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 className="font-display text-sm font-bold">List your business</h3>
-              <p className="mt-1 text-[11.5px] leading-snug text-ink-soft">
+              <p className="mt-1 text-[11.5px] leading-relaxed text-ink-soft">
                 Get job requests from nearby customers — free, takes under a minute.
               </p>
             </div>
           </div>
-          <Link href="/app/business/setup" className="btn-primary mt-3.5 !rounded-full !py-3 text-[13px]">
+          <Link
+            href="/app/business/setup"
+            className="btn-primary mt-4 block !rounded-full !py-3 text-center text-[13px]"
+          >
             Get Started
           </Link>
         </div>
@@ -202,6 +228,42 @@ export default function ProfilePage() {
         >
           Log out
         </button>
+      </div>
+
+      <div className="mt-4 rounded-[18px] border border-rose/25 bg-white p-4 shadow-card">
+        <p className="text-[13px] font-bold text-rose">Delete account</p>
+        <p className="mt-1 text-[11.5px] leading-relaxed text-ink-soft">
+          Your profile, jobs, and business listing will be hidden. You can restore this account later
+          with the same mobile number.
+        </p>
+        {confirmDelete ? (
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={() => void deleteAccount()}
+              className="flex-1 rounded-full bg-rose py-2.5 text-[12px] font-bold text-white disabled:opacity-60"
+            >
+              {deleting ? "Deleting…" : "Yes, delete my account"}
+            </button>
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={() => setConfirmDelete(false)}
+              className="flex-1 rounded-full border-[1.5px] border-line bg-white py-2.5 text-[12px] font-bold"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            className="mt-3 w-full rounded-full border-[1.5px] border-rose bg-white py-2.5 text-[12px] font-bold text-rose"
+          >
+            Delete my account
+          </button>
+        )}
       </div>
     </div>
   );

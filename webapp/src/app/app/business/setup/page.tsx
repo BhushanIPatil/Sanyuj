@@ -46,6 +46,8 @@ export default function BusinessSetupPage() {
         owner_id: user.id,
         name: name.trim(),
         category_id: categoryId,
+        is_active: true,
+        is_deleted: false,
       });
       if (error) throw error;
       showToast("Business profile created — nearby customers can now see you");

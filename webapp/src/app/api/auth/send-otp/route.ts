@@ -22,11 +22,18 @@ export async function POST(req: Request) {
     const codeHash = await sha256(code);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-    await supabase.from("otp_codes").update({ consumed: true }).eq("phone", phone).eq("consumed", false);
+    await supabase
+      .from("otp_codes")
+      .update({ consumed: true, is_active: false })
+      .eq("phone", phone)
+      .eq("consumed", false)
+      .eq("is_deleted", false);
     const { error } = await supabase.from("otp_codes").insert({
       phone,
       code_hash: codeHash,
       expires_at: expiresAt,
+      is_active: true,
+      is_deleted: false,
     });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

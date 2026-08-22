@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, sessionPayload } from "@/lib/auth/admin";
+import { isAccountRestorable, isAccountUsable } from "@/lib/auth/account";
 import { normalizePhone, phoneToEmail } from "@/lib/auth/phone";
 
 export const runtime = "nodejs";
@@ -25,9 +26,28 @@ export async function POST(req: Request) {
     const supabase = createAdminClient();
     const email = phoneToEmail(phone);
 
-    const { data: existing } = await supabase.from("profiles").select("id").eq("phone", phone).maybeSingle();
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id, is_active, is_deleted")
+      .eq("phone", phone)
+      .maybeSingle();
+
     if (existing) {
-      return NextResponse.json({ error: "An account with this number already exists. Please log in." }, { status: 409 });
+      if (isAccountRestorable(existing)) {
+        return NextResponse.json(
+          {
+            restore_available: true,
+            error: "An account already exists with this contact. Do you want to restore it?",
+          },
+          { status: 409 },
+        );
+      }
+      if (isAccountUsable(existing)) {
+        return NextResponse.json(
+          { error: "An account with this number already exists. Please log in." },
+          { status: 409 },
+        );
+      }
     }
 
     // OTP / MSG91 bypass for now — phone is accepted as-is; wire verification later.
@@ -42,12 +62,18 @@ export async function POST(req: Request) {
     if (createErr || !created.user) {
       const msg = createErr?.message ?? "Could not create account";
       if (/already|registered|exists/i.test(msg)) {
-        return NextResponse.json({ error: "An account with this number already exists. Please log in." }, { status: 409 });
+        return NextResponse.json(
+          { error: "An account with this number already exists. Please log in." },
+          { status: 409 },
+        );
       }
       return NextResponse.json({ error: msg }, { status: 500 });
     }
 
-    await supabase.from("profiles").upsert({ id: created.user.id, phone }, { onConflict: "id" });
+    await supabase.from("profiles").upsert(
+      { id: created.user.id, phone, is_active: true, is_deleted: false },
+      { onConflict: "id" },
+    );
 
     const { data: sessionData, error: signErr } = await supabase.auth.signInWithPassword({ email, password });
     if (signErr || !sessionData.session || !sessionData.user) {

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { visible } from "@/lib/db/visible";
 import {
   fetchCategoryTree,
   flattenCategories,
@@ -31,7 +32,7 @@ export default function PostJobPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
       const [{ data: prof }, groups] = await Promise.all([
-        supabase.from("profiles").select("pincode").eq("id", user.id).single(),
+        visible(supabase.from("profiles").select("pincode")).eq("id", user.id).single(),
         fetchCategoryTree(supabase),
       ]);
       setPincode(prof?.pincode ?? "");
@@ -68,6 +69,8 @@ export default function PostJobPage() {
         budget_max: Number(budgetMax) || null,
         urgency,
         pincode,
+        is_active: true,
+        is_deleted: false,
       });
       if (error) throw error;
       showToast("Job posted — nearby providers notified");

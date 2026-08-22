@@ -51,6 +51,8 @@ Deno.serve(async (req) => {
       .select("*")
       .eq("phone", phone)
       .eq("consumed", false)
+      .eq("is_active", true)
+      .eq("is_deleted", false)
       .order("created_at", { ascending: false })
       .limit(1);
 
@@ -68,16 +70,26 @@ Deno.serve(async (req) => {
       return json({ error: "Incorrect OTP" }, 400);
     }
 
-    await supabase.from("otp_codes").update({ consumed: true }).eq("id", row.id);
+    await supabase.from("otp_codes").update({ consumed: true, is_active: false }).eq("id", row.id);
 
     const email = phoneToEmail(phone);
     const password = crypto.randomUUID() + crypto.randomUUID();
 
     const { data: existingProfile } = await supabase
       .from("profiles")
-      .select("id")
+      .select("id, is_active, is_deleted")
       .eq("phone", phone)
       .maybeSingle();
+
+    if (existingProfile && (!existingProfile.is_active || existingProfile.is_deleted)) {
+      return json(
+        {
+          restore_available: true,
+          error: "An account already exists with this contact. Do you want to restore it?",
+        },
+        409,
+      );
+    }
 
     let userId = existingProfile?.id as string | undefined;
 
@@ -101,7 +113,10 @@ Deno.serve(async (req) => {
       userId = created.user.id;
     }
 
-    await supabase.from("profiles").upsert({ id: userId!, phone }, { onConflict: "id" });
+    await supabase.from("profiles").upsert(
+      { id: userId!, phone, is_active: true, is_deleted: false },
+      { onConflict: "id" },
+    );
 
     const { data: sessionData, error: signErr } = await supabase.auth.signInWithPassword({
       email,

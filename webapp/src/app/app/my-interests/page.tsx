@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { visible } from "@/lib/db/visible";
 
 type Row = {
   id: string;
@@ -23,15 +24,13 @@ export default function MyInterestsPage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: biz } = await supabase
-        .from("businesses")
-        .select("id")
+      const { data: biz } = await visible(supabase.from("businesses").select("id"))
         .eq("owner_id", user.id)
         .maybeSingle();
       if (!biz) return;
-      const { data } = await supabase
-        .from("job_interests")
-        .select("id, status, offered_amount, created_at, jobs(id, title, status)")
+      const { data } = await visible(
+        supabase.from("job_interests").select("id, status, offered_amount, created_at, jobs(id, title, status)"),
+      )
         .eq("business_id", biz.id)
         .neq("status", "withdrawn")
         .order("created_at", { ascending: false });

@@ -36,10 +36,12 @@ export async function fetchCategoryTree(
   const { data, error } = await supabase
     .from("categories")
     .select(
-      "id, slug, name, emoji, group_id, sort_order, category_groups!inner(id, slug, name, sort_order, is_active)",
+      "id, slug, name, emoji, group_id, sort_order, category_groups!inner(id, slug, name, sort_order, is_active, is_deleted)",
     )
     .eq("is_active", true)
+    .eq("is_deleted", false)
     .eq("category_groups.is_active", true)
+    .eq("category_groups.is_deleted", false)
     .order("sort_order", { ascending: true });
 
   if (error) throw error;

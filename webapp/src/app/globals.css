@@ -177,6 +177,16 @@ h3,
   animation: pulse-ring 1.8s ease-out infinite;
 }
 
+@keyframes refresh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-refresh-spin {
+  animation: refresh-spin 0.7s linear infinite;
+}
+
 /* Shared content padding for /app pages */
 .page-pad {
   padding: 1.25rem 1rem 1.5rem;

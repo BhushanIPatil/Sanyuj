@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { visible } from "@/lib/db/visible";
 import { categoryDisplayName } from "@/lib/categories";
 import { useToast } from "@/components/Toast";
 
@@ -34,33 +35,29 @@ export default function ProviderJobDetailPage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: biz } = await supabase
-        .from("businesses")
-        .select("id")
+      const { data: biz } = await visible(supabase.from("businesses").select("id"))
         .eq("owner_id", user.id)
         .maybeSingle();
       setBusinessId(biz?.id ?? null);
 
-      const { data: j } = await supabase
-        .from("jobs")
-        .select(
+      const { data: j } = await visible(
+        supabase.from("jobs").select(
           "id, title, description, urgency, budget_min, budget_max, pincode, categories(id, name, slug)",
-        )
+        ),
+      )
         .eq("id", id)
         .single();
       setJob(j as unknown as Job | null);
 
-      const { count } = await supabase
-        .from("job_interests")
-        .select("*", { count: "exact", head: true })
+      const { count } = await visible(
+        supabase.from("job_interests").select("*", { count: "exact", head: true }),
+      )
         .eq("job_id", id)
         .neq("status", "withdrawn");
       setOthers(count ?? 0);
 
       if (biz) {
-        const { data: mine } = await supabase
-          .from("job_interests")
-          .select("id")
+        const { data: mine } = await visible(supabase.from("job_interests").select("id"))
           .eq("job_id", id)
           .eq("business_id", biz.id)
           .neq("status", "withdrawn")
@@ -79,7 +76,7 @@ export default function ProviderJobDetailPage() {
     }
     const supabase = createClient();
     const { error } = await supabase.from("job_interests").upsert(
-      { job_id: id, business_id: businessId, status: "waiting" },
+      { job_id: id, business_id: businessId, status: "waiting", is_active: true, is_deleted: false },
       { onConflict: "job_id,business_id" },
     );
     if (error) {

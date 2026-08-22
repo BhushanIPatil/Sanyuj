@@ -3,12 +3,19 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { visible } from "@/lib/db/visible";
 import { categoryDisplayName } from "@/lib/categories";
+import {
+  JOB_STATUSES,
+  jobStatusBadgeClass,
+  jobStatusLabel,
+  type JobStatus,
+} from "@/lib/jobs/status";
 
 type Job = {
   id: string;
   title: string;
-  status: string;
+  status: JobStatus;
   budget_min: number | null;
   budget_max: number | null;
   created_at: string;
@@ -17,7 +24,7 @@ type Job = {
 };
 
 export default function MyJobsPage() {
-  const [tab, setTab] = useState<"open" | "closed">("open");
+  const [tab, setTab] = useState<JobStatus>("open");
   const [jobs, setJobs] = useState<Job[]>([]);
 
   useEffect(() => {
@@ -27,20 +34,20 @@ export default function MyJobsPage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase
-        .from("jobs")
-        .select(
+      const { data } = await visible(
+        supabase.from("jobs").select(
           "id, title, status, budget_min, budget_max, created_at, categories(id, name, slug)",
-        )
+        ),
+      )
         .eq("customer_id", user.id)
         .order("created_at", { ascending: false });
 
       const list = (data as unknown as Job[]) ?? [];
       const withCounts = await Promise.all(
         list.map(async (j) => {
-          const { count } = await supabase
-            .from("job_interests")
-            .select("*", { count: "exact", head: true })
+          const { count } = await visible(
+            supabase.from("job_interests").select("*", { count: "exact", head: true }),
+          )
             .eq("job_id", j.id)
             .neq("status", "withdrawn");
           return { ...j, interest_count: count ?? 0 };
@@ -51,9 +58,10 @@ export default function MyJobsPage() {
     void load();
   }, []);
 
-  const open = jobs.filter((j) => j.status === "open");
-  const closed = jobs.filter((j) => j.status === "closed");
-  const shown = tab === "open" ? open : closed;
+  const counts = Object.fromEntries(
+    JOB_STATUSES.map((s) => [s, jobs.filter((j) => j.status === s).length]),
+  ) as Record<JobStatus, number>;
+  const shown = jobs.filter((j) => j.status === tab);
 
   return (
     <div className="page-pad">
@@ -63,22 +71,17 @@ export default function MyJobsPage() {
       </header>
 
       <div className="mt-4 flex rounded-full bg-surface p-1">
-        <button
-          className={`flex-1 rounded-full py-2.5 text-xs font-bold ${
-            tab === "open" ? "bg-white text-ink shadow-card" : "text-ink-soft"
-          }`}
-          onClick={() => setTab("open")}
-        >
-          Open ({open.length})
-        </button>
-        <button
-          className={`flex-1 rounded-full py-2.5 text-xs font-bold ${
-            tab === "closed" ? "bg-white text-ink shadow-card" : "text-ink-soft"
-          }`}
-          onClick={() => setTab("closed")}
-        >
-          Closed ({closed.length})
-        </button>
+        {JOB_STATUSES.map((status) => (
+          <button
+            key={status}
+            className={`flex-1 rounded-full px-1 py-2.5 text-[11px] font-bold ${
+              tab === status ? "bg-white text-ink shadow-card" : "text-ink-soft"
+            }`}
+            onClick={() => setTab(status)}
+          >
+            {jobStatusLabel(status)} ({counts[status]})
+          </button>
+        ))}
       </div>
 
       <div className="mt-4 space-y-3">
@@ -91,13 +94,9 @@ export default function MyJobsPage() {
             <div className="flex items-start justify-between gap-2">
               <p className="max-w-[220px] text-sm font-bold leading-snug">{j.title}</p>
               <span
-                className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${
-                  j.status === "open"
-                    ? "bg-green-soft text-green-deep"
-                    : "bg-surface text-ink-soft"
-                }`}
+                className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${jobStatusBadgeClass(j.status)}`}
               >
-                {j.status}
+                {jobStatusLabel(j.status)}
               </span>
             </div>
             <p className="mt-1.5 text-xs text-ink-soft">
@@ -110,14 +109,14 @@ export default function MyJobsPage() {
                   : "—"}
               </span>
               <span className="rounded-full bg-blue-soft px-2.5 py-1 text-[11px] font-bold text-blue-deep">
-                {j.status === "closed" ? "Done ✓" : `${j.interest_count} interested →`}
+                {j.status === "open" ? `${j.interest_count} interested →` : "View →"}
               </span>
             </div>
           </Link>
         ))}
         {!shown.length ? (
           <div className="rounded-[18px] border border-dashed border-line bg-surface p-6 text-center">
-            <p className="text-sm text-ink-soft">No {tab} jobs yet.</p>
+            <p className="text-sm text-ink-soft">No {jobStatusLabel(tab).toLowerCase()} jobs yet.</p>
             <Link href="/app/post-job" className="mt-3 inline-block text-sm font-bold text-blue-deep">
               Post a Job
             </Link>

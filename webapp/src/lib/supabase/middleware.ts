@@ -39,25 +39,31 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirect);
   }
 
-  if (user && isLoginFlow) {
+  if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("onboarding_complete")
+      .select("onboarding_complete, is_active, is_deleted")
       .eq("id", user.id)
       .maybeSingle();
 
-    const redirect = request.nextUrl.clone();
-    redirect.pathname = profile?.onboarding_complete ? "/app" : "/auth/onboarding";
-    return NextResponse.redirect(redirect);
-  }
+    const accountClosed = !!profile && (profile.is_deleted || !profile.is_active);
+    if (accountClosed) {
+      await supabase.auth.signOut();
+      if (isApp || isOnboarding) {
+        const redirect = request.nextUrl.clone();
+        redirect.pathname = "/auth/login";
+        return NextResponse.redirect(redirect);
+      }
+      return supabaseResponse;
+    }
 
-  if (user && isApp) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("onboarding_complete")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (profile && !profile.onboarding_complete) {
+    if (isLoginFlow) {
+      const redirect = request.nextUrl.clone();
+      redirect.pathname = profile?.onboarding_complete ? "/app" : "/auth/onboarding";
+      return NextResponse.redirect(redirect);
+    }
+
+    if (isApp && profile && !profile.onboarding_complete) {
       const redirect = request.nextUrl.clone();
       redirect.pathname = "/auth/onboarding";
       return NextResponse.redirect(redirect);

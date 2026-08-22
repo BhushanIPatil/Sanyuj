@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { visible } from "@/lib/db/visible";
 import { categoryDisplayName } from "@/lib/categories";
 import { updateCurrentAddress } from "@/lib/geo/location";
 import { useToast } from "@/components/Toast";
@@ -25,19 +26,46 @@ type Business = {
   name: string;
   category_id: string;
   rating: number;
-  response_rate: number;
   categories: CatRef;
+};
+
+type InterestRow = {
+  id: string;
+  job_id: string;
+  status: string;
+  offered_amount: number | null;
+  created_at: string;
+  jobs: {
+    id: string;
+    title: string;
+    description: string;
+    budget_min: number | null;
+    budget_max: number | null;
+    pincode: string;
+    status: string;
+    created_at: string;
+    categories: CatRef;
+  } | null;
+};
+
+type DealStats = {
+  waiting: number;
+  selected: number;
+  closedOut: number;
+  total: number;
+  winRate: number | null;
 };
 
 export default function JobsFeedPage() {
   const { showToast } = useToast();
   const [business, setBusiness] = useState<Business | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [interestedIds, setInterestedIds] = useState<Set<string>>(new Set());
+  const [interests, setInterests] = useState<InterestRow[]>([]);
   const [isLive, setIsLive] = useState(false);
   const [liveId, setLiveId] = useState<string | null>(null);
   const [pincode, setPincode] = useState("");
   const [filter, setFilter] = useState<"all" | "today">("all");
+  const [listTab, setListTab] = useState<"open" | "closed">("open");
   const [goingLive, setGoingLive] = useState(false);
 
   useEffect(() => {
@@ -48,27 +76,22 @@ export default function JobsFeedPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("pincode")
+      const { data: prof } = await visible(supabase.from("profiles").select("pincode"))
         .eq("id", user.id)
         .single();
       setPincode(prof?.pincode ?? "");
 
-      const { data: biz } = await supabase
-        .from("businesses")
-        .select("id, name, category_id, rating, response_rate, categories(id, name, slug)")
+      const { data: biz } = await visible(
+        supabase.from("businesses").select("id, name, category_id, rating, categories(id, name, slug)"),
+      )
         .eq("owner_id", user.id)
         .maybeSingle();
       setBusiness(biz as unknown as Business | null);
 
       if (!biz) return;
 
-      const { data: live } = await supabase
-        .from("live_sessions")
-        .select("id")
+      const { data: live } = await visible(supabase.from("live_sessions").select("id"))
         .eq("business_id", biz.id)
-        .eq("is_active", true)
         .gt("ends_at", new Date().toISOString())
         .maybeSingle();
       if (live) {
@@ -76,11 +99,13 @@ export default function JobsFeedPage() {
         setLiveId(live.id);
       }
 
-      let q = supabase
-        .from("jobs")
-        .select(
-          "id, title, description, budget_min, budget_max, pincode, created_at, categories(id, name, slug)",
-        )
+      let q = visible(
+        supabase
+          .from("jobs")
+          .select(
+            "id, title, description, budget_min, budget_max, pincode, created_at, categories(id, name, slug)",
+          ),
+      )
         .eq("status", "open")
         .eq("category_id", biz.category_id)
         .order("created_at", { ascending: false })
@@ -89,12 +114,17 @@ export default function JobsFeedPage() {
       const { data: jobRows } = await q;
       setJobs((jobRows as unknown as Job[]) ?? []);
 
-      const { data: ints } = await supabase
-        .from("job_interests")
-        .select("job_id")
+      const { data: ints } = await visible(
+        supabase
+          .from("job_interests")
+          .select(
+            "id, job_id, status, offered_amount, created_at, jobs(id, title, description, budget_min, budget_max, pincode, status, created_at, categories(id, name, slug))",
+          ),
+      )
         .eq("business_id", biz.id)
-        .neq("status", "withdrawn");
-      setInterestedIds(new Set((ints ?? []).map((i) => i.job_id)));
+        .neq("status", "withdrawn")
+        .order("created_at", { ascending: false });
+      setInterests((ints as unknown as InterestRow[]) ?? []);
     };
     void load();
   }, []);
@@ -106,7 +136,11 @@ export default function JobsFeedPage() {
     }
     const supabase = createClient();
     if (isLive && liveId) {
-      await supabase.from("live_sessions").update({ is_active: false }).eq("id", liveId);
+      const { error } = await supabase.from("live_sessions").delete().eq("id", liveId);
+      if (error) {
+        showToast(error.message);
+        return;
+      }
       setIsLive(false);
       setLiveId(null);
       showToast("Live status turned off");
@@ -130,6 +164,7 @@ export default function JobsFeedPage() {
           pincode,
           ends_at: ends,
           is_active: true,
+          is_deleted: false,
         })
         .select("id")
         .single();
@@ -147,27 +182,40 @@ export default function JobsFeedPage() {
   async function toggleInterest(jobId: string) {
     if (!business) return;
     const supabase = createClient();
-    if (interestedIds.has(jobId)) {
-      await supabase
-        .from("job_interests")
-        .update({ status: "withdrawn" })
+    const existing = interests.find((i) => i.job_id === jobId && i.status === "waiting");
+    if (existing) {
+      await visible(supabase.from("job_interests").update({ status: "withdrawn" }))
         .eq("job_id", jobId)
         .eq("business_id", business.id);
-      const next = new Set(interestedIds);
-      next.delete(jobId);
-      setInterestedIds(next);
+      setInterests(interests.filter((i) => i.id !== existing.id));
       showToast("Interest withdrawn");
       return;
     }
     const { error } = await supabase.from("job_interests").upsert(
-      { job_id: jobId, business_id: business.id, status: "waiting" },
+      {
+        job_id: jobId,
+        business_id: business.id,
+        status: "waiting",
+        is_active: true,
+        is_deleted: false,
+      },
       { onConflict: "job_id,business_id" },
     );
     if (error) {
       showToast(error.message);
       return;
     }
-    setInterestedIds(new Set(interestedIds).add(jobId));
+    const { data: ints } = await visible(
+      supabase
+        .from("job_interests")
+        .select(
+          "id, job_id, status, offered_amount, created_at, jobs(id, title, description, budget_min, budget_max, pincode, status, created_at, categories(id, name, slug))",
+        ),
+    )
+      .eq("business_id", business.id)
+      .neq("status", "withdrawn")
+      .order("created_at", { ascending: false });
+    setInterests((ints as unknown as InterestRow[]) ?? []);
     showToast("Interest sent to customer");
   }
 
@@ -185,14 +233,46 @@ export default function JobsFeedPage() {
     );
   }
 
-  const shown = jobs.filter((j) => {
+  const interestedJobIds = new Set(
+    interests.filter((i) => i.status === "waiting").map((i) => i.job_id),
+  );
+
+  const stats: DealStats = (() => {
+    const waiting = interests.filter((i) => i.status === "waiting").length;
+    const selected = interests.filter((i) => i.status === "selected").length;
+    const closedOut = interests.filter((i) => i.status === "closed").length;
+    const total = interests.length;
+    const decided = selected + closedOut;
+    const winRate = decided > 0 ? Math.round((selected / decided) * 100) : null;
+    return { waiting, selected, closedOut, total, winRate };
+  })();
+
+  const openShown = jobs.filter((j) => {
     if (filter !== "today") return true;
     const d = new Date(j.created_at);
     const now = new Date();
     return d.toDateString() === now.toDateString();
   });
 
+  const closedDeals = interests.filter((i) => {
+    if (i.status !== "selected") return false;
+    if (filter !== "today") return true;
+    const d = new Date(i.created_at);
+    const now = new Date();
+    return d.toDateString() === now.toDateString();
+  });
+
   const catName = categoryDisplayName(business.categories).toLowerCase() || "provider";
+
+  const heroTitle =
+    stats.winRate != null
+      ? `You won ${stats.selected} of ${stats.selected + stats.closedOut} closed deals as a nearby ${catName}`
+      : stats.waiting > 0
+        ? `You have ${stats.waiting} interest${stats.waiting === 1 ? "" : "s"} waiting for a customer decision`
+        : `Respond to nearby ${catName} jobs to start closing deals`;
+
+  const heroRingValue = stats.winRate != null ? `${stats.winRate}%` : String(stats.selected);
+  const heroRingLabel = stats.winRate != null ? "Win rate" : "Deals";
 
   return (
     <div className="page-pad">
@@ -213,15 +293,15 @@ export default function JobsFeedPage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-white/75">
-              Your response rate
+              {stats.winRate != null ? "Your deal win rate" : "Your deal activity"}
             </p>
-            <h2 className="mt-1.5 max-w-[200px] font-display text-[17px] font-bold leading-snug">
-              You respond faster than {business.response_rate}% of nearby {catName}s
+            <h2 className="mt-1.5 max-w-[220px] font-display text-[17px] font-bold leading-snug">
+              {heroTitle}
             </h2>
           </div>
           <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full border-[7px] border-white/30">
-            <span className="font-mono text-base font-bold">{business.response_rate}%</span>
-            <span className="text-[8px] uppercase opacity-85">Response</span>
+            <span className="font-mono text-base font-bold">{heroRingValue}</span>
+            <span className="text-[8px] uppercase opacity-85">{heroRingLabel}</span>
           </div>
         </div>
       </div>
@@ -282,9 +362,9 @@ export default function JobsFeedPage() {
 
       <div className="mt-4 grid grid-cols-3 gap-2.5">
         {[
-          [String(shown.length), "Open nearby"],
-          [String(interestedIds.size), "Interested"],
-          [`${business.rating.toFixed(1)}★`, "Your Rating"],
+          [String(openShown.length), "Open nearby"],
+          [String(stats.waiting), "Waiting"],
+          [String(stats.selected), "Closed deals"],
         ].map(([v, l]) => (
           <div
             key={l}
@@ -296,10 +376,31 @@ export default function JobsFeedPage() {
         ))}
       </div>
 
-      <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto">
+      <div className="mt-4 flex rounded-full bg-surface p-1">
+        <button
+          type="button"
+          className={`flex-1 rounded-full py-2.5 text-xs font-bold ${
+            listTab === "open" ? "bg-white text-ink shadow-card" : "text-ink-soft"
+          }`}
+          onClick={() => setListTab("open")}
+        >
+          Open ({openShown.length})
+        </button>
+        <button
+          type="button"
+          className={`flex-1 rounded-full py-2.5 text-xs font-bold ${
+            listTab === "closed" ? "bg-white text-ink shadow-card" : "text-ink-soft"
+          }`}
+          onClick={() => setListTab("closed")}
+        >
+          Closed deals ({stats.selected})
+        </button>
+      </div>
+
+      <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto">
         {(
           [
-            ["all", "All nearby"],
+            ["all", "All"],
             ["today", "Today only"],
           ] as const
         ).map(([id, label]) => (
@@ -317,58 +418,108 @@ export default function JobsFeedPage() {
         ))}
       </div>
 
-      <div className="mt-4 flex items-baseline justify-between">
-        <h2 className="font-display text-base font-bold">Open requests</h2>
-        <span className="text-xs font-bold text-blue-deep">{shown.length} posts</span>
-      </div>
+      {listTab === "open" ? (
+        <>
+          <div className="mt-4 flex items-baseline justify-between">
+            <h2 className="font-display text-base font-bold">Open requests</h2>
+            <span className="text-xs font-bold text-blue-deep">{openShown.length} posts</span>
+          </div>
 
-      <div className="mt-3 space-y-3 pb-4">
-        {shown.map((j) => {
-          const sent = interestedIds.has(j.id);
-          return (
-            <div key={j.id} className="relative rounded-[18px] border border-line bg-white p-4 shadow-card">
-              <span className="absolute -top-2 right-3 rounded-full bg-ink px-2 py-1 font-mono text-[9px] font-bold text-white">
-                {j.pincode}
-              </span>
-              <span className="mb-2 inline-block rounded-full bg-blue-soft px-2.5 py-1 text-[10px] font-bold text-blue-deep">
-                {categoryDisplayName(j.categories)}
-              </span>
-              <Link href={`/app/jobs-feed/${j.id}`} className="block text-sm font-bold leading-snug">
-                {j.title}
-              </Link>
-              <p className="mt-1.5 line-clamp-2 text-xs text-ink-soft">{j.description}</p>
-              <div className="mt-2.5 flex gap-3.5 text-[11px] text-ink-soft">
-                <span>
-                  🕐 <b className="font-mono text-ink">{new Date(j.created_at).toLocaleString()}</b>
-                </span>
-              </div>
-              <div className="mt-3 flex items-center justify-between border-t border-dashed border-line pt-3">
-                <span className="font-mono text-[13.5px] font-bold">
-                  {j.budget_min != null
-                    ? `₹${j.budget_min}${j.budget_max ? ` – ${j.budget_max}` : ""}`
-                    : "—"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void toggleInterest(j.id)}
-                  className={`rounded-full border-[1.5px] px-3.5 py-2 text-xs font-bold ${
-                    sent
-                      ? "border-green-deep bg-green-soft text-green-deep"
-                      : "border-blue-deep bg-white text-blue-deep"
-                  }`}
+          <div className="mt-3 space-y-3 pb-4">
+            {openShown.map((j) => {
+              const sent = interestedJobIds.has(j.id);
+              return (
+                <div key={j.id} className="relative rounded-[18px] border border-line bg-white p-4 shadow-card">
+                  <span className="absolute -top-2 right-3 rounded-full bg-ink px-2 py-1 font-mono text-[9px] font-bold text-white">
+                    {j.pincode}
+                  </span>
+                  <span className="mb-2 inline-block rounded-full bg-blue-soft px-2.5 py-1 text-[10px] font-bold text-blue-deep">
+                    {categoryDisplayName(j.categories)}
+                  </span>
+                  <Link href={`/app/jobs-feed/${j.id}`} className="block text-sm font-bold leading-snug">
+                    {j.title}
+                  </Link>
+                  <p className="mt-1.5 line-clamp-2 text-xs text-ink-soft">{j.description}</p>
+                  <div className="mt-2.5 flex gap-3.5 text-[11px] text-ink-soft">
+                    <span>
+                      🕐 <b className="font-mono text-ink">{new Date(j.created_at).toLocaleString()}</b>
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between border-t border-dashed border-line pt-3">
+                    <span className="font-mono text-[13.5px] font-bold">
+                      {j.budget_min != null
+                        ? `₹${j.budget_min}${j.budget_max ? ` – ${j.budget_max}` : ""}`
+                        : "—"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void toggleInterest(j.id)}
+                      className={`rounded-full border-[1.5px] px-3.5 py-2 text-xs font-bold ${
+                        sent
+                          ? "border-green-deep bg-green-soft text-green-deep"
+                          : "border-blue-deep bg-white text-blue-deep"
+                      }`}
+                    >
+                      {sent ? "Interest Sent" : "I'm Interested"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            {!openShown.length ? (
+              <p className="py-6 text-center text-sm text-ink-soft">
+                No open jobs in your category nearby yet.
+              </p>
+            ) : null}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="mt-4 flex items-baseline justify-between">
+            <h2 className="font-display text-base font-bold">Closed deals</h2>
+            <span className="text-xs font-bold text-green-deep">{closedDeals.length} won</span>
+          </div>
+
+          <div className="mt-3 space-y-3 pb-4">
+            {closedDeals.map((deal) => {
+              const j = deal.jobs;
+              if (!j) return null;
+              return (
+                <div
+                  key={deal.id}
+                  className="relative rounded-[18px] border border-green-deep/30 bg-white p-4 shadow-card"
                 >
-                  {sent ? "Interest Sent" : "I'm Interested"}
-                </button>
-              </div>
-            </div>
-          );
-        })}
-        {!shown.length ? (
-          <p className="py-6 text-center text-sm text-ink-soft">
-            No open jobs in your category nearby yet.
-          </p>
-        ) : null}
-      </div>
+                  <span className="absolute -top-2 right-3 rounded-full bg-green-deep px-2 py-1 font-mono text-[9px] font-bold text-white">
+                    DEAL FINAL
+                  </span>
+                  <span className="mb-2 inline-block rounded-full bg-green-soft px-2.5 py-1 text-[10px] font-bold text-green-deep">
+                    {categoryDisplayName(j.categories)}
+                  </span>
+                  <p className="text-sm font-bold leading-snug">{j.title}</p>
+                  <p className="mt-1.5 line-clamp-2 text-xs text-ink-soft">{j.description}</p>
+                  <div className="mt-3 flex items-center justify-between border-t border-dashed border-line pt-3">
+                    <span className="font-mono text-[13.5px] font-bold">
+                      {deal.offered_amount != null
+                        ? `₹${deal.offered_amount}`
+                        : j.budget_min != null
+                          ? `₹${j.budget_min}${j.budget_max ? ` – ${j.budget_max}` : ""}`
+                          : "—"}
+                    </span>
+                    <span className="text-[11px] font-bold text-green-deep">
+                      Closed {new Date(deal.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+            {!closedDeals.length ? (
+              <p className="py-6 text-center text-sm text-ink-soft">
+                No closed deals yet. When a customer finalizes with you, it shows up here.
+              </p>
+            ) : null}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { visible } from "@/lib/db/visible";
 import {
   categoryDisplayName,
   fetchCategoryTree,
@@ -40,7 +41,7 @@ function ExploreInner() {
       if (!user) return;
 
       const [profRes, groups] = await Promise.all([
-        supabase.from("profiles").select("pincode").eq("id", user.id).single(),
+        visible(supabase.from("profiles").select("pincode")).eq("id", user.id).single(),
         fetchCategoryTree(supabase),
       ]);
       setPincode(profRes.data?.pincode ?? null);
@@ -49,9 +50,9 @@ function ExploreInner() {
       const allCats = flattenCategories(groups);
       const selected = allCats.find((c) => c.slug === categorySlug);
 
-      let query = supabase
-        .from("businesses")
-        .select("id, name, rating, owner_id, categories(id, name, slug, emoji)");
+      let query = visible(
+        supabase.from("businesses").select("id, name, rating, owner_id, categories(id, name, slug, emoji)"),
+      );
       if (selected) query = query.eq("category_id", selected.id);
       const { data: all } = await query.order("rating", { ascending: false }).limit(40);
 
@@ -60,15 +61,17 @@ function ExploreInner() {
         return;
       }
 
-      const ownerIds = all.map((b) => b.owner_id);
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, pincode")
-        .in("id", ownerIds);
-      const pinSet = new Set(
-        (profiles ?? []).filter((p) => p.pincode === profRes.data?.pincode).map((p) => p.id),
+      const ownerIds = all.map((b: { owner_id: string }) => b.owner_id);
+      const { data: profiles } = await visible(supabase.from("profiles").select("id, pincode")).in(
+        "id",
+        ownerIds,
       );
-      const filtered = all.filter((b) => pinSet.has(b.owner_id));
+      const pinSet = new Set(
+        (profiles ?? [])
+          .filter((p: { id: string; pincode: string | null }) => p.pincode === profRes.data?.pincode)
+          .map((p: { id: string }) => p.id),
+      );
+      const filtered = all.filter((b: { owner_id: string }) => pinSet.has(b.owner_id));
       setItems((filtered.length ? filtered : all) as unknown as Biz[]);
     };
     void load();

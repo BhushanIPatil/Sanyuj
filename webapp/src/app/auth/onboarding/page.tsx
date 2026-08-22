@@ -69,7 +69,9 @@ export default function OnboardingPage() {
           lng,
           onboarding_complete: true,
         })
-        .eq("id", user.id);
+        .eq("id", user.id)
+        .eq("is_active", true)
+        .eq("is_deleted", false);
       if (updErr) throw updErr;
       router.replace("/app");
       router.refresh();

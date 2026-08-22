@@ -79,7 +79,9 @@ export async function updateCurrentAddress(
       current_lat: resolved.lat,
       current_lng: resolved.lng,
     })
-    .eq("id", userId);
+    .eq("id", userId)
+    .eq("is_active", true)
+    .eq("is_deleted", false);
   if (error) throw error;
   return resolved;
 }
