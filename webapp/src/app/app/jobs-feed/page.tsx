@@ -95,7 +95,12 @@ async function enrichWithCustomerNames<
   const { data: customers } = await visible(
     supabase.from("profiles").select("id, full_name"),
   ).in("id", customerIds);
-  const byId = new Map((customers ?? []).map((c) => [c.id, c.full_name as string | null]));
+  const byId = new Map<string, string | null>(
+    (customers ?? []).map((c: { id: string; full_name: string | null }) => [
+      c.id,
+      c.full_name,
+    ]),
+  );
 
   return rows.map((r) => ({
     ...r,
@@ -115,9 +120,14 @@ async function enrichInterestsWithCustomers(
   const { data: customers } = await visible(
     supabase.from("profiles").select("id, full_name"),
   ).in("id", customerIds);
-  const byId = new Map((customers ?? []).map((c) => [c.id, c.full_name as string | null]));
+  const byId = new Map<string, string | null>(
+    (customers ?? []).map((c: { id: string; full_name: string | null }) => [
+      c.id,
+      c.full_name,
+    ]),
+  );
 
-  return rows.map((r) => {
+  return rows.map((r): InterestRow => {
     if (!r.jobs) return r;
     return {
       ...r,
