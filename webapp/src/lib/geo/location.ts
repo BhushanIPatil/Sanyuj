@@ -43,7 +43,7 @@ export function getCurrentPosition(): Promise<GeoPosition> {
           reject(new Error("Could not get your location"));
         }
       },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60_000 },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
     );
   });
 }

@@ -8,6 +8,7 @@ import { displayPhone } from "@/lib/auth/phone";
 import { categoryDisplayName } from "@/lib/categories";
 import { useToast } from "@/components/Toast";
 import { visible } from "@/lib/db/visible";
+import { ProfilePageSkeleton } from "@/components/ui/Skeleton";
 
 type Profile = {
   full_name: string | null;
@@ -33,26 +34,31 @@ export default function ProfilePage() {
   const [business, setBusiness] = useState<Business | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: prof } = await visible(supabase.from("profiles").select("*"))
-        .eq("id", user.id)
-        .single();
-      setProfile(prof);
-      const { data: biz } = await visible(
-        supabase
-          .from("businesses")
-          .select("id, name, rating, jobs_done, response_rate, categories(id, name, slug)"),
-      )
-        .eq("owner_id", user.id)
-        .maybeSingle();
-      setBusiness(biz as unknown as Business | null);
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+        const { data: prof } = await visible(supabase.from("profiles").select("*"))
+          .eq("id", user.id)
+          .single();
+        setProfile(prof);
+        const { data: biz } = await visible(
+          supabase
+            .from("businesses")
+            .select("id, name, rating, jobs_done, response_rate, categories(id, name, slug)"),
+        )
+          .eq("owner_id", user.id)
+          .maybeSingle();
+        setBusiness(biz as unknown as Business | null);
+      } finally {
+        setLoading(false);
+      }
     };
     void load();
   }, []);
@@ -80,6 +86,8 @@ export default function ProfilePage() {
     }
   }
 
+  if (loading) return <ProfilePageSkeleton />;
+
   const initials =
     profile?.full_name
       ?.split(" ")
@@ -103,15 +111,25 @@ export default function ProfilePage() {
         <p className="mt-1 font-mono text-xs text-ink-soft">
           {profile?.phone ? displayPhone(profile.phone) : ""}
         </p>
+        <Link
+          href="/app/profile/edit"
+          className="mt-3 rounded-full bg-blue-soft px-4 py-2 text-[12px] font-bold text-blue-deep"
+        >
+          Edit profile
+        </Link>
       </div>
 
       <div className="mt-4 rounded-[18px] border border-line bg-white p-3.5 shadow-card">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10.5px] font-bold uppercase tracking-wide text-ink-soft">Location</p>
-            <p className="mt-1 font-mono text-sm font-bold">{profile?.pincode ?? "—"}</p>
             {profile?.address ? (
-              <p className="mt-1 text-xs leading-relaxed text-ink-soft">{profile.address}</p>
+              <p className="mt-1 text-sm font-semibold leading-snug">{profile.address}</p>
+            ) : (
+              <p className="mt-1 font-mono text-sm font-bold">{profile?.pincode ?? "—"}</p>
+            )}
+            {profile?.pincode && profile.address && !profile.address.includes(profile.pincode) ? (
+              <p className="mt-1 font-mono text-xs font-bold text-ink-soft">{profile.pincode}</p>
             ) : null}
             {profile?.current_address ? (
               <p className="mt-2 text-[11px] leading-relaxed text-green-deep">
@@ -119,12 +137,12 @@ export default function ProfilePage() {
               </p>
             ) : null}
           </div>
-          <button
+          <Link
+            href="/app/profile/edit"
             className="shrink-0 rounded-full bg-blue-soft px-3 py-1.5 text-[11px] font-bold text-blue-deep"
-            onClick={() => showToast("Edit location from onboarding data in a later update")}
           >
             Edit
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -195,6 +213,7 @@ export default function ProfilePage() {
 
       <div className="mt-4 overflow-hidden rounded-[18px] border border-line bg-white shadow-card">
         {[
+          { href: "/app/profile/edit", label: "Edit Profile" },
           { href: "/app/my-jobs", label: "My Jobs" },
           { href: "/app/explore", label: "Saved Providers" },
           { href: "#", label: "Notifications", onClick: () => showToast("No notifications") },

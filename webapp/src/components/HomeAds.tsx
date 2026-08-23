@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { AdBannerSkeleton } from "@/components/ui/Skeleton";
 
 type Ad = {
   id: string;
@@ -107,19 +108,24 @@ function FeaturedCta() {
 export function HomeAds() {
   const [ads, setAds] = useState<Ad[]>([]);
   const [active, setActive] = useState(0);
+  const [loading, setLoading] = useState(true);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("ads")
-        .select("id, brand_name, title, body, cta_label, cta_url, image_url, background")
-        .eq("is_active", true)
-        .eq("is_deleted", false)
-        .order("sort_order", { ascending: true })
-        .limit(8);
-      setAds((data as Ad[] | null) ?? []);
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from("ads")
+          .select("id, brand_name, title, body, cta_label, cta_url, image_url, background")
+          .eq("is_active", true)
+          .eq("is_deleted", false)
+          .order("sort_order", { ascending: true })
+          .limit(8);
+        setAds((data as Ad[] | null) ?? []);
+      } finally {
+        setLoading(false);
+      }
     };
     void load();
   }, []);
@@ -150,7 +156,9 @@ export function HomeAds() {
 
   return (
     <section className="mt-6" aria-label="Brand collaborations">
-      {ads.length > 0 ? (
+      {loading ? (
+        <AdBannerSkeleton />
+      ) : ads.length > 0 ? (
         <>
           <div className="md:hidden">
             <div

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 :root {
   --bg-page: #ecf3f1;
@@ -203,3 +204,92 @@ h3,
     padding: 2rem 2rem 2.5rem;
   }
 }
+
+/* Leaflet: Tailwind preflight sets img { max-width:100% } which shreds map tiles into white lines. */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  font: inherit;
+  z-index: 0;
+}
+
+.leaflet-tile-pane img.leaflet-tile,
+.leaflet-container img.leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+  width: 256px !important;
+  height: 256px !important;
+}
+
+/* Custom provider map markers */
+.sanyuj-map-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.sanyuj-map-pin {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 168px;
+  padding: 6px 10px 6px 6px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1.5px solid #eaf0ef;
+  box-shadow: 0 6px 18px rgba(21, 32, 51, 0.18);
+}
+
+.sanyuj-map-pin__avatar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #e6f2fe;
+  color: #1d5fa0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.sanyuj-map-pin__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sanyuj-map-pin__name {
+  overflow: hidden;
+  color: #152033;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sanyuj-map-pin__cat {
+  overflow: hidden;
+  color: #66727f;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sanyuj-map-pin__tail {
+  width: 10px;
+  height: 10px;
+  margin: -5px auto 0;
+  background: #fff;
+  border-right: 1.5px solid #eaf0ef;
+  border-bottom: 1.5px solid #eaf0ef;
+  transform: rotate(45deg);
+  box-shadow: 2px 2px 4px rgba(21, 32, 51, 0.08);
+}
+

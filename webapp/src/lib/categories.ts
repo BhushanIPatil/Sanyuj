@@ -11,10 +11,17 @@ export type Category = {
   id: string;
   slug: string;
   name: string;
+  /** Emoji character, or an image URL shown in place of the icon. */
   emoji: string | null;
   group_id: string;
   sort_order: number;
 };
+
+/** True when the categories.emoji field holds an image URL. */
+export function isCategoryImageUrl(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return /^(https?:\/\/|\/\/|\/|data:image\/)/i.test(value.trim());
+}
 
 export type CategoryTreeGroup = CategoryGroup & {
   categories: Category[];

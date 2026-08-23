@@ -23,22 +23,27 @@ export default function PostJobPage() {
   const [urgency, setUrgency] = useState<"today" | "this_week" | "flexible">("today");
   const [pincode, setPincode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-      const [{ data: prof }, groups] = await Promise.all([
-        visible(supabase.from("profiles").select("pincode")).eq("id", user.id).single(),
-        fetchCategoryTree(supabase),
-      ]);
-      setPincode(prof?.pincode ?? "");
-      setTree(groups);
-      const first = groups[0]?.categories[0];
-      if (first) setCategoryId(first.id);
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+        const [{ data: prof }, groups] = await Promise.all([
+          visible(supabase.from("profiles").select("pincode")).eq("id", user.id).single(),
+          fetchCategoryTree(supabase),
+        ]);
+        setPincode(prof?.pincode ?? "");
+        setTree(groups);
+        const first = groups[0]?.categories[0];
+        if (first) setCategoryId(first.id);
+      } finally {
+        setCategoriesLoading(false);
+      }
     };
     void load();
   }, []);
@@ -98,7 +103,12 @@ export default function PostJobPage() {
       </header>
 
       <label className="mb-2 block text-xs font-bold">Category</label>
-      <CategoryPicker tree={tree} value={categoryId} onChange={setCategoryId} />
+      <CategoryPicker
+        tree={tree}
+        value={categoryId}
+        onChange={setCategoryId}
+        loading={categoriesLoading}
+      />
 
       <label className="mb-2 mt-5 block text-xs font-bold">What do you need done?</label>
       <textarea

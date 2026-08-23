@@ -7,6 +7,7 @@ import { visible } from "@/lib/db/visible";
 import { categoryDisplayName } from "@/lib/categories";
 import { updateCurrentAddress } from "@/lib/geo/location";
 import { useToast } from "@/components/Toast";
+import { JobsFeedPageSkeleton } from "@/components/ui/Skeleton";
 
 type CatRef = { id: string; name: string; slug: string } | null;
 
@@ -44,9 +45,95 @@ type InterestRow = {
     pincode: string;
     status: string;
     created_at: string;
+    updated_at: string;
+    customer_id: string;
+    closed_with_business_id: string | null;
     categories: CatRef;
+    customerName: string | null;
   } | null;
 };
+
+type ClosedDeal = {
+  id: string;
+  title: string;
+  description: string;
+  budget_min: number | null;
+  budget_max: number | null;
+  pincode: string;
+  created_at: string;
+  updated_at: string;
+  customer_id: string;
+  closed_with_business_id: string;
+  categories: CatRef;
+  customerName: string | null;
+};
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function formatExpectedAmount(min: number | null, max: number | null) {
+  if (min == null && max == null) return "—";
+  if (min != null && max != null && min === max) return `₹${min}`;
+  if (min != null && max != null) return `₹${min} – ${max}`;
+  if (min != null) return `₹${min}`;
+  return `₹${max}`;
+}
+
+async function enrichWithCustomerNames<
+  T extends { customer_id: string; customerName: string | null },
+>(supabase: ReturnType<typeof createClient>, rows: T[]): Promise<T[]> {
+  const customerIds = [...new Set(rows.map((r) => r.customer_id).filter(Boolean))];
+  if (!customerIds.length) return rows;
+
+  const { data: customers } = await visible(
+    supabase.from("profiles").select("id, full_name"),
+  ).in("id", customerIds);
+  const byId = new Map((customers ?? []).map((c) => [c.id, c.full_name as string | null]));
+
+  return rows.map((r) => ({
+    ...r,
+    customerName: byId.get(r.customer_id) ?? null,
+  }));
+}
+
+async function enrichInterestsWithCustomers(
+  supabase: ReturnType<typeof createClient>,
+  rows: InterestRow[],
+): Promise<InterestRow[]> {
+  const customerIds = [
+    ...new Set(rows.map((r) => r.jobs?.customer_id).filter((cid): cid is string => !!cid)),
+  ];
+  if (!customerIds.length) return rows;
+
+  const { data: customers } = await visible(
+    supabase.from("profiles").select("id, full_name"),
+  ).in("id", customerIds);
+  const byId = new Map((customers ?? []).map((c) => [c.id, c.full_name as string | null]));
+
+  return rows.map((r) => {
+    if (!r.jobs) return r;
+    return {
+      ...r,
+      jobs: {
+        ...r.jobs,
+        customerName: byId.get(r.jobs.customer_id) ?? null,
+      },
+    };
+  });
+}
+
+const INTERESTS_SELECT =
+  "id, job_id, status, offered_amount, created_at, jobs(id, title, description, budget_min, budget_max, pincode, status, created_at, updated_at, customer_id, closed_with_business_id, categories(id, name, slug))";
+
+const CLOSED_DEALS_SELECT =
+  "id, title, description, budget_min, budget_max, pincode, created_at, updated_at, customer_id, closed_with_business_id, categories(id, name, slug)";
 
 type DealStats = {
   waiting: number;
@@ -61,70 +148,85 @@ export default function JobsFeedPage() {
   const [business, setBusiness] = useState<Business | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [interests, setInterests] = useState<InterestRow[]>([]);
+  const [closedDeals, setClosedDeals] = useState<ClosedDeal[]>([]);
   const [isLive, setIsLive] = useState(false);
   const [liveId, setLiveId] = useState<string | null>(null);
   const [pincode, setPincode] = useState("");
   const [filter, setFilter] = useState<"all" | "today">("all");
   const [listTab, setListTab] = useState<"open" | "closed">("open");
   const [goingLive, setGoingLive] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const { data: prof } = await visible(supabase.from("profiles").select("pincode"))
-        .eq("id", user.id)
-        .single();
-      setPincode(prof?.pincode ?? "");
+        const { data: prof } = await visible(supabase.from("profiles").select("pincode"))
+          .eq("id", user.id)
+          .single();
+        setPincode(prof?.pincode ?? "");
 
-      const { data: biz } = await visible(
-        supabase.from("businesses").select("id, name, category_id, rating, categories(id, name, slug)"),
-      )
-        .eq("owner_id", user.id)
-        .maybeSingle();
-      setBusiness(biz as unknown as Business | null);
+        const { data: biz } = await visible(
+          supabase.from("businesses").select("id, name, category_id, rating, categories(id, name, slug)"),
+        )
+          .eq("owner_id", user.id)
+          .maybeSingle();
+        setBusiness(biz as unknown as Business | null);
 
-      if (!biz) return;
+        if (!biz) return;
 
-      const { data: live } = await visible(supabase.from("live_sessions").select("id"))
-        .eq("business_id", biz.id)
-        .gt("ends_at", new Date().toISOString())
-        .maybeSingle();
-      if (live) {
-        setIsLive(true);
-        setLiveId(live.id);
+        const { data: live } = await visible(supabase.from("live_sessions").select("id"))
+          .eq("business_id", biz.id)
+          .gt("ends_at", new Date().toISOString())
+          .maybeSingle();
+        if (live) {
+          setIsLive(true);
+          setLiveId(live.id);
+        }
+
+        let q = visible(
+          supabase
+            .from("jobs")
+            .select(
+              "id, title, description, budget_min, budget_max, pincode, created_at, categories(id, name, slug)",
+            ),
+        )
+          .eq("status", "open")
+          .eq("category_id", biz.category_id)
+          .order("created_at", { ascending: false })
+          .limit(30);
+        if (prof?.pincode) q = q.eq("pincode", prof.pincode);
+        const { data: jobRows } = await q;
+        setJobs((jobRows as unknown as Job[]) ?? []);
+
+        const { data: ints } = await visible(
+          supabase.from("job_interests").select(INTERESTS_SELECT),
+        )
+          .eq("business_id", biz.id)
+          .neq("status", "withdrawn")
+          .order("created_at", { ascending: false });
+        const raw = (ints as unknown as InterestRow[]) ?? [];
+        setInterests(await enrichInterestsWithCustomers(supabase, raw));
+
+        const { data: wonJobs } = await visible(
+          supabase.from("jobs").select(CLOSED_DEALS_SELECT),
+        )
+          .eq("closed_with_business_id", biz.id)
+          .eq("status", "closed")
+          .order("updated_at", { ascending: false });
+        const won = ((wonJobs as unknown as ClosedDeal[]) ?? []).map((j) => ({
+          ...j,
+          customerName: null as string | null,
+        }));
+        setClosedDeals(await enrichWithCustomerNames(supabase, won));
+      } finally {
+        setLoading(false);
       }
-
-      let q = visible(
-        supabase
-          .from("jobs")
-          .select(
-            "id, title, description, budget_min, budget_max, pincode, created_at, categories(id, name, slug)",
-          ),
-      )
-        .eq("status", "open")
-        .eq("category_id", biz.category_id)
-        .order("created_at", { ascending: false })
-        .limit(30);
-      if (prof?.pincode) q = q.eq("pincode", prof.pincode);
-      const { data: jobRows } = await q;
-      setJobs((jobRows as unknown as Job[]) ?? []);
-
-      const { data: ints } = await visible(
-        supabase
-          .from("job_interests")
-          .select(
-            "id, job_id, status, offered_amount, created_at, jobs(id, title, description, budget_min, budget_max, pincode, status, created_at, categories(id, name, slug))",
-          ),
-      )
-        .eq("business_id", biz.id)
-        .neq("status", "withdrawn")
-        .order("created_at", { ascending: false });
-      setInterests((ints as unknown as InterestRow[]) ?? []);
     };
     void load();
   }, []);
@@ -206,18 +308,17 @@ export default function JobsFeedPage() {
       return;
     }
     const { data: ints } = await visible(
-      supabase
-        .from("job_interests")
-        .select(
-          "id, job_id, status, offered_amount, created_at, jobs(id, title, description, budget_min, budget_max, pincode, status, created_at, categories(id, name, slug))",
-        ),
+      supabase.from("job_interests").select(INTERESTS_SELECT),
     )
       .eq("business_id", business.id)
       .neq("status", "withdrawn")
       .order("created_at", { ascending: false });
-    setInterests((ints as unknown as InterestRow[]) ?? []);
+    const raw = (ints as unknown as InterestRow[]) ?? [];
+    setInterests(await enrichInterestsWithCustomers(supabase, raw));
     showToast("Interest sent to customer");
   }
+
+  if (loading) return <JobsFeedPageSkeleton />;
 
   if (!business) {
     return (
@@ -239,8 +340,12 @@ export default function JobsFeedPage() {
 
   const stats: DealStats = (() => {
     const waiting = interests.filter((i) => i.status === "waiting").length;
-    const selected = interests.filter((i) => i.status === "selected").length;
-    const closedOut = interests.filter((i) => i.status === "closed").length;
+    const selected = closedDeals.length;
+    const closedOut = interests.filter(
+      (i) =>
+        i.jobs?.status === "closed" &&
+        i.jobs.closed_with_business_id !== business.id,
+    ).length;
     const total = interests.length;
     const decided = selected + closedOut;
     const winRate = decided > 0 ? Math.round((selected / decided) * 100) : null;
@@ -254,10 +359,9 @@ export default function JobsFeedPage() {
     return d.toDateString() === now.toDateString();
   });
 
-  const closedDeals = interests.filter((i) => {
-    if (i.status !== "selected") return false;
+  const closedDealsShown = closedDeals.filter((j) => {
     if (filter !== "today") return true;
-    const d = new Date(i.created_at);
+    const d = new Date(j.updated_at);
     const now = new Date();
     return d.toDateString() === now.toDateString();
   });
@@ -425,11 +529,11 @@ export default function JobsFeedPage() {
             <span className="text-xs font-bold text-blue-deep">{openShown.length} posts</span>
           </div>
 
-          <div className="mt-3 space-y-3 pb-4">
+          <div className="mt-3 grid gap-3 pb-4 sm:grid-cols-2 xl:grid-cols-3">
             {openShown.map((j) => {
               const sent = interestedJobIds.has(j.id);
               return (
-                <div key={j.id} className="relative rounded-[18px] border border-line bg-white p-4 shadow-card">
+                <div key={j.id} className="relative flex flex-col rounded-[18px] border border-line bg-white p-4 shadow-card">
                   <span className="absolute -top-2 right-3 rounded-full bg-ink px-2 py-1 font-mono text-[9px] font-bold text-white">
                     {j.pincode}
                   </span>
@@ -439,13 +543,13 @@ export default function JobsFeedPage() {
                   <Link href={`/app/jobs-feed/${j.id}`} className="block text-sm font-bold leading-snug">
                     {j.title}
                   </Link>
-                  <p className="mt-1.5 line-clamp-2 text-xs text-ink-soft">{j.description}</p>
-                  <div className="mt-2.5 flex gap-3.5 text-[11px] text-ink-soft">
+                  <p className="mt-1.5 line-clamp-2 flex-1 text-xs text-ink-soft">{j.description}</p>
+                  <div className="mt-2.5 text-[11px] text-ink-soft">
                     <span>
                       🕐 <b className="font-mono text-ink">{new Date(j.created_at).toLocaleString()}</b>
                     </span>
                   </div>
-                  <div className="mt-3 flex items-center justify-between border-t border-dashed border-line pt-3">
+                  <div className="mt-3 flex items-center justify-between gap-2 border-t border-dashed border-line pt-3">
                     <span className="font-mono text-[13.5px] font-bold">
                       {j.budget_min != null
                         ? `₹${j.budget_min}${j.budget_max ? ` – ${j.budget_max}` : ""}`
@@ -454,7 +558,7 @@ export default function JobsFeedPage() {
                     <button
                       type="button"
                       onClick={() => void toggleInterest(j.id)}
-                      className={`rounded-full border-[1.5px] px-3.5 py-2 text-xs font-bold ${
+                      className={`shrink-0 rounded-full border-[1.5px] px-3.5 py-2 text-xs font-bold ${
                         sent
                           ? "border-green-deep bg-green-soft text-green-deep"
                           : "border-blue-deep bg-white text-blue-deep"
@@ -467,7 +571,7 @@ export default function JobsFeedPage() {
               );
             })}
             {!openShown.length ? (
-              <p className="py-6 text-center text-sm text-ink-soft">
+              <p className="py-6 text-center text-sm text-ink-soft sm:col-span-2 xl:col-span-3">
                 No open jobs in your category nearby yet.
               </p>
             ) : null}
@@ -477,43 +581,65 @@ export default function JobsFeedPage() {
         <>
           <div className="mt-4 flex items-baseline justify-between">
             <h2 className="font-display text-base font-bold">Closed deals</h2>
-            <span className="text-xs font-bold text-green-deep">{closedDeals.length} won</span>
+            <span className="text-xs font-bold text-green-deep">{closedDealsShown.length} won</span>
           </div>
 
-          <div className="mt-3 space-y-3 pb-4">
-            {closedDeals.map((deal) => {
-              const j = deal.jobs;
-              if (!j) return null;
+          <div className="mt-3 grid gap-3 pb-4 sm:grid-cols-2 xl:grid-cols-3">
+            {closedDealsShown.map((j) => {
+              const category = categoryDisplayName(j.categories);
               return (
                 <div
-                  key={deal.id}
-                  className="relative rounded-[18px] border border-green-deep/30 bg-white p-4 shadow-card"
+                  key={j.id}
+                  className="relative flex flex-col rounded-[18px] border border-green-deep/30 bg-white p-4 shadow-card"
                 >
                   <span className="absolute -top-2 right-3 rounded-full bg-green-deep px-2 py-1 font-mono text-[9px] font-bold text-white">
                     DEAL FINAL
                   </span>
-                  <span className="mb-2 inline-block rounded-full bg-green-soft px-2.5 py-1 text-[10px] font-bold text-green-deep">
-                    {categoryDisplayName(j.categories)}
-                  </span>
-                  <p className="text-sm font-bold leading-snug">{j.title}</p>
-                  <p className="mt-1.5 line-clamp-2 text-xs text-ink-soft">{j.description}</p>
-                  <div className="mt-3 flex items-center justify-between border-t border-dashed border-line pt-3">
-                    <span className="font-mono text-[13.5px] font-bold">
-                      {deal.offered_amount != null
-                        ? `₹${deal.offered_amount}`
-                        : j.budget_min != null
-                          ? `₹${j.budget_min}${j.budget_max ? ` – ${j.budget_max}` : ""}`
-                          : "—"}
-                    </span>
-                    <span className="text-[11px] font-bold text-green-deep">
-                      Closed {new Date(deal.created_at).toLocaleDateString()}
-                    </span>
+
+                  <div className="pr-14">
+                    {category ? (
+                      <span className="inline-block rounded-full bg-green-soft px-2.5 py-1 text-[10px] font-bold text-green-deep">
+                        {category}
+                      </span>
+                    ) : null}
+                    <p className="mt-1.5 text-sm font-bold leading-snug">
+                      {j.customerName?.trim() || "Customer"}
+                    </p>
+                    <p className="mt-0.5 line-clamp-1 text-xs text-ink-soft">{j.title}</p>
+                  </div>
+
+                  <div className="mt-3 rounded-[12px] bg-surface px-2.5 py-2">
+                    <p className="text-[9px] font-bold uppercase tracking-wide text-ink-faint">
+                      Final amount
+                    </p>
+                    <p className="mt-0.5 font-mono text-sm font-bold text-ink">
+                      {formatExpectedAmount(j.budget_min, j.budget_max)}
+                    </p>
+                  </div>
+
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="rounded-[12px] bg-blue-soft px-2.5 py-2">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-blue-deep">
+                        Created
+                      </p>
+                      <p className="mt-0.5 text-[11px] font-semibold leading-snug text-blue-deep">
+                        {formatDateTime(j.created_at)}
+                      </p>
+                    </div>
+                    <div className="rounded-[12px] bg-green-soft px-2.5 py-2">
+                      <p className="text-[9px] font-bold uppercase tracking-wide text-green-deep">
+                        Closed
+                      </p>
+                      <p className="mt-0.5 text-[11px] font-semibold leading-snug text-green-deep">
+                        {formatDateTime(j.updated_at)}
+                      </p>
+                    </div>
                   </div>
                 </div>
               );
             })}
-            {!closedDeals.length ? (
-              <p className="py-6 text-center text-sm text-ink-soft">
+            {!closedDealsShown.length ? (
+              <p className="py-6 text-center text-sm text-ink-soft sm:col-span-2 xl:col-span-3">
                 No closed deals yet. When a customer finalizes with you, it shows up here.
               </p>
             ) : null}

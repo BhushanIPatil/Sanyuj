@@ -15,6 +15,7 @@ export default function BusinessSetupPage() {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [tree, setTree] = useState<CategoryTreeGroup[]>([]);
   const [loading, setLoading] = useState(false);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
@@ -26,6 +27,8 @@ export default function BusinessSetupPage() {
         if (first) setCategoryId(first.id);
       } catch (err) {
         showToast(err instanceof Error ? err.message : "Could not load categories");
+      } finally {
+        setCategoriesLoading(false);
       }
     };
     void load();
@@ -97,7 +100,12 @@ export default function BusinessSetupPage() {
       />
 
       <label className="mb-2 mt-5 block text-xs font-bold">What do you provide?</label>
-      <CategoryPicker tree={tree} value={categoryId} onChange={setCategoryId} />
+      <CategoryPicker
+        tree={tree}
+        value={categoryId}
+        onChange={setCategoryId}
+        loading={categoriesLoading}
+      />
 
       <button className="btn-primary mt-6" disabled={loading} onClick={() => void create()}>
         {loading ? "Creating…" : "Create Business Profile"}

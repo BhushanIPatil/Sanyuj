@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { visible } from "@/lib/db/visible";
 import { categoryDisplayName } from "@/lib/categories";
 import { useToast } from "@/components/Toast";
+import { JobDetailSkeleton } from "@/components/ui/Skeleton";
 
 type Job = {
   id: string;
@@ -87,7 +88,7 @@ export default function ProviderJobDetailPage() {
     showToast("Interest sent — the customer can now call you");
   }
 
-  if (!job) return <div className="p-8 text-ink-soft">Loading…</div>;
+  if (!job) return <JobDetailSkeleton />;
 
   return (
     <div className="page-pad">

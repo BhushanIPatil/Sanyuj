@@ -11,14 +11,27 @@ import {
   flattenCategories,
   type Category,
 } from "@/lib/categories";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { HomeAds } from "@/components/HomeAds";
+import { HomePageSkeleton } from "@/components/ui/Skeleton";
+import { displayPhone } from "@/lib/auth/phone";
 import { Bell, RefreshCw } from "lucide-react";
 import { jobStatusLabel } from "@/lib/jobs/status";
 
 type Profile = {
   full_name: string | null;
   pincode: string | null;
+  address: string | null;
 };
+
+function addressWithPincode(address: string | null | undefined, pincode: string | null | undefined) {
+  const addr = address?.trim() ?? "";
+  const pin = pincode?.trim() ?? "";
+  if (!addr && !pin) return null;
+  if (!addr) return pin;
+  if (!pin || addr.includes(pin)) return addr;
+  return `${addr}, ${pin}`;
+}
 
 type CatRef = { id: string; name: string; slug: string; emoji: string | null } | null;
 
@@ -30,6 +43,8 @@ type LiveRow = {
     name: string;
     owner_id: string;
     categories: CatRef;
+    ownerName: string | null;
+    ownerPhone: string | null;
   } | null;
 };
 
@@ -77,6 +92,9 @@ export default function HomePage() {
   const [hasBusiness, setHasBusiness] = useState(false);
   const [closedRate, setClosedRate] = useState(0);
   const [refreshingLive, setRefreshingLive] = useState(false);
+  const [stoppingLiveId, setStoppingLiveId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   async function loadLiveNearby(pincode: string) {
     const supabase = createClient();
@@ -89,7 +107,36 @@ export default function HomePage() {
       .gt("ends_at", new Date().toISOString())
       .order("started_at", { ascending: false })
       .limit(10);
-    setLive((liveRows as unknown as LiveRow[]) ?? []);
+
+    const raw = (liveRows as unknown as LiveRow[]) ?? [];
+    const ownerIds = [
+      ...new Set(raw.map((r) => r.businesses?.owner_id).filter((oid): oid is string => !!oid)),
+    ];
+
+    const ownerById = new Map<string, { full_name: string | null; phone: string | null }>();
+    if (ownerIds.length) {
+      const { data: owners } = await visible(
+        supabase.from("profiles").select("id, full_name, phone"),
+      ).in("id", ownerIds);
+      for (const o of owners ?? []) {
+        ownerById.set(o.id, { full_name: o.full_name, phone: o.phone });
+      }
+    }
+
+    setLive(
+      raw.map((row) => {
+        if (!row.businesses) return row;
+        const owner = ownerById.get(row.businesses.owner_id);
+        return {
+          ...row,
+          businesses: {
+            ...row.businesses,
+            ownerName: owner?.full_name ?? null,
+            ownerPhone: owner?.phone ?? null,
+          },
+        };
+      }),
+    );
   }
 
   async function refreshLive() {
@@ -110,68 +157,96 @@ export default function HomePage() {
     }
   }
 
+  async function stopOwnLive(liveSessionId: string) {
+    if (stoppingLiveId) return;
+    setStoppingLiveId(liveSessionId);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from("live_sessions").delete().eq("id", liveSessionId);
+      if (error) throw error;
+      showToast("Live status turned off");
+      if (profile?.pincode) {
+        await loadLiveNearby(profile.pincode);
+      } else {
+        setLive((prev) => prev.filter((r) => r.id !== liveSessionId));
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Could not stop live");
+    } finally {
+      setStoppingLiveId(null);
+    }
+  }
+
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: prof } = await visible(
-        supabase.from("profiles").select("full_name, pincode"),
-      )
-        .eq("id", user.id)
-        .single();
-      setProfile(prof);
-
-      const { data: biz } = await visible(supabase.from("businesses").select("id"))
-        .eq("owner_id", user.id)
-        .maybeSingle();
-      setHasBusiness(!!biz);
-
       try {
-        const tree = await fetchCategoryTree(supabase);
-        setCategories(flattenCategories(tree));
-      } catch {
-        setCategories([]);
-      }
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+        setUserId(user.id);
 
-      if (prof?.pincode) {
-        await loadLiveNearby(prof.pincode);
+        const { data: prof } = await visible(
+          supabase.from("profiles").select("full_name, pincode, address"),
+        )
+          .eq("id", user.id)
+          .single();
+        setProfile(prof);
 
-        const { data: allBiz } = await visible(
-          supabase.from("businesses").select("id, name, rating, owner_id, categories(id, name, slug, emoji)"),
-        ).limit(40);
-        if (allBiz?.length) {
-          const { data: owners } = await visible(supabase.from("profiles").select("id, pincode")).in(
-            "id",
-            allBiz.map((b: { owner_id: string }) => b.owner_id),
-          );
-          const pinOwners = new Set(
-            (owners ?? []).filter((o: { id: string; pincode: string | null }) => o.pincode === prof.pincode).map((o: { id: string }) => o.id),
-          );
-          const near = allBiz.filter((b: { owner_id: string }) => pinOwners.has(b.owner_id)).slice(0, 6);
-          setNearby(((near.length ? near : allBiz.slice(0, 6)) as unknown as NearbyBiz[]) ?? []);
+        const { data: biz } = await visible(supabase.from("businesses").select("id"))
+          .eq("owner_id", user.id)
+          .maybeSingle();
+        setHasBusiness(!!biz);
+
+        try {
+          const tree = await fetchCategoryTree(supabase);
+          setCategories(flattenCategories(tree));
+        } catch {
+          setCategories([]);
         }
+
+        if (prof?.pincode) {
+          await loadLiveNearby(prof.pincode);
+
+          const { data: allBiz } = await visible(
+            supabase.from("businesses").select("id, name, rating, owner_id, categories(id, name, slug, emoji)"),
+          ).limit(40);
+          if (allBiz?.length) {
+            const { data: owners } = await visible(supabase.from("profiles").select("id, pincode")).in(
+              "id",
+              allBiz.map((b: { owner_id: string }) => b.owner_id),
+            );
+            const pinOwners = new Set(
+              (owners ?? []).filter((o: { id: string; pincode: string | null }) => o.pincode === prof.pincode).map((o: { id: string }) => o.id),
+            );
+            const near = allBiz.filter((b: { owner_id: string }) => pinOwners.has(b.owner_id)).slice(0, 6);
+            setNearby(((near.length ? near : allBiz.slice(0, 6)) as unknown as NearbyBiz[]) ?? []);
+          }
+        }
+
+        const { data: jobs } = await visible(
+          supabase.from("jobs").select("id, title, status, budget_min, budget_max, created_at"),
+        )
+          .eq("customer_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(5);
+        setRecent((jobs as JobRow[] | null) ?? []);
+
+        const all = (jobs as JobRow[] | null) ?? [];
+        const closed = all.filter((j) => j.status === "closed").length;
+        setClosedRate(all.length ? Math.round((closed / all.length) * 100) : 0);
+      } finally {
+        setLoading(false);
       }
-
-      const { data: jobs } = await visible(
-        supabase.from("jobs").select("id, title, status, budget_min, budget_max, created_at"),
-      )
-        .eq("customer_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(5);
-      setRecent((jobs as JobRow[] | null) ?? []);
-
-      const all = (jobs as JobRow[] | null) ?? [];
-      const closed = all.filter((j) => j.status === "closed").length;
-      setClosedRate(all.length ? Math.round((closed / all.length) * 100) : 0);
     };
     void load();
   }, []);
 
   const firstName = profile?.full_name?.split(" ")[0] ?? "there";
+  const displayAddress = addressWithPincode(profile?.address, profile?.pincode);
+
+  if (loading) return <HomePageSkeleton />;
 
   return (
     <div className="page-pad">
@@ -182,8 +257,8 @@ export default function HomePage() {
           </div>
           <div>
             <p className="font-display text-lg font-bold sm:text-xl">Hi, {firstName}</p>
-            <p className="text-sm text-ink-soft">
-              {profile?.pincode ? `Pincode · ${profile.pincode}` : "Set your location"}
+            <p className="line-clamp-2 max-w-[14rem] text-sm leading-snug text-ink-soft sm:max-w-xs">
+              {displayAddress ?? "Set your location"}
             </p>
           </div>
         </div>
@@ -233,40 +308,96 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {live.length === 0 ? (
-          <div className="rounded-[18px] border border-dashed border-line bg-surface p-5 text-center text-sm text-ink-soft sm:col-span-2 lg:col-span-4">
+          <div className="rounded-[18px] border border-dashed border-line bg-surface p-5 text-center text-sm text-ink-soft sm:col-span-2 lg:col-span-3 xl:col-span-4">
             No one is live nearby right now. Post a job or check Explore.
           </div>
         ) : (
           live.map((row) => {
             const b = row.businesses;
             if (!b) return null;
+            const category = categoryDisplayName(b.categories);
+            const isOwn = !!userId && b.owner_id === userId;
             return (
               <div
                 key={row.id}
-                className="rounded-[18px] border border-line bg-white p-4 text-center shadow-card"
+                className={`relative rounded-[18px] border bg-white p-4 shadow-card ${
+                  isOwn ? "border-green-deep/40" : "border-line"
+                }`}
               >
-                <div className="relative mx-auto h-14 w-14">
-                  <span className="absolute inset-[-5px] animate-pulse-ring rounded-[20px] border-2 border-green-deep" />
-                  <div className="relative z-10 flex h-14 w-14 items-center justify-center rounded-[17px] bg-blue-soft font-display text-lg font-bold text-blue-deep">
-                    {initials(b.name)}
+                <div className="flex items-start gap-3">
+                  <div className="relative shrink-0">
+                    <span className="absolute inset-[-4px] animate-pulse-ring rounded-[18px] border-2 border-green-deep" />
+                    <div className="relative z-10 flex h-12 w-12 items-center justify-center rounded-[15px] bg-blue-soft font-display text-sm font-bold text-blue-deep">
+                      {initials(b.name)}
+                    </div>
+                    <span className="absolute -bottom-1.5 left-1/2 z-20 -translate-x-1/2 rounded-full bg-green-deep px-1.5 py-0.5 text-[8px] font-extrabold text-white">
+                      LIVE
+                    </span>
                   </div>
-                  <span className="absolute -bottom-1.5 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 rounded-full bg-green-deep px-1.5 py-0.5 text-[8px] font-extrabold text-white">
-                    LIVE
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold leading-snug">{b.name}</p>
+                    {category ? (
+                      <span className="mt-1.5 inline-block rounded-full bg-blue-soft px-2.5 py-1 text-[10px] font-bold text-blue-deep">
+                        {category}
+                      </span>
+                    ) : null}
+                    {isOwn ? (
+                      <p className="mt-1.5 flex items-center gap-1.5 text-[12px] font-bold text-green-deep">
+                        <span className="relative inline-block h-1.5 w-1.5 rounded-full bg-green-deep">
+                          <span className="absolute inset-[-3px] animate-pulse-ring rounded-full border border-green-deep" />
+                        </span>
+                        You are live
+                      </p>
+                    ) : (
+                      <>
+                        <p className="mt-1.5 text-[12px] font-semibold text-ink">
+                          {b.ownerName?.trim() || "Provider"}
+                        </p>
+                        {b.ownerPhone ? (
+                          <a
+                            href={`tel:${b.ownerPhone.replace(/\D/g, "")}`}
+                            className="mt-0.5 block font-mono text-[11.5px] font-bold text-blue-deep"
+                          >
+                            {displayPhone(b.ownerPhone)}
+                          </a>
+                        ) : (
+                          <p className="mt-0.5 text-[11px] text-ink-faint">No contact shared</p>
+                        )}
+                      </>
+                    )}
+                    <p className="mt-1.5 text-[11px] font-bold text-green-deep">
+                      Checked in {timeAgo(row.started_at)}
+                    </p>
+                  </div>
+                  {isOwn ? (
+                    <button
+                      type="button"
+                      disabled={stoppingLiveId === row.id}
+                      onClick={() => void stopOwnLive(row.id)}
+                      className="shrink-0 rounded-full border-[1.5px] border-rose bg-white px-3.5 py-2 text-[11.5px] font-bold text-rose disabled:opacity-60"
+                    >
+                      {stoppingLiveId === row.id ? "…" : "Stop"}
+                    </button>
+                  ) : b.ownerPhone ? (
+                    <a
+                      href={`tel:${b.ownerPhone.replace(/\D/g, "")}`}
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] grad-hero text-white"
+                      aria-label={`Call ${b.ownerName ?? b.name}`}
+                    >
+                      ☎
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-surface text-ink-faint"
+                      onClick={() => showToast(`No contact for ${b.name}`)}
+                    >
+                      ☎
+                    </button>
+                  )}
                 </div>
-                <p className="mt-3 text-sm font-bold">{b.name.split(" ")[0]}</p>
-                <p className="text-xs text-ink-soft">{categoryDisplayName(b.categories)}</p>
-                <p className="mt-1 text-[11px] font-bold text-green-deep">
-                  Checked in {timeAgo(row.started_at)}
-                </p>
-                <button
-                  className="btn-primary mt-3 !rounded-full !py-2.5 text-xs"
-                  onClick={() => showToast(`Open dialer for ${b.name}`)}
-                >
-                  Call now
-                </button>
               </div>
             );
           })
@@ -293,9 +424,7 @@ export default function HomePage() {
             href={`/app/explore?category=${c.slug}`}
             className="flex flex-col items-center gap-2 rounded-[18px] border border-line bg-white px-3 py-4 shadow-card transition hover:border-blue-deep"
           >
-            <span className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-blue-soft text-xl">
-              {c.emoji ?? "•"}
-            </span>
+            <CategoryIcon value={c.emoji} alt={c.name} />
             <span className="text-center text-sm font-bold leading-tight">{c.name}</span>
           </Link>
         ))}

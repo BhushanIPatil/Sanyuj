@@ -1,6 +1,8 @@
 "use client";
 
-import type { Category, CategoryTreeGroup } from "@/lib/categories";
+import { CategoryIcon } from "@/components/CategoryIcon";
+import { CategoryPickerSkeleton } from "@/components/ui/Skeleton";
+import { isCategoryImageUrl, type Category, type CategoryTreeGroup } from "@/lib/categories";
 
 type Props = {
   tree: CategoryTreeGroup[];
@@ -8,9 +10,15 @@ type Props = {
   onChange: (categoryId: string) => void;
   /** When true, show only subcategories (flat). Default: group then subs. */
   flat?: boolean;
+  /** When true, show skeleton instead of empty-state copy. */
+  loading?: boolean;
 };
 
-export function CategoryPicker({ tree, value, onChange, flat = false }: Props) {
+export function CategoryPicker({ tree, value, onChange, flat = false, loading = false }: Props) {
+  if (loading) {
+    return <CategoryPickerSkeleton flat={flat} />;
+  }
+
   if (!tree.length) {
     return <p className="text-sm text-ink-soft">No categories yet. Add them in Supabase.</p>;
   }
@@ -62,13 +70,19 @@ function CategoryChip({
     <button
       type="button"
       onClick={() => onSelect(category.id)}
-      className={`rounded-full border-[1.5px] px-3.5 py-2 text-xs font-bold ${
+      className={`inline-flex items-center gap-1.5 rounded-full border-[1.5px] px-3.5 py-2 text-xs font-bold ${
         selected
           ? "border-blue-deep bg-blue-soft text-blue-deep"
           : "border-line bg-white text-ink-soft"
       }`}
     >
-      {category.emoji ? `${category.emoji} ` : null}
+      {category.emoji ? (
+        isCategoryImageUrl(category.emoji) ? (
+          <CategoryIcon value={category.emoji} alt="" fallback="" size="chip" />
+        ) : (
+          <span>{category.emoji}</span>
+        )
+      ) : null}
       {category.name}
     </button>
   );
