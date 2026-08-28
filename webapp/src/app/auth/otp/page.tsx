@@ -6,6 +6,7 @@ import { Suspense, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { displayPhone } from "@/lib/auth/phone";
 import { visible } from "@/lib/db/visible";
+import { postAuthPath, setGuestCookie } from "@/lib/auth/guest";
 
 function OtpForm() {
   const router = useRouter();
@@ -58,7 +59,8 @@ function OtpForm() {
         .eq("id", data.session.user.id)
         .maybeSingle();
 
-      router.replace(profile?.onboarding_complete ? "/app" : "/auth/onboarding");
+      setGuestCookie(false);
+      router.replace(postAuthPath(profile?.onboarding_complete, params.get("next")));
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");

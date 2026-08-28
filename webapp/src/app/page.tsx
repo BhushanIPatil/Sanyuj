@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { SanyujBrand } from "@/components/SanyujLogo";
 
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
@@ -21,28 +22,13 @@ export default function LandingPage() {
         }`}
       >
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="flex h-10 w-10 items-center justify-center rounded-[14px] grad-hero text-white shadow-card">
-              <HomeGlyph />
-            </span>
-            <span className="font-display text-xl font-800 font-extrabold tracking-tight text-ink">
-              Sanyuj
-            </span>
+          <SanyujBrand href="/" size={52} priority />
+          <Link
+            href="/auth/login"
+            className="rounded-full grad-hero px-5 py-2.5 text-sm font-bold text-white shadow-card"
+          >
+            Sign up / Log in
           </Link>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/auth/login"
-              className="hidden sm:inline text-sm font-semibold text-ink-soft hover:text-ink"
-            >
-              Log in
-            </Link>
-            <Link
-              href="/auth/login"
-              className="rounded-full grad-hero px-5 py-2.5 text-sm font-bold text-white shadow-card"
-            >
-              Get started
-            </Link>
-          </div>
         </div>
       </header>
 
@@ -59,22 +45,16 @@ export default function LandingPage() {
                 Find trusted local help near your pincode — or list your business for free and get
                 job requests from neighbours.
               </p>
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-8">
                 <Link
                   href="/auth/login"
-                  className="rounded-full grad-hero px-7 py-3.5 text-sm font-bold text-white shadow-pop"
+                  className="inline-flex rounded-full grad-hero px-7 py-3.5 text-sm font-bold text-white shadow-pop"
                 >
                   Sign up / Log in
                 </Link>
-                <a
-                  href="#how"
-                  className="rounded-full border border-line bg-white px-7 py-3.5 text-sm font-bold text-ink shadow-card"
-                >
-                  How it works
-                </a>
               </div>
               <p className="mt-5 text-xs text-ink-faint">
-                Free to use · Phone OTP · One account for customers &amp; providers
+                Browse free · Post a job after you log in · One account for customers &amp; providers
               </p>
             </div>
 
@@ -182,15 +162,5 @@ export default function LandingPage() {
         </div>
       </footer>
     </div>
-  );
-}
-
-function HomeGlyph() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M3 12l9-8 9 8" />
-      <path d="M6 10v10h12V10" />
-      <path d="M10 20v-6h4v6" />
-    </svg>
   );
 }

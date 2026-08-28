@@ -1,0 +1,8 @@
+{
+  "SUPABASE_URL": "https://kjfempugmonrlpdtpvju.supabase.co",
+  "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqZmVtcHVnbW9ucmxwZHRwdmp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMjE1OTEsImV4cCI6MjEwMjg5NzU5MX0.FBhjSauTD4rlthQkrd0VyBJEeKnhrgHTM0rixW_bysA",
+  "API_BASE_URL": "https://sanyuj.vercel.app",
+  "PRIVACY_URL": "https://sanyuj.app/privacy",
+  "TERMS_URL": "https://sanyuj.app/terms",
+  "SUPPORT_EMAIL": "support@sanyuj.app"
+}

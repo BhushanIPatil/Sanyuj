@@ -11,7 +11,10 @@ import {
   User,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { loginUrl } from "@/lib/auth/guest";
+import { SanyujBrand, SanyujLogoMark } from "@/components/SanyujLogo";
 
 export const APP_NAV = [
   { href: "/app", label: "Home", icon: Home, match: "/app", exact: true },
@@ -78,17 +81,27 @@ function NavLinks({
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [guest, setGuest] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    void supabase.auth.getUser().then(({ data: { user } }) => setGuest(!user));
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setGuest(!session?.user);
+    });
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   return (
     <div className="min-h-screen bg-bg-page">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-line bg-white lg:flex">
         <div className="flex items-center gap-2.5 px-5 py-5">
-          <span className="flex h-10 w-10 items-center justify-center rounded-[14px] grad-hero text-white shadow-card">
-            <Home size={18} strokeWidth={2.2} />
-          </span>
+          <SanyujLogoMark size={48} />
           <div>
-            <p className="font-display text-lg font-extrabold leading-none">Sanyuj</p>
+            <Link href="/app" className="font-display text-lg font-extrabold leading-none">
+              Sanyuj
+            </Link>
             <p className="mt-1 text-[11px] font-semibold text-ink-faint">Local help nearby</p>
           </div>
         </div>
@@ -96,24 +109,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <NavLinks pathname={pathname} variant="side" />
         </nav>
         <div className="border-t border-line p-4">
-          <Link
-            href="/app/post-job"
-            className="flex w-full items-center justify-center rounded-[14px] grad-hero px-4 py-3 text-sm font-bold text-white shadow-card"
-          >
-            Post a job
-          </Link>
+          {guest ? (
+            <Link
+              href={loginUrl(pathname)}
+              className="flex w-full items-center justify-center rounded-[14px] border-[1.5px] border-line bg-white px-4 py-3 text-sm font-bold text-ink shadow-card"
+            >
+              Log in to post a job
+            </Link>
+          ) : (
+            <Link
+              href="/app/post-job"
+              className="flex w-full items-center justify-center rounded-[14px] grad-hero px-4 py-3 text-sm font-bold text-white shadow-card"
+            >
+              Post a job
+            </Link>
+          )}
         </div>
       </aside>
 
       {/* Top bar (mobile + tablet) */}
       <header className="sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur lg:hidden">
         <div className="flex h-14 items-center justify-between px-4">
-          <Link href="/app" className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-[10px] grad-hero text-white">
-              <Home size={15} strokeWidth={2.2} />
-            </span>
-            <span className="font-display text-base font-extrabold">Sanyuj</span>
-          </Link>
+          <SanyujBrand href="/app" size={40} nameClassName="font-display text-base font-extrabold" />
           <button
             type="button"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
@@ -131,11 +148,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               onNavigate={() => setMenuOpen(false)}
             />
             <Link
-              href="/app/post-job"
+              href={guest ? loginUrl("/app/post-job") : "/app/post-job"}
               onClick={() => setMenuOpen(false)}
               className="mt-2 flex w-full items-center justify-center rounded-[14px] grad-hero px-4 py-3 text-sm font-bold text-white"
             >
-              Post a job
+              {guest ? "Log in to post a job" : "Post a job"}
             </Link>
           </nav>
         ) : null}
@@ -143,6 +160,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main */}
       <div className="lg:pl-64">
+        {guest ? (
+          <div className="border-b border-line bg-blue-soft px-4 py-2 text-center text-xs font-semibold text-blue-deep lg:px-8">
+            Browsing as guest.{" "}
+            <Link href={loginUrl(pathname)} className="font-bold underline">
+              Log in
+            </Link>{" "}
+            to post a job.
+          </div>
+        ) : null}
         <main className="mx-auto min-h-[calc(100vh-3.5rem)] w-full max-w-6xl bg-bg-app pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:min-h-screen lg:pb-8">
           {children}
         </main>

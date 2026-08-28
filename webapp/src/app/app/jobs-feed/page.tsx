@@ -8,6 +8,8 @@ import { categoryDisplayName } from "@/lib/categories";
 import { updateCurrentAddress } from "@/lib/geo/location";
 import { useToast } from "@/components/Toast";
 import { JobsFeedPageSkeleton } from "@/components/ui/Skeleton";
+import { GuestCta } from "@/components/GuestCta";
+import { locationLabel } from "@/lib/geo/display";
 
 type CatRef = { id: string; name: string; slug: string } | null;
 
@@ -18,6 +20,7 @@ type Job = {
   budget_min: number | null;
   budget_max: number | null;
   pincode: string;
+  locality: string | null;
   created_at: string;
   categories: CatRef;
 };
@@ -43,6 +46,7 @@ type InterestRow = {
     budget_min: number | null;
     budget_max: number | null;
     pincode: string;
+    locality: string | null;
     status: string;
     created_at: string;
     updated_at: string;
@@ -60,6 +64,7 @@ type ClosedDeal = {
   budget_min: number | null;
   budget_max: number | null;
   pincode: string;
+  locality: string | null;
   created_at: string;
   updated_at: string;
   customer_id: string;
@@ -140,10 +145,10 @@ async function enrichInterestsWithCustomers(
 }
 
 const INTERESTS_SELECT =
-  "id, job_id, status, offered_amount, created_at, jobs(id, title, description, budget_min, budget_max, pincode, status, created_at, updated_at, customer_id, closed_with_business_id, categories(id, name, slug))";
+  "id, job_id, status, offered_amount, created_at, jobs(id, title, description, budget_min, budget_max, pincode, locality, status, created_at, updated_at, customer_id, closed_with_business_id, categories(id, name, slug))";
 
 const CLOSED_DEALS_SELECT =
-  "id, title, description, budget_min, budget_max, pincode, created_at, updated_at, customer_id, closed_with_business_id, categories(id, name, slug)";
+  "id, title, description, budget_min, budget_max, pincode, locality, created_at, updated_at, customer_id, closed_with_business_id, categories(id, name, slug)";
 
 type DealStats = {
   waiting: number;
@@ -166,6 +171,7 @@ export default function JobsFeedPage() {
   const [listTab, setListTab] = useState<"open" | "closed">("open");
   const [goingLive, setGoingLive] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [guest, setGuest] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -174,7 +180,10 @@ export default function JobsFeedPage() {
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          setGuest(true);
+          return;
+        }
 
         const { data: prof } = await visible(supabase.from("profiles").select("pincode"))
           .eq("id", user.id)
@@ -203,7 +212,7 @@ export default function JobsFeedPage() {
           supabase
             .from("jobs")
             .select(
-              "id, title, description, budget_min, budget_max, pincode, created_at, categories(id, name, slug)",
+              "id, title, description, budget_min, budget_max, pincode, locality, created_at, categories(id, name, slug)",
             ),
         )
           .eq("status", "open")
@@ -330,16 +339,28 @@ export default function JobsFeedPage() {
 
   if (loading) return <JobsFeedPageSkeleton />;
 
-  if (!business) {
+  if (guest || !business) {
     return (
-      <div className="page-pad text-center">
+      <div className="page-pad max-w-lg">
         <h1 className="font-display text-xl font-bold">Job Feed</h1>
         <p className="mt-2 text-sm text-ink-soft">
-          List your business to see open requests in your category and pincode.
+          {guest
+            ? "Log in and list your business to see open requests nearby."
+            : "List your business to see open requests in your category and pincode."}
         </p>
-        <Link href="/app/business/setup" className="btn-primary mt-6 inline-block w-auto px-8">
-          List your business
-        </Link>
+        <div className="mt-6">
+          {guest ? (
+            <GuestCta
+              title="Log in to open the job feed"
+              body="Providers use this feed to respond to nearby customers. Create a free account first."
+              next="/app/jobs-feed"
+            />
+          ) : (
+            <Link href="/app/business/setup" className="btn-primary mt-2 inline-block w-auto px-8">
+              List your business
+            </Link>
+          )}
+        </div>
       </div>
     );
   }
@@ -544,8 +565,8 @@ export default function JobsFeedPage() {
               const sent = interestedJobIds.has(j.id);
               return (
                 <div key={j.id} className="relative flex flex-col rounded-[18px] border border-line bg-white p-4 shadow-card">
-                  <span className="absolute -top-2 right-3 rounded-full bg-ink px-2 py-1 font-mono text-[9px] font-bold text-white">
-                    {j.pincode}
+                  <span className="absolute -top-2 right-3 max-w-[120px] truncate rounded-full bg-ink px-2 py-1 font-mono text-[9px] font-bold text-white">
+                    {locationLabel({ locality: j.locality, pincode: j.pincode })}
                   </span>
                   <span className="mb-2 inline-block rounded-full bg-blue-soft px-2.5 py-1 text-[10px] font-bold text-blue-deep">
                     {categoryDisplayName(j.categories)}

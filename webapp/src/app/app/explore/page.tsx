@@ -18,6 +18,7 @@ import { ProvidersMapModal, type MapProvider } from "@/components/ProvidersMapMo
 import { useToast } from "@/components/Toast";
 import { ExplorePageSkeleton, SkeletonProviderRow } from "@/components/ui/Skeleton";
 import { displayPhone } from "@/lib/auth/phone";
+import { loginUrl } from "@/lib/auth/guest";
 
 type OwnerProfile = {
   id: string;
@@ -52,6 +53,7 @@ function ExploreInner() {
   const [sort, setSort] = useState<"nearest" | "rated">("rated");
   const [items, setItems] = useState<Biz[]>([]);
   const [pincode, setPincode] = useState<string | null>(null);
+  const [signedIn, setSignedIn] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -63,10 +65,12 @@ function ExploreInner() {
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (!user) return;
+        setSignedIn(!!user);
 
         const [profRes, groups] = await Promise.all([
-          visible(supabase.from("profiles").select("pincode")).eq("id", user.id).single(),
+          user
+            ? visible(supabase.from("profiles").select("pincode")).eq("id", user.id).single()
+            : Promise.resolve({ data: { pincode: null } as { pincode: string | null } | null }),
           fetchCategoryTree(supabase),
         ]);
         setPincode(profRes.data?.pincode ?? null);
@@ -165,7 +169,7 @@ function ExploreInner() {
         <p className="eyebrow">Discover</p>
         <h1 className="mt-1 font-display text-2xl font-extrabold sm:text-3xl">Explore providers</h1>
         <p className="mt-2 max-w-2xl text-sm text-ink-soft sm:text-base">
-          Browse trusted local businesses near {pincode ?? "your area"}.
+          Browse trusted local businesses{pincode ? ` near ${pincode}` : " nearby"}.
         </p>
       </header>
 
@@ -303,10 +307,10 @@ function ExploreInner() {
           Not seeing the right fit?
         </h3>
         <Link
-          href="/app/post-job"
+          href={signedIn ? "/app/post-job" : loginUrl("/app/post-job")}
           className="rounded-full bg-indigo px-5 py-2.5 text-sm font-bold text-white"
         >
-          Post a Job
+          {signedIn ? "Post a Job" : "Log in to post a job"}
         </Link>
       </div>
 

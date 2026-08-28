@@ -1,0 +1,134 @@
+import 'package:flutter/material.dart';
+
+import '../services/postal.dart';
+import '../theme/app_theme.dart';
+import 'common.dart';
+
+class LocalityPicker extends StatefulWidget {
+  const LocalityPicker({
+    super.key,
+    required this.pincode,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String pincode;
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  State<LocalityPicker> createState() => _LocalityPickerState();
+}
+
+class _LocalityPickerState extends State<LocalityPicker> {
+  List<PostalLocality> _localities = [];
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void didUpdateWidget(covariant LocalityPicker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pincode != widget.pincode) {
+      _load();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.pincode.length == 6) _load();
+  }
+
+  Future<void> _load() async {
+    if (widget.pincode.length != 6) {
+      setState(() {
+        _localities = [];
+        _error = null;
+        _loading = false;
+      });
+      if (widget.value != null) widget.onChanged(null);
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final list = await fetchLocalitiesForPincode(widget.pincode);
+      if (!mounted) return;
+      setState(() {
+        _localities = list;
+        _loading = false;
+      });
+      if (widget.value != null && !list.any((l) => l.name == widget.value)) {
+        widget.onChanged(null);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _localities = [];
+        _loading = false;
+        _error = e.toString().replaceFirst('Exception: ', '');
+      });
+      if (widget.value != null) widget.onChanged(null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.pincode.length != 6) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 6),
+        child: Text(
+          'Enter your 6-digit pincode to see localities.',
+          style: TextStyle(fontSize: 12, color: AppColors.inkSoft),
+        ),
+      );
+    }
+
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.blueDeep),
+          ),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(_error!, style: const TextStyle(fontSize: 12, color: AppColors.rose)),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const FieldLabel('Locality'),
+        DropdownButtonFormField<String>(
+          value: widget.value != null && _localities.any((l) => l.name == widget.value)
+              ? widget.value
+              : null,
+          decoration: const InputDecoration(hintText: 'Select your locality'),
+          items: [
+            for (final l in _localities)
+              DropdownMenuItem(
+                value: l.name,
+                child: Text(
+                  l.district != null ? '${l.name} · ${l.district}' : l.name,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+          ],
+          onChanged: widget.onChanged,
+        ),
+      ],
+    );
+  }
+}

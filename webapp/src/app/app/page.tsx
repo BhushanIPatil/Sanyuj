@@ -15,23 +15,17 @@ import { CategoryIcon } from "@/components/CategoryIcon";
 import { HomeAds } from "@/components/HomeAds";
 import { HomePageSkeleton } from "@/components/ui/Skeleton";
 import { displayPhone } from "@/lib/auth/phone";
+import { loginUrl } from "@/lib/auth/guest";
 import { Bell, RefreshCw } from "lucide-react";
 import { jobStatusLabel } from "@/lib/jobs/status";
+import { locationLabel } from "@/lib/geo/display";
 
 type Profile = {
   full_name: string | null;
   pincode: string | null;
+  locality: string | null;
   address: string | null;
 };
-
-function addressWithPincode(address: string | null | undefined, pincode: string | null | undefined) {
-  const addr = address?.trim() ?? "";
-  const pin = pincode?.trim() ?? "";
-  if (!addr && !pin) return null;
-  if (!addr) return pin;
-  if (!pin || addr.includes(pin)) return addr;
-  return `${addr}, ${pin}`;
-}
 
 type CatRef = { id: string; name: string; slug: string; emoji: string | null } | null;
 
@@ -96,17 +90,19 @@ export default function HomePage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  async function loadLiveNearby(pincode: string) {
+  async function loadLiveNearby(pincode?: string | null) {
     const supabase = createClient();
-    const { data: liveRows } = await visible(
+    let q = visible(
       supabase
         .from("live_sessions")
         .select("id, started_at, businesses(id, name, owner_id, categories(id, name, slug, emoji))"),
     )
-      .eq("pincode", pincode)
       .gt("ends_at", new Date().toISOString())
       .order("started_at", { ascending: false })
       .limit(10);
+    if (pincode) q = q.eq("pincode", pincode);
+
+    const { data: liveRows } = await q;
 
     const raw = (liveRows as unknown as LiveRow[]) ?? [];
     const ownerIds = [
@@ -140,11 +136,11 @@ export default function HomePage() {
   }
 
   async function refreshLive() {
-    if (!profile?.pincode || refreshingLive) return;
+    if (refreshingLive) return;
     setRefreshingLive(true);
     const started = Date.now();
     try {
-      await loadLiveNearby(profile.pincode);
+      await loadLiveNearby(profile?.pincode);
     } catch {
       showToast("Could not refresh live providers");
     } finally {
@@ -184,20 +180,23 @@ export default function HomePage() {
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (!user) return;
-        setUserId(user.id);
+        setUserId(user?.id ?? null);
 
-        const { data: prof } = await visible(
-          supabase.from("profiles").select("full_name, pincode, address"),
-        )
-          .eq("id", user.id)
-          .single();
-        setProfile(prof);
+        let prof: Profile | null = null;
+        if (user) {
+          const { data } = await visible(
+            supabase.from("profiles").select("full_name, pincode, locality, address"),
+          )
+            .eq("id", user.id)
+            .single();
+          prof = data;
+          setProfile(prof);
 
-        const { data: biz } = await visible(supabase.from("businesses").select("id"))
-          .eq("owner_id", user.id)
-          .maybeSingle();
-        setHasBusiness(!!biz);
+          const { data: biz } = await visible(supabase.from("businesses").select("id"))
+            .eq("owner_id", user.id)
+            .maybeSingle();
+          setHasBusiness(!!biz);
+        }
 
         try {
           const tree = await fetchCategoryTree(supabase);
@@ -206,36 +205,41 @@ export default function HomePage() {
           setCategories([]);
         }
 
-        if (prof?.pincode) {
-          await loadLiveNearby(prof.pincode);
+        await loadLiveNearby(prof?.pincode);
 
-          const { data: allBiz } = await visible(
-            supabase.from("businesses").select("id, name, rating, owner_id, categories(id, name, slug, emoji)"),
-          ).limit(40);
-          if (allBiz?.length) {
-            const { data: owners } = await visible(supabase.from("profiles").select("id, pincode")).in(
-              "id",
-              allBiz.map((b: { owner_id: string }) => b.owner_id),
-            );
-            const pinOwners = new Set(
-              (owners ?? []).filter((o: { id: string; pincode: string | null }) => o.pincode === prof.pincode).map((o: { id: string }) => o.id),
-            );
-            const near = allBiz.filter((b: { owner_id: string }) => pinOwners.has(b.owner_id)).slice(0, 6);
-            setNearby(((near.length ? near : allBiz.slice(0, 6)) as unknown as NearbyBiz[]) ?? []);
-          }
+        const { data: allBiz } = await visible(
+          supabase.from("businesses").select("id, name, rating, owner_id, categories(id, name, slug, emoji)"),
+        ).limit(40);
+        if (allBiz?.length) {
+          const { data: owners } = await visible(supabase.from("profiles").select("id, pincode")).in(
+            "id",
+            allBiz.map((b: { owner_id: string }) => b.owner_id),
+          );
+          const pin = prof?.pincode;
+          const pinOwners = new Set(
+            (owners ?? [])
+              .filter((o: { id: string; pincode: string | null }) => !pin || o.pincode === pin)
+              .map((o: { id: string }) => o.id),
+          );
+          const near = pin
+            ? allBiz.filter((b: { owner_id: string }) => pinOwners.has(b.owner_id)).slice(0, 6)
+            : allBiz.slice(0, 6);
+          setNearby(((near.length ? near : allBiz.slice(0, 6)) as unknown as NearbyBiz[]) ?? []);
         }
 
-        const { data: jobs } = await visible(
-          supabase.from("jobs").select("id, title, status, budget_min, budget_max, created_at"),
-        )
-          .eq("customer_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(5);
-        setRecent((jobs as JobRow[] | null) ?? []);
+        if (user) {
+          const { data: jobs } = await visible(
+            supabase.from("jobs").select("id, title, status, budget_min, budget_max, created_at"),
+          )
+            .eq("customer_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(5);
+          setRecent((jobs as JobRow[] | null) ?? []);
 
-        const all = (jobs as JobRow[] | null) ?? [];
-        const closed = all.filter((j) => j.status === "closed").length;
-        setClosedRate(all.length ? Math.round((closed / all.length) * 100) : 0);
+          const all = (jobs as JobRow[] | null) ?? [];
+          const closed = all.filter((j) => j.status === "closed").length;
+          setClosedRate(all.length ? Math.round((closed / all.length) * 100) : 0);
+        }
       } finally {
         setLoading(false);
       }
@@ -243,8 +247,15 @@ export default function HomePage() {
     void load();
   }, []);
 
-  const firstName = profile?.full_name?.split(" ")[0] ?? "there";
-  const displayAddress = addressWithPincode(profile?.address, profile?.pincode);
+  const isGuest = !userId;
+  const firstName = isGuest ? "there" : (profile?.full_name?.split(" ")[0] ?? "there");
+  const displayAddress = isGuest
+    ? "Browsing as guest"
+    : locationLabel({
+        locality: profile?.locality,
+        pincode: profile?.pincode,
+        address: profile?.address,
+      });
 
   if (loading) return <HomePageSkeleton />;
 
@@ -295,7 +306,7 @@ export default function HomePage() {
           <button
             type="button"
             aria-label="Refresh live providers"
-            disabled={!profile?.pincode || refreshingLive}
+            disabled={refreshingLive}
             onClick={() => void refreshLive()}
             className="flex h-9 w-9 items-center justify-center rounded-[12px] border border-line bg-white text-green-deep shadow-card transition hover:border-green-deep disabled:opacity-50"
           >
@@ -435,10 +446,10 @@ export default function HomePage() {
           Can&apos;t find your exact need? Post it &amp; let providers come to you.
         </h3>
         <Link
-          href="/app/post-job"
+          href={isGuest ? loginUrl("/app/post-job") : "/app/post-job"}
           className="shrink-0 rounded-full bg-indigo px-5 py-2.5 text-sm font-bold text-white"
         >
-          Post a Job
+          {isGuest ? "Log in to post" : "Post a Job"}
         </Link>
       </div>
 
@@ -479,7 +490,16 @@ export default function HomePage() {
           <h2 className="font-display text-lg font-bold">Recent activity</h2>
           <div className="mt-4 space-y-2.5">
             {recent.length === 0 ? (
-              <p className="text-sm text-ink-soft">Your posted jobs will show up here.</p>
+              isGuest ? (
+                <p className="text-sm text-ink-soft">
+                  Log in to post jobs and track them here.{" "}
+                  <Link href={loginUrl("/app/post-job")} className="font-bold text-blue-deep">
+                    Log in
+                  </Link>
+                </p>
+              ) : (
+                <p className="text-sm text-ink-soft">Your posted jobs will show up here.</p>
+              )
             ) : (
               recent.map((j) => (
                 <Link
@@ -517,9 +537,9 @@ export default function HomePage() {
       </div>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-2">
-        {!hasBusiness ? (
+        {isGuest || !hasBusiness ? (
           <Link
-            href="/app/business/setup"
+            href={isGuest ? loginUrl("/app/business/setup") : "/app/business/setup"}
             className="flex items-center gap-3.5 rounded-[24px] border border-green-deep/20 p-5"
             style={{ background: "linear-gradient(135deg,#E1F9EE 0%,#E6F2FE 100%)" }}
           >

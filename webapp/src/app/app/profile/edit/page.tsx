@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { displayPhone } from "@/lib/auth/phone";
 import { detectLocation } from "@/lib/geo/location";
+import { LocalityPicker } from "@/components/LocalityPicker";
 import { useToast } from "@/components/Toast";
 import { visible } from "@/lib/db/visible";
 import { EditProfileSkeleton } from "@/components/ui/Skeleton";
@@ -16,6 +17,7 @@ export default function EditProfilePage() {
   const [phone, setPhone] = useState("");
   const [fullName, setFullName] = useState("");
   const [pincode, setPincode] = useState("");
+  const [locality, setLocality] = useState("");
   const [address, setAddress] = useState("");
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
@@ -36,7 +38,7 @@ export default function EditProfilePage() {
         return;
       }
       const { data: prof } = await visible(
-        supabase.from("profiles").select("full_name, phone, pincode, address, lat, lng"),
+        supabase.from("profiles").select("full_name, phone, pincode, locality, address, lat, lng"),
       )
         .eq("id", user.id)
         .single();
@@ -47,6 +49,7 @@ export default function EditProfilePage() {
       setPhone(prof.phone ?? "");
       setFullName(prof.full_name ?? "");
       setPincode(prof.pincode ?? "");
+      setLocality(prof.locality ?? "");
       setAddress(prof.address ?? "");
       setLat(prof.lat ?? null);
       setLng(prof.lng ?? null);
@@ -66,6 +69,7 @@ export default function EditProfilePage() {
       setLng(loc.lng);
       if (loc.pincode) {
         setPincode(loc.pincode);
+        setLocality("");
         setLocationNote("Location detected — confirm or edit if needed.");
       } else {
         setLocationNote("Address found, but no pincode detected. Enter your 6-digit pincode.");
@@ -84,6 +88,7 @@ export default function EditProfilePage() {
     try {
       if (!fullName.trim()) throw new Error("Enter your full name");
       if (pincode.length !== 6) throw new Error("Enter a valid 6-digit pincode");
+      if (!locality.trim()) throw new Error("Select your locality");
       if (!address.trim()) throw new Error("Enter your address");
 
       const supabase = createClient();
@@ -97,6 +102,7 @@ export default function EditProfilePage() {
         .update({
           full_name: fullName.trim(),
           pincode,
+          locality: locality.trim(),
           address: address.trim(),
           lat,
           lng,
@@ -174,14 +180,6 @@ export default function EditProfilePage() {
           </div>
         ) : null}
 
-        <label className="mb-2 mt-5 block text-xs font-bold">Address</label>
-        <textarea
-          className="input-box min-h-[110px] resize-y"
-          placeholder="House / street, area, city, state, pincode"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-        />
-
         <label className="mb-2 mt-4 block text-xs font-bold">Pincode</label>
         <input
           className="input-box font-mono text-base font-bold tracking-wide"
@@ -189,7 +187,21 @@ export default function EditProfilePage() {
           maxLength={6}
           placeholder="425001"
           value={pincode}
-          onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          onChange={(e) => {
+            setPincode(e.target.value.replace(/\D/g, "").slice(0, 6));
+            setLocality("");
+          }}
+        />
+
+        <label className="mb-2 mt-4 block text-xs font-bold">Locality</label>
+        <LocalityPicker pincode={pincode} value={locality} onChange={setLocality} />
+
+        <label className="mb-2 mt-4 block text-xs font-bold">Address</label>
+        <textarea
+          className="input-box min-h-[110px] resize-y"
+          placeholder="House / street, landmark"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
         />
       </div>
 
@@ -197,7 +209,14 @@ export default function EditProfilePage() {
 
       <button
         className="btn-primary mt-6"
-        disabled={loading || locating || !fullName.trim() || pincode.length !== 6 || !address.trim()}
+        disabled={
+          loading ||
+          locating ||
+          !fullName.trim() ||
+          pincode.length !== 6 ||
+          !locality.trim() ||
+          !address.trim()
+        }
         onClick={() => void save()}
       >
         {loading ? "Saving…" : "Save changes"}

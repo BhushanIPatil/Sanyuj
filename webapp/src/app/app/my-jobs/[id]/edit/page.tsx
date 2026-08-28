@@ -12,6 +12,7 @@ import {
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { useToast } from "@/components/Toast";
 import { EditProfileSkeleton } from "@/components/ui/Skeleton";
+import { LocalityPicker } from "@/components/LocalityPicker";
 
 type Urgency = "today" | "this_week" | "flexible";
 
@@ -27,6 +28,7 @@ export default function EditJobPage() {
   const [budgetMax, setBudgetMax] = useState("");
   const [urgency, setUrgency] = useState<Urgency>("today");
   const [pincode, setPincode] = useState("");
+  const [locality, setLocality] = useState("");
   const [ready, setReady] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -48,7 +50,7 @@ export default function EditJobPage() {
             supabase
               .from("jobs")
               .select(
-                "id, title, description, status, urgency, budget_min, budget_max, pincode, category_id, customer_id",
+                "id, title, description, status, urgency, budget_min, budget_max, pincode, locality, category_id, customer_id",
               ),
           )
             .eq("id", id)
@@ -78,6 +80,7 @@ export default function EditJobPage() {
         setBudgetMax(job.budget_max != null ? String(job.budget_max) : "");
         setUrgency((job.urgency as Urgency) || "flexible");
         setPincode(job.pincode ?? "");
+        setLocality(job.locality ?? "");
         setCategoryId(job.category_id ?? null);
         setReady(true);
       } catch (err) {
@@ -97,6 +100,7 @@ export default function EditJobPage() {
       if (!description.trim()) throw new Error("Describe what you need");
       if (!categoryId) throw new Error("Select a category");
       if (pincode.length !== 6) throw new Error("Enter a valid 6-digit pincode");
+      if (!locality.trim()) throw new Error("Select a locality");
 
       const supabase = createClient();
       const { error } = await visible(
@@ -108,6 +112,7 @@ export default function EditJobPage() {
           budget_max: Number(budgetMax) || null,
           urgency,
           pincode,
+          locality: locality.trim(),
         }),
       ).eq("id", id);
       if (error) throw error;
@@ -217,8 +222,14 @@ export default function EditJobPage() {
         maxLength={6}
         placeholder="425001"
         value={pincode}
-        onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+        onChange={(e) => {
+          setPincode(e.target.value.replace(/\D/g, "").slice(0, 6));
+          setLocality("");
+        }}
       />
+
+      <label className="mb-2 mt-4 block text-xs font-bold">Locality</label>
+      <LocalityPicker pincode={pincode} value={locality} onChange={setLocality} />
 
       <button
         className="btn-primary mt-6"
@@ -227,7 +238,8 @@ export default function EditJobPage() {
           !title.trim() ||
           !description.trim() ||
           !categoryId ||
-          pincode.length !== 6
+          pincode.length !== 6 ||
+          !locality.trim()
         }
         onClick={() => void save()}
       >

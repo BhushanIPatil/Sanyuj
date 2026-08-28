@@ -11,6 +11,8 @@ import {
 } from "@/lib/categories";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { useToast } from "@/components/Toast";
+import { GuestCta } from "@/components/GuestCta";
+import { LocalityPicker } from "@/components/LocalityPicker";
 
 export default function PostJobPage() {
   const router = useRouter();
@@ -22,8 +24,10 @@ export default function PostJobPage() {
   const [budgetMax, setBudgetMax] = useState("600");
   const [urgency, setUrgency] = useState<"today" | "this_week" | "flexible">("today");
   const [pincode, setPincode] = useState("");
+  const [locality, setLocality] = useState("");
   const [loading, setLoading] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [guest, setGuest] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -32,12 +36,16 @@ export default function PostJobPage() {
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          setGuest(true);
+          return;
+        }
         const [{ data: prof }, groups] = await Promise.all([
-          visible(supabase.from("profiles").select("pincode")).eq("id", user.id).single(),
+          visible(supabase.from("profiles").select("pincode, locality")).eq("id", user.id).single(),
           fetchCategoryTree(supabase),
         ]);
         setPincode(prof?.pincode ?? "");
+        setLocality(prof?.locality ?? "");
         setTree(groups);
         const first = groups[0]?.categories[0];
         if (first) setCategoryId(first.id);
@@ -57,6 +65,7 @@ export default function PostJobPage() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
       if (!pincode) throw new Error("Set your pincode in profile first");
+      if (!locality.trim()) throw new Error("Select a locality for this job");
       if (!description.trim()) throw new Error("Describe what you need");
       if (!categoryId) throw new Error("Select a category");
 
@@ -74,6 +83,7 @@ export default function PostJobPage() {
         budget_max: Number(budgetMax) || null,
         urgency,
         pincode,
+        locality: locality.trim(),
         is_active: true,
         is_deleted: false,
       });
@@ -85,6 +95,30 @@ export default function PostJobPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (guest) {
+    return (
+      <div className="page-pad max-w-lg">
+        <header className="mb-4 flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="flex h-10 w-10 items-center justify-center rounded-[13px] border border-line bg-white shadow-card"
+          >
+            ←
+          </button>
+          <div>
+            <p className="eyebrow">New request</p>
+            <h1 className="font-display text-lg font-bold">Post a Job</h1>
+          </div>
+        </header>
+        <GuestCta
+          title="Log in to post a job"
+          body="You can browse providers as a guest. Create a free account with your mobile number to post a job."
+          next="/app/post-job"
+        />
+      </div>
+    );
   }
 
   return (
@@ -165,9 +199,22 @@ export default function PostJobPage() {
       </div>
 
       <label className="mb-2 mt-5 block text-xs font-bold">Location</label>
-      <div className="flex items-center gap-2.5 rounded-[18px] bg-cyan-soft px-3.5 py-3 text-xs font-bold text-blue-deep">
-        📍 Auto-filled — {pincode || "set pincode in profile"}
-      </div>
+      {pincode ? (
+        <>
+          <label className="mb-2 block text-xs font-bold text-ink-soft">Pincode</label>
+          <input
+            className="input-box font-mono text-base font-bold tracking-wide"
+            value={pincode}
+            readOnly
+          />
+          <label className="mb-2 mt-4 block text-xs font-bold">Locality</label>
+          <LocalityPicker pincode={pincode} value={locality} onChange={setLocality} />
+        </>
+      ) : (
+        <div className="flex items-center gap-2.5 rounded-[18px] bg-cyan-soft px-3.5 py-3 text-xs font-bold text-blue-deep">
+          📍 Set pincode in profile first
+        </div>
+      )}
 
       <button className="btn-primary mt-6" disabled={loading} onClick={() => void submit()}>
         {loading ? "Posting…" : "Post Job to nearby providers"}

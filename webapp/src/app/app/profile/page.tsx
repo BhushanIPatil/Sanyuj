@@ -9,11 +9,14 @@ import { categoryDisplayName } from "@/lib/categories";
 import { useToast } from "@/components/Toast";
 import { visible } from "@/lib/db/visible";
 import { ProfilePageSkeleton } from "@/components/ui/Skeleton";
+import { GuestCta } from "@/components/GuestCta";
+import { locationLabel } from "@/lib/geo/display";
 
 type Profile = {
   full_name: string | null;
   phone: string;
   pincode: string | null;
+  locality: string | null;
   address: string | null;
   current_address: string | null;
 };
@@ -35,6 +38,7 @@ export default function ProfilePage() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [guest, setGuest] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -43,7 +47,10 @@ export default function ProfilePage() {
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          setGuest(true);
+          return;
+        }
         const { data: prof } = await visible(supabase.from("profiles").select("*"))
           .eq("id", user.id)
           .single();
@@ -88,6 +95,30 @@ export default function ProfilePage() {
 
   if (loading) return <ProfilePageSkeleton />;
 
+  if (guest) {
+    return (
+      <div className="page-pad max-w-lg">
+        <header>
+          <p className="eyebrow">Account</p>
+          <h1 className="mt-1 font-display text-[19px] font-bold">Profile</h1>
+        </header>
+        <div className="mt-6">
+          <GuestCta
+            title="You're browsing as a guest"
+            body="Log in with your mobile number to post jobs, save your location, and list a business."
+            next="/app/profile"
+          />
+        </div>
+        <Link
+          href="/app"
+          className="mt-4 flex w-full items-center justify-center rounded-[14px] border-[1.5px] border-line bg-white py-3 text-sm font-bold"
+        >
+          Back to browsing
+        </Link>
+      </div>
+    );
+  }
+
   const initials =
     profile?.full_name
       ?.split(" ")
@@ -123,13 +154,15 @@ export default function ProfilePage() {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10.5px] font-bold uppercase tracking-wide text-ink-soft">Location</p>
+            <p className="mt-1 text-sm font-semibold leading-snug">
+              {locationLabel({
+                locality: profile?.locality,
+                pincode: profile?.pincode,
+                address: profile?.address,
+              })}
+            </p>
             {profile?.address ? (
-              <p className="mt-1 text-sm font-semibold leading-snug">{profile.address}</p>
-            ) : (
-              <p className="mt-1 font-mono text-sm font-bold">{profile?.pincode ?? "—"}</p>
-            )}
-            {profile?.pincode && profile.address && !profile.address.includes(profile.pincode) ? (
-              <p className="mt-1 font-mono text-xs font-bold text-ink-soft">{profile.pincode}</p>
+              <p className="mt-1 text-[12px] leading-snug text-ink-soft">{profile.address}</p>
             ) : null}
             {profile?.current_address ? (
               <p className="mt-2 text-[11px] leading-relaxed text-green-deep">

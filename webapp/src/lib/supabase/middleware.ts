@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { GUEST_COOKIE, hasGuestCookie, isAuthRequiredPath } from "@/lib/auth/guest";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -31,8 +32,12 @@ export async function updateSession(request: NextRequest) {
   const isApp = path.startsWith("/app");
   const isOnboarding = path.startsWith("/auth/onboarding");
   const isLoginFlow = path === "/auth/login" || path.startsWith("/auth/otp");
+  const isGuest = hasGuestCookie(request.headers.get("cookie"));
 
   if ((isApp || isOnboarding) && !user) {
+    if (isApp && isGuest && !isAuthRequiredPath(path)) {
+      return supabaseResponse;
+    }
     const redirect = request.nextUrl.clone();
     redirect.pathname = "/auth/login";
     redirect.searchParams.set("next", path);
@@ -40,6 +45,12 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user) {
+    const clearGuestCookie = (res: NextResponse) => {
+      res.cookies.set(GUEST_COOKIE, "", { path: "/", maxAge: 0 });
+      return res;
+    };
+    supabaseResponse.cookies.set(GUEST_COOKIE, "", { path: "/", maxAge: 0 });
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("onboarding_complete, is_active, is_deleted")
@@ -52,21 +63,21 @@ export async function updateSession(request: NextRequest) {
       if (isApp || isOnboarding) {
         const redirect = request.nextUrl.clone();
         redirect.pathname = "/auth/login";
-        return NextResponse.redirect(redirect);
+        return clearGuestCookie(NextResponse.redirect(redirect));
       }
-      return supabaseResponse;
+      return clearGuestCookie(supabaseResponse);
     }
 
     if (isLoginFlow) {
       const redirect = request.nextUrl.clone();
       redirect.pathname = profile?.onboarding_complete ? "/app" : "/auth/onboarding";
-      return NextResponse.redirect(redirect);
+      return clearGuestCookie(NextResponse.redirect(redirect));
     }
 
     if (isApp && profile && !profile.onboarding_complete) {
       const redirect = request.nextUrl.clone();
       redirect.pathname = "/auth/onboarding";
-      return NextResponse.redirect(redirect);
+      return clearGuestCookie(NextResponse.redirect(redirect));
     }
   }
 

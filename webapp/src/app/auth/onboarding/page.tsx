@@ -4,12 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { detectLocation } from "@/lib/geo/location";
+import { LocalityPicker } from "@/components/LocalityPicker";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
   const [fullName, setFullName] = useState("");
   const [pincode, setPincode] = useState("");
+  const [locality, setLocality] = useState("");
   const [address, setAddress] = useState("");
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
@@ -29,6 +31,7 @@ export default function OnboardingPage() {
       setLng(loc.lng);
       if (loc.pincode) {
         setPincode(loc.pincode);
+        setLocality("");
         setLocationNote("Location detected — confirm or edit if needed.");
       } else {
         setLocationNote("Address found, but no pincode detected. Enter your 6-digit pincode.");
@@ -51,6 +54,7 @@ export default function OnboardingPage() {
     setError("");
     try {
       if (pincode.length !== 6) throw new Error("Enter a valid 6-digit pincode");
+      if (!locality.trim()) throw new Error("Select your locality");
       if (!address.trim()) throw new Error("Enter your address");
 
       const supabase = createClient();
@@ -64,6 +68,7 @@ export default function OnboardingPage() {
         .update({
           full_name: fullName.trim(),
           pincode,
+          locality: locality.trim(),
           address: address.trim(),
           lat,
           lng,
@@ -142,14 +147,6 @@ export default function OnboardingPage() {
               </div>
             ) : null}
 
-            <label className="mb-2 mt-5 block text-xs font-bold">Address</label>
-            <textarea
-              className="input-box min-h-[96px] resize-y"
-              placeholder="House / street, area, city"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-            />
-
             <label className="mb-2 mt-4 block text-xs font-bold">Pincode</label>
             <input
               className="input-box font-mono text-base font-bold tracking-wide"
@@ -157,13 +154,33 @@ export default function OnboardingPage() {
               maxLength={6}
               placeholder="425001"
               value={pincode}
-              onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              onChange={(e) => {
+                setPincode(e.target.value.replace(/\D/g, "").slice(0, 6));
+                setLocality("");
+              }}
+            />
+
+            <label className="mb-2 mt-4 block text-xs font-bold">Locality</label>
+            <LocalityPicker pincode={pincode} value={locality} onChange={setLocality} />
+
+            <label className="mb-2 mt-4 block text-xs font-bold">Address</label>
+            <textarea
+              className="input-box min-h-[96px] resize-y"
+              placeholder="House / street, landmark"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
             />
 
             {error ? <p className="mt-3 text-sm font-semibold text-rose">{error}</p> : null}
             <button
               className="btn-primary mt-6"
-              disabled={loading || locating || pincode.length !== 6 || !address.trim()}
+              disabled={
+                loading ||
+                locating ||
+                pincode.length !== 6 ||
+                !locality.trim() ||
+                !address.trim()
+              }
               onClick={() => void finish()}
             >
               {loading ? "Saving…" : "Continue to Sanyuj"}

@@ -57,8 +57,8 @@
   --color-rose-soft: var(--rose-soft);
   --color-amber: var(--amber);
   --color-amber-soft: var(--amber-soft);
-  --font-sans: var(--font-inter);
-  --font-display: var(--font-poppins);
+  --font-sans: var(--font-nunito);
+  --font-display: var(--font-nunito);
   --font-mono: var(--font-mono);
 }
 
@@ -77,14 +77,14 @@ body {
   background: var(--bg-page);
   background-image: radial-gradient(circle, #dce7e3 1px, transparent 1px);
   background-size: 18px 18px;
-  font-family: var(--font-inter), system-ui, sans-serif;
+  font-family: var(--font-nunito), system-ui, sans-serif;
 }
 
 h1,
 h2,
 h3,
 .font-display {
-  font-family: var(--font-poppins), system-ui, sans-serif;
+  font-family: var(--font-nunito), system-ui, sans-serif;
 }
 
 .font-mono {
@@ -109,7 +109,7 @@ h3,
   cursor: pointer;
   background: var(--grad-hero);
   color: #fff;
-  font-family: var(--font-poppins), system-ui, sans-serif;
+  font-family: var(--font-nunito), system-ui, sans-serif;
   font-weight: 700;
   font-size: 15px;
   padding: 16px;
@@ -207,8 +207,9 @@ h3,
 
 /* Leaflet: Tailwind preflight sets img { max-width:100% } which shreds map tiles into white lines. */
 .leaflet-container {
-  width: 100%;
-  height: 100%;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100%;
   font: inherit;
   z-index: 0;
 }

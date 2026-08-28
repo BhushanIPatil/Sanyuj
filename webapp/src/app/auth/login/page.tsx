@@ -6,6 +6,8 @@ import { Eye, EyeOff } from "lucide-react";
 import { Suspense, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { visible } from "@/lib/db/visible";
+import { postAuthPath, setGuestCookie, isAuthRequiredPath } from "@/lib/auth/guest";
+import { SanyujBrand } from "@/components/SanyujLogo";
 
 type Mode = "login" | "register" | "otp" | "restore";
 
@@ -54,8 +56,17 @@ function LoginForm() {
       .eq("id", session.user.id)
       .maybeSingle();
 
-    router.replace(profile?.onboarding_complete ? "/app" : "/auth/onboarding");
+    setGuestCookie(false);
+    router.replace(postAuthPath(profile?.onboarding_complete, params.get("next")));
     router.refresh();
+  }
+
+  function continueAsGuest() {
+    setGuestCookie(true);
+    const next = params.get("next");
+    window.location.assign(
+      next && next.startsWith("/app") && !isAuthRequiredPath(next) ? next : "/app",
+    );
   }
 
   function enterRestore() {
@@ -117,6 +128,8 @@ function LoginForm() {
       if (!res.ok) throw new Error(data.error || "Failed to send OTP");
       const q = new URLSearchParams({ phone: data.phone });
       if (data.dev_otp) q.set("hint", data.dev_otp);
+      const next = params.get("next");
+      if (next) q.set("next", next);
       router.push(`/auth/otp?${q.toString()}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -141,15 +154,7 @@ function LoginForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-page px-4 py-10">
       <div className="w-full max-w-lg rounded-[28px] border border-line bg-white p-7 shadow-pop sm:p-10">
-        <Link href="/" className="inline-flex items-center gap-2">
-          <span className="flex h-11 w-11 items-center justify-center rounded-[14px] grad-hero text-white">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M3 12l9-8 9 8" />
-              <path d="M6 10v10h12V10" />
-            </svg>
-          </span>
-          <span className="font-display text-xl font-extrabold">Sanyuj</span>
-        </Link>
+        <SanyujBrand href="/" size={56} priority />
         <h1 className="mt-6 font-display text-2xl font-extrabold">
           {mode === "restore" ? "Restore your account" : "Welcome"}
         </h1>
@@ -344,6 +349,22 @@ function LoginForm() {
 
         <p className="mt-4 text-center text-xs leading-relaxed text-ink-faint">
           By continuing you agree to Sanyuj&apos;s Terms &amp; Privacy Policy
+        </p>
+
+        <div className="mt-6 flex items-center gap-3">
+          <span className="h-px flex-1 bg-line" />
+          <span className="text-[11px] font-bold uppercase tracking-wide text-ink-faint">or</span>
+          <span className="h-px flex-1 bg-line" />
+        </div>
+        <button
+          type="button"
+          className="mt-4 w-full rounded-[18px] border-[1.5px] border-line bg-white py-3.5 text-sm font-bold text-ink shadow-card transition hover:border-blue-deep"
+          onClick={continueAsGuest}
+        >
+          Continue as guest
+        </button>
+        <p className="mt-2 text-center text-[11px] text-ink-faint">
+          Browse providers nearby. Log in when you want to post a job.
         </p>
       </div>
     </div>

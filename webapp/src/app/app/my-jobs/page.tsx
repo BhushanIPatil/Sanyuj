@@ -12,6 +12,8 @@ import {
   type JobStatus,
 } from "@/lib/jobs/status";
 import { MyJobsPageSkeleton } from "@/components/ui/Skeleton";
+import { GuestCta } from "@/components/GuestCta";
+import { locationLabel } from "@/lib/geo/display";
 
 type Job = {
   id: string;
@@ -20,6 +22,7 @@ type Job = {
   status: JobStatus;
   urgency: string;
   pincode: string;
+  locality: string | null;
   budget_min: number | null;
   budget_max: number | null;
   created_at: string;
@@ -42,6 +45,7 @@ export default function MyJobsPage() {
   const [tab, setTab] = useState<JobStatus>("open");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [guest, setGuest] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -50,10 +54,13 @@ export default function MyJobsPage() {
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user) {
+          setGuest(true);
+          return;
+        }
         const { data } = await visible(
           supabase.from("jobs").select(
-            "id, title, description, status, urgency, pincode, budget_min, budget_max, created_at, updated_at, categories(id, name, slug)",
+            "id, title, description, status, urgency, pincode, locality, budget_min, budget_max, created_at, updated_at, categories(id, name, slug)",
           ),
         )
           .eq("customer_id", user.id)
@@ -84,6 +91,24 @@ export default function MyJobsPage() {
   const shown = jobs.filter((j) => j.status === tab);
 
   if (loading) return <MyJobsPageSkeleton />;
+
+  if (guest) {
+    return (
+      <div className="page-pad max-w-lg">
+        <header>
+          <p className="eyebrow">Requests you&apos;ve posted</p>
+          <h1 className="mt-1 font-display text-[19px] font-bold">My Jobs</h1>
+        </header>
+        <div className="mt-6">
+          <GuestCta
+            title="Log in to post a job"
+            body="Guests can browse providers. Create a free account to post a job and track responses."
+            next="/app/post-job"
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="page-pad">
@@ -135,7 +160,10 @@ export default function MyJobsPage() {
 
               <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-soft">
                 <span>
-                  📍 <b className="font-mono text-ink">{j.pincode}</b>
+                  📍{" "}
+                  <b className="font-mono text-ink">
+                    {locationLabel({ locality: j.locality, pincode: j.pincode })}
+                  </b>
                 </span>
                 <span className="capitalize">{j.urgency.replace("_", " ")}</span>
               </div>

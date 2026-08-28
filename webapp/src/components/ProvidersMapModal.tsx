@@ -89,11 +89,10 @@ function makeBaseLayer(L: typeof import("leaflet"), basemap: Basemap) {
     );
   }
 
-  return L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+  return L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: "abcd",
-    maxZoom: 20,
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19,
   });
 }
 
@@ -165,6 +164,8 @@ export function ProvidersMapModal({
     if (!open || !mapEl.current || loading) return;
     let cancelled = false;
 
+    let cleanupResize: (() => void) | undefined;
+
     const setup = async () => {
       const L = (await import("leaflet")).default;
 
@@ -226,16 +227,26 @@ export function ProvidersMapModal({
         map.setView([20.5937, 78.9629], 5);
       }
 
-      requestAnimationFrame(() => {
-        map.invalidateSize();
-        setTimeout(() => map.invalidateSize(), 150);
-      });
+      if (cancelled) {
+        map.remove();
+        mapRef.current = null;
+        baseLayerRef.current = null;
+        return;
+      }
+
+      const syncSize = () => map.invalidateSize();
+      requestAnimationFrame(syncSize);
+      setTimeout(syncSize, 50);
+      setTimeout(syncSize, 250);
+      window.addEventListener("resize", syncSize);
+      cleanupResize = () => window.removeEventListener("resize", syncSize);
     };
 
     void setup();
 
     return () => {
       cancelled = true;
+      cleanupResize?.();
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -283,8 +294,8 @@ export function ProvidersMapModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col bg-black/40 backdrop-blur-[2px]">
-      <div className="flex min-h-0 flex-1 flex-col bg-bg-page lg:pl-64">
+    <div className="fixed inset-0 z-[80] flex h-[100dvh] w-full flex-col bg-bg-page">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-line bg-white px-4 py-3 shadow-card">
           <div className="min-w-0">
             <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-faint">
@@ -326,8 +337,8 @@ export function ProvidersMapModal({
           </div>
         </header>
 
-        <div className="relative min-h-0 flex-1">
-          <div ref={mapEl} className="absolute inset-0 z-0 bg-surface" />
+        <div className="relative min-h-0 w-full flex-1">
+          <div ref={mapEl} className="absolute inset-0 z-0 h-full w-full bg-surface" />
           {loading ? (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 text-sm font-bold text-ink-soft">
               Locating providers on the map…
