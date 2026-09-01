@@ -1,0 +1,206 @@
+@import "tailwindcss";
+
+:root {
+  --bg-page: #ecf3f1;
+  --bg-app: #ffffff;
+  --surface: #f5faf9;
+  --ink: #152033;
+  --ink-soft: #66727f;
+  --ink-faint: #a6b0ba;
+  --line: #eaf0ef;
+  --blue: #2e86d6;
+  --blue-deep: #1d5fa0;
+  --blue-soft: #e6f2fe;
+  --green: #1fae7a;
+  --green-deep: #167f5a;
+  --green-soft: #e1f9ee;
+  --teal: #0ea5a5;
+  --teal-soft: #dff7f5;
+  --indigo: #3b5bdb;
+  --indigo-soft: #e7eafb;
+  --cyan: #0ea5e9;
+  --cyan-soft: #e1f4fd;
+  --rose: #e5484d;
+  --rose-soft: #fdecec;
+  --amber: #d6a020;
+  --amber-soft: #fbf3de;
+  --grad-hero: linear-gradient(135deg, #2e86d6 0%, #1fae7a 100%);
+  --radius-lg: 26px;
+  --radius-md: 18px;
+  --radius-sm: 12px;
+  --shadow-card: 0 4px 16px rgba(21, 32, 51, 0.06);
+  --shadow-pop: 0 12px 32px rgba(21, 32, 51, 0.2);
+}
+
+@theme inline {
+  --color-bg-page: var(--bg-page);
+  --color-bg-app: var(--bg-app);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-blue: var(--blue);
+  --color-blue-deep: var(--blue-deep);
+  --color-blue-soft: var(--blue-soft);
+  --color-green: var(--green);
+  --color-green-deep: var(--green-deep);
+  --color-green-soft: var(--green-soft);
+  --color-teal: var(--teal);
+  --color-teal-soft: var(--teal-soft);
+  --color-indigo: var(--indigo);
+  --color-indigo-soft: var(--indigo-soft);
+  --color-cyan: var(--cyan);
+  --color-cyan-soft: var(--cyan-soft);
+  --color-rose: var(--rose);
+  --color-rose-soft: var(--rose-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --font-sans: var(--font-nunito);
+  --font-display: var(--font-nunito);
+  --font-mono: var(--font-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--bg-page);
+  background-image: radial-gradient(circle, #dce7e3 1px, transparent 1px);
+  background-size: 18px 18px;
+  font-family: var(--font-nunito), system-ui, sans-serif;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-nunito), system-ui, sans-serif;
+}
+
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.grad-hero {
+  background: var(--grad-hero);
+}
+
+.shadow-card {
+  box-shadow: var(--shadow-card);
+}
+
+.shadow-pop {
+  box-shadow: var(--shadow-pop);
+}
+
+.btn-primary {
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  background: var(--grad-hero);
+  color: #fff;
+  font-family: var(--font-nunito), system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 22px rgba(31, 142, 123, 0.3);
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  border: 1.5px solid var(--line);
+  cursor: pointer;
+  background: #fff;
+  color: var(--ink);
+  font-family: var(--font-nunito), system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  transition: background 0.15s ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input-box {
+  width: 100%;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  font-size: 14.5px;
+  color: var(--ink);
+  background: #fff;
+  outline: none;
+}
+
+.input-box:focus {
+  border-color: var(--blue-deep);
+}
+
+.eyebrow {
+  font-family: var(--font-mono), monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.page-pad {
+  padding: 1.25rem 1rem 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .page-pad {
+    padding: 1.75rem 1.5rem 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-pad {
+    padding: 2rem 2rem 2.5rem;
+  }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
