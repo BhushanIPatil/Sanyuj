@@ -7,6 +7,8 @@ import '../../models/models.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/locality_picker.dart';
+import '../../widgets/area_picker.dart';
+import '../../services/postal.dart';
 
 class PostJobScreen extends ConsumerStatefulWidget {
   const PostJobScreen({super.key});
@@ -24,6 +26,9 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
   String _urgency = 'today';
   String? _pincode;
   String? _locality;
+  String? _areaId;
+  String? _areaName;
+  bool _areaRequired = false;
   bool _loading = false;
   bool _ready = false;
 
@@ -41,6 +46,8 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
     setState(() {
       _pincode = profile?.pincode;
       _locality = profile?.locality;
+      _areaId = profile?.areaId;
+      _areaName = profile?.area;
       _groups = groups;
       _categoryId = groups.isNotEmpty && groups.first.categories.isNotEmpty
           ? groups.first.categories.first.id
@@ -62,6 +69,8 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
     try {
       if ((_pincode ?? '').isEmpty) throw Exception('Set your pincode in profile first');
       if ((_locality ?? '').isEmpty) throw Exception('Select a locality for this job');
+      await assertAreaIfRequired(_pincode!, _locality!, _areaId);
+      if (_areaRequired && (_areaId ?? '').isEmpty) throw Exception('Select an area / colony for this job');
       if (_description.text.trim().isEmpty) throw Exception('Describe what you need');
       if (_categoryId == null) throw Exception('Select a category');
       final cats = _groups.expand((g) => g.categories);
@@ -73,6 +82,8 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
             description: _description.text.trim(),
             pincode: _pincode!,
             locality: _locality!,
+            areaId: _areaId,
+            area: _areaName,
             urgency: _urgency,
             budgetMin: int.tryParse(_budgetMin.text),
             budgetMax: int.tryParse(_budgetMax.text),
@@ -249,7 +260,21 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
                           LocalityPicker(
                             pincode: _pincode!,
                             value: _locality,
-                            onChanged: (v) => setState(() => _locality = v),
+                            onChanged: (v) => setState(() {
+                              _locality = v;
+                              _areaId = null;
+                              _areaName = null;
+                            }),
+                          ),
+                          AreaPicker(
+                            pincode: _pincode!,
+                            locality: _locality,
+                            value: _areaId,
+                            onChanged: (id, name) => setState(() {
+                              _areaId = id;
+                              _areaName = name;
+                            }),
+                            onAvailabilityChange: (has) => setState(() => _areaRequired = has),
                           ),
                         ],
                         const SizedBox(height: 24),

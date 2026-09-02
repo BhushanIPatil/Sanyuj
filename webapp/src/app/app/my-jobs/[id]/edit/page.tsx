@@ -13,6 +13,8 @@ import { CategoryPicker } from "@/components/CategoryPicker";
 import { useToast } from "@/components/Toast";
 import { EditProfileSkeleton } from "@/components/ui/Skeleton";
 import { LocalityPicker } from "@/components/LocalityPicker";
+import { AreaPicker } from "@/components/AreaPicker";
+import { assertAreaIfRequired } from "@/lib/geo/areas";
 
 type Urgency = "today" | "this_week" | "flexible";
 
@@ -29,6 +31,9 @@ export default function EditJobPage() {
   const [urgency, setUrgency] = useState<Urgency>("today");
   const [pincode, setPincode] = useState("");
   const [locality, setLocality] = useState("");
+  const [areaId, setAreaId] = useState("");
+  const [areaName, setAreaName] = useState("");
+  const [areaRequired, setAreaRequired] = useState(false);
   const [ready, setReady] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -50,7 +55,7 @@ export default function EditJobPage() {
             supabase
               .from("jobs")
               .select(
-                "id, title, description, status, urgency, budget_min, budget_max, pincode, locality, category_id, customer_id",
+                "id, title, description, status, urgency, budget_min, budget_max, pincode, locality, area, area_id, category_id, customer_id",
               ),
           )
             .eq("id", id)
@@ -81,6 +86,8 @@ export default function EditJobPage() {
         setUrgency((job.urgency as Urgency) || "flexible");
         setPincode(job.pincode ?? "");
         setLocality(job.locality ?? "");
+        setAreaId(job.area_id ?? "");
+        setAreaName(job.area ?? "");
         setCategoryId(job.category_id ?? null);
         setReady(true);
       } catch (err) {
@@ -103,6 +110,8 @@ export default function EditJobPage() {
       if (!locality.trim()) throw new Error("Select a locality");
 
       const supabase = createClient();
+      await assertAreaIfRequired(supabase, pincode, locality, areaId);
+      if (areaRequired && !areaId) throw new Error("Select an area / colony");
       const { error } = await visible(
         supabase.from("jobs").update({
           title: title.trim(),
@@ -113,6 +122,8 @@ export default function EditJobPage() {
           urgency,
           pincode,
           locality: locality.trim(),
+          area_id: areaId || null,
+          area: areaName || null,
         }),
       ).eq("id", id);
       if (error) throw error;
@@ -225,11 +236,37 @@ export default function EditJobPage() {
         onChange={(e) => {
           setPincode(e.target.value.replace(/\D/g, "").slice(0, 6));
           setLocality("");
+          setAreaId("");
+          setAreaName("");
         }}
       />
 
       <label className="mb-2 mt-4 block text-xs font-bold">Locality</label>
-      <LocalityPicker pincode={pincode} value={locality} onChange={setLocality} />
+      <LocalityPicker
+        pincode={pincode}
+        value={locality}
+        onChange={(next) => {
+          setLocality(next);
+          setAreaId("");
+          setAreaName("");
+        }}
+      />
+
+      {locality ? (
+        <>
+          <label className="mb-2 mt-4 block text-xs font-bold">Area / colony</label>
+          <AreaPicker
+            pincode={pincode}
+            locality={locality}
+            value={areaId}
+            onChange={(id, name) => {
+              setAreaId(id);
+              setAreaName(name);
+            }}
+            onAvailabilityChange={setAreaRequired}
+          />
+        </>
+      ) : null}
 
       <button
         className="btn-primary mt-6"
@@ -239,7 +276,8 @@ export default function EditJobPage() {
           !description.trim() ||
           !categoryId ||
           pincode.length !== 6 ||
-          !locality.trim()
+          !locality.trim() ||
+          (areaRequired && !areaId)
         }
         onClick={() => void save()}
       >

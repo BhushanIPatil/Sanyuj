@@ -23,6 +23,7 @@ type Job = {
   urgency: string;
   pincode: string;
   locality: string | null;
+  area: string | null;
   budget_min: number | null;
   budget_max: number | null;
   created_at: string;
@@ -60,7 +61,7 @@ export default function MyJobsPage() {
         }
         const { data } = await visible(
           supabase.from("jobs").select(
-            "id, title, description, status, urgency, pincode, locality, budget_min, budget_max, created_at, updated_at, categories(id, name, slug)",
+            "id, title, description, status, urgency, pincode, locality, area, budget_min, budget_max, created_at, updated_at, categories(id, name, slug)",
           ),
         )
           .eq("customer_id", user.id)
@@ -162,7 +163,7 @@ export default function MyJobsPage() {
                 <span>
                   📍{" "}
                   <b className="font-mono text-ink">
-                    {locationLabel({ locality: j.locality, pincode: j.pincode })}
+                    {locationLabel({ area: j.area, locality: j.locality, pincode: j.pincode })}
                   </b>
                 </span>
                 <span className="capitalize">{j.urgency.replace("_", " ")}</span>

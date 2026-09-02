@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { SanyujLogoMark } from "@/components/SanyujLogo";
+import { SanyujBrand } from "@/components/SanyujLogo";
 
 function LoginForm() {
   const router = useRouter();
@@ -54,10 +54,10 @@ function LoginForm() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-bg-page px-4 py-10">
       <div className="w-full max-w-md rounded-[28px] border border-line bg-white p-7 shadow-pop">
         <div className="mb-6 flex justify-center">
-          <SanyujLogoMark size={64} priority />
+          <SanyujBrand size={112} priority />
         </div>
         <h1 className="text-center font-display text-2xl font-bold">Sign in</h1>
         <p className="mt-2 text-center text-sm text-ink-soft">

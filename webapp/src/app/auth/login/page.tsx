@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { visible } from "@/lib/db/visible";
 import { postAuthPath, setGuestCookie, isAuthRequiredPath } from "@/lib/auth/guest";
@@ -39,6 +39,22 @@ function LoginForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [unfinished, setUnfinished] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    void supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data: profile } = await visible(
+        supabase.from("profiles").select("onboarding_complete"),
+      )
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profile && profile.onboarding_complete !== true) {
+        setUnfinished(true);
+      }
+    });
+  }, []);
 
   async function applySession(session: {
     access_token: string;
@@ -61,7 +77,9 @@ function LoginForm() {
     router.refresh();
   }
 
-  function continueAsGuest() {
+  async function continueAsGuest() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
     setGuestCookie(true);
     const next = params.get("next");
     window.location.assign(
@@ -154,8 +172,10 @@ function LoginForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-bg-page px-4 py-10">
       <div className="w-full max-w-lg rounded-[28px] border border-line bg-white p-7 shadow-pop sm:p-10">
-        <SanyujBrand href="/" size={56} priority />
-        <h1 className="mt-6 font-display text-2xl font-extrabold">
+        <div className="mb-6 flex justify-center">
+          <SanyujBrand href="/" size={112} priority />
+        </div>
+        <h1 className="font-display text-2xl font-extrabold">
           {mode === "restore" ? "Restore your account" : "Welcome"}
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-soft">
@@ -163,6 +183,20 @@ function LoginForm() {
             ? "An account already exists with this contact. Set a new password to restore it."
             : "One account for everything — find trusted local help, or list your own business for free."}
         </p>
+
+        {unfinished ? (
+          <div className="mt-4 rounded-[14px] bg-blue-soft px-3.5 py-3 text-sm font-semibold leading-relaxed text-blue-deep">
+            You already started an account.{" "}
+            <button
+              type="button"
+              className="font-bold underline"
+              onClick={() => router.replace("/auth/onboarding")}
+            >
+              Finish setup
+            </button>
+            , or continue as guest below.
+          </div>
+        ) : null}
 
         {mode !== "otp" ? (
           <>
@@ -359,7 +393,7 @@ function LoginForm() {
         <button
           type="button"
           className="mt-4 w-full rounded-[18px] border-[1.5px] border-line bg-white py-3.5 text-sm font-bold text-ink shadow-card transition hover:border-blue-deep"
-          onClick={continueAsGuest}
+          onClick={() => void continueAsGuest()}
         >
           Continue as guest
         </button>

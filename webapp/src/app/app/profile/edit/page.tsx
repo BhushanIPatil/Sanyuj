@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { displayPhone } from "@/lib/auth/phone";
 import { detectLocation } from "@/lib/geo/location";
 import { LocalityPicker } from "@/components/LocalityPicker";
+import { AreaPicker } from "@/components/AreaPicker";
+import { assertAreaIfRequired } from "@/lib/geo/areas";
 import { useToast } from "@/components/Toast";
 import { visible } from "@/lib/db/visible";
 import { EditProfileSkeleton } from "@/components/ui/Skeleton";
@@ -18,6 +20,9 @@ export default function EditProfilePage() {
   const [fullName, setFullName] = useState("");
   const [pincode, setPincode] = useState("");
   const [locality, setLocality] = useState("");
+  const [areaId, setAreaId] = useState("");
+  const [areaName, setAreaName] = useState("");
+  const [areaRequired, setAreaRequired] = useState(false);
   const [address, setAddress] = useState("");
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
@@ -38,7 +43,7 @@ export default function EditProfilePage() {
         return;
       }
       const { data: prof } = await visible(
-        supabase.from("profiles").select("full_name, phone, pincode, locality, address, lat, lng"),
+        supabase.from("profiles").select("full_name, phone, pincode, locality, area, area_id, address, lat, lng"),
       )
         .eq("id", user.id)
         .single();
@@ -50,6 +55,8 @@ export default function EditProfilePage() {
       setFullName(prof.full_name ?? "");
       setPincode(prof.pincode ?? "");
       setLocality(prof.locality ?? "");
+      setAreaId(prof.area_id ?? "");
+      setAreaName(prof.area ?? "");
       setAddress(prof.address ?? "");
       setLat(prof.lat ?? null);
       setLng(prof.lng ?? null);
@@ -70,6 +77,8 @@ export default function EditProfilePage() {
       if (loc.pincode) {
         setPincode(loc.pincode);
         setLocality("");
+        setAreaId("");
+        setAreaName("");
         setLocationNote("Location detected — confirm or edit if needed.");
       } else {
         setLocationNote("Address found, but no pincode detected. Enter your 6-digit pincode.");
@@ -92,6 +101,8 @@ export default function EditProfilePage() {
       if (!address.trim()) throw new Error("Enter your address");
 
       const supabase = createClient();
+      await assertAreaIfRequired(supabase, pincode, locality, areaId);
+      if (areaRequired && !areaId) throw new Error("Select your area / colony");
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -103,6 +114,8 @@ export default function EditProfilePage() {
           full_name: fullName.trim(),
           pincode,
           locality: locality.trim(),
+          area_id: areaId || null,
+          area: areaName || null,
           address: address.trim(),
           lat,
           lng,
@@ -190,11 +203,42 @@ export default function EditProfilePage() {
           onChange={(e) => {
             setPincode(e.target.value.replace(/\D/g, "").slice(0, 6));
             setLocality("");
+            setAreaId("");
+            setAreaName("");
           }}
         />
 
         <label className="mb-2 mt-4 block text-xs font-bold">Locality</label>
-        <LocalityPicker pincode={pincode} value={locality} onChange={setLocality} />
+        <LocalityPicker
+          pincode={pincode}
+          value={locality}
+          onChange={(next) => {
+            setLocality(next);
+            setAreaId("");
+            setAreaName("");
+          }}
+        />
+
+        {locality ? (
+          <>
+            <label className="mb-2 mt-4 block text-xs font-bold">Area / colony</label>
+            <AreaPicker
+              pincode={pincode}
+              locality={locality}
+              value={areaId}
+              onChange={(id, name) => {
+                setAreaId(id);
+                setAreaName(name);
+              }}
+              onAvailabilityChange={setAreaRequired}
+            />
+            {!areaRequired ? (
+              <p className="mt-1.5 text-[11px] text-ink-soft">
+                Areas for this locality will appear once they are added.
+              </p>
+            ) : null}
+          </>
+        ) : null}
 
         <label className="mb-2 mt-4 block text-xs font-bold">Address</label>
         <textarea
@@ -215,6 +259,7 @@ export default function EditProfilePage() {
           !fullName.trim() ||
           pincode.length !== 6 ||
           !locality.trim() ||
+          (areaRequired && !areaId) ||
           !address.trim()
         }
         onClick={() => void save()}

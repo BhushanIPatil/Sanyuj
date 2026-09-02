@@ -53,8 +53,8 @@ export default function BusinessSetupPage() {
         is_deleted: false,
       });
       if (error) throw error;
-      showToast("Business profile created — nearby customers can now see you");
-      router.push("/app/profile");
+      showToast("Business profile created — set where you provide service");
+      router.push("/app/business/coverage");
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Could not create business");
     } finally {

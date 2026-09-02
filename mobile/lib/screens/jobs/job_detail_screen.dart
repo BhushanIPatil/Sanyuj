@@ -101,7 +101,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '${job.category?.name ?? 'Service'} · ${locationLabel(locality: job.locality, pincode: job.pincode)}'.toUpperCase(),
+                                    '${job.category?.name ?? 'Service'} · ${locationLabel(area: job.area, locality: job.locality, pincode: job.pincode)}'.toUpperCase(),
                                     style: eyebrowStyle(),
                                   ),
                                   const SizedBox(height: 6),

@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { detectLocation } from "@/lib/geo/location";
 import { LocalityPicker } from "@/components/LocalityPicker";
+import { AreaPicker } from "@/components/AreaPicker";
+import { assertAreaIfRequired } from "@/lib/geo/areas";
+import { setGuestCookie } from "@/lib/auth/guest";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -12,6 +15,9 @@ export default function OnboardingPage() {
   const [fullName, setFullName] = useState("");
   const [pincode, setPincode] = useState("");
   const [locality, setLocality] = useState("");
+  const [areaId, setAreaId] = useState("");
+  const [areaName, setAreaName] = useState("");
+  const [areaRequired, setAreaRequired] = useState(false);
   const [address, setAddress] = useState("");
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
@@ -32,6 +38,8 @@ export default function OnboardingPage() {
       if (loc.pincode) {
         setPincode(loc.pincode);
         setLocality("");
+        setAreaId("");
+        setAreaName("");
         setLocationNote("Location detected — confirm or edit if needed.");
       } else {
         setLocationNote("Address found, but no pincode detected. Enter your 6-digit pincode.");
@@ -49,6 +57,20 @@ export default function OnboardingPage() {
     void fetchLocation();
   }, [step, fetchLocation]);
 
+  async function continueAsGuest() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setGuestCookie(true);
+    window.location.assign("/app");
+  }
+
+  async function useAnotherAccount() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.replace("/auth/login");
+    router.refresh();
+  }
+
   async function finish() {
     setLoading(true);
     setError("");
@@ -58,6 +80,8 @@ export default function OnboardingPage() {
       if (!address.trim()) throw new Error("Enter your address");
 
       const supabase = createClient();
+      await assertAreaIfRequired(supabase, pincode, locality, areaId);
+      if (areaRequired && !areaId) throw new Error("Select your area / colony");
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -69,6 +93,8 @@ export default function OnboardingPage() {
           full_name: fullName.trim(),
           pincode,
           locality: locality.trim(),
+          area_id: areaId || null,
+          area: areaName || null,
           address: address.trim(),
           lat,
           lng,
@@ -118,6 +144,20 @@ export default function OnboardingPage() {
             >
               Continue
             </button>
+            <button
+              type="button"
+              className="mt-4 w-full text-center text-sm font-semibold text-ink-soft"
+              onClick={() => void continueAsGuest()}
+            >
+              Continue as guest
+            </button>
+            <button
+              type="button"
+              className="mt-2 w-full text-center text-sm font-semibold text-blue-deep"
+              onClick={() => void useAnotherAccount()}
+            >
+              Use a different account
+            </button>
           </>
         )}
 
@@ -157,11 +197,42 @@ export default function OnboardingPage() {
               onChange={(e) => {
                 setPincode(e.target.value.replace(/\D/g, "").slice(0, 6));
                 setLocality("");
+                setAreaId("");
+                setAreaName("");
               }}
             />
 
             <label className="mb-2 mt-4 block text-xs font-bold">Locality</label>
-            <LocalityPicker pincode={pincode} value={locality} onChange={setLocality} />
+            <LocalityPicker
+              pincode={pincode}
+              value={locality}
+              onChange={(next) => {
+                setLocality(next);
+                setAreaId("");
+                setAreaName("");
+              }}
+            />
+
+            {locality ? (
+              <>
+                <label className="mb-2 mt-4 block text-xs font-bold">Area / colony</label>
+                <AreaPicker
+                  pincode={pincode}
+                  locality={locality}
+                  value={areaId}
+                  onChange={(id, name) => {
+                    setAreaId(id);
+                    setAreaName(name);
+                  }}
+                  onAvailabilityChange={setAreaRequired}
+                />
+                {!areaRequired ? (
+                  <p className="mt-1.5 text-[11px] text-ink-soft">
+                    Areas for this locality will appear once they are added.
+                  </p>
+                ) : null}
+              </>
+            ) : null}
 
             <label className="mb-2 mt-4 block text-xs font-bold">Address</label>
             <textarea
@@ -179,6 +250,7 @@ export default function OnboardingPage() {
                 locating ||
                 pincode.length !== 6 ||
                 !locality.trim() ||
+                (areaRequired && !areaId) ||
                 !address.trim()
               }
               onClick={() => void finish()}

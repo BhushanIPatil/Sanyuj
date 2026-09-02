@@ -1,45 +1,43 @@
 import Image from "next/image";
 import Link from "next/link";
 
-const LOGO_SRC = "/brand/sanyuj-logo.png";
-const LOGO_SCALE = 1.15;
+/** Full lockup with gradient background baked in (icon + white wordmark). */
+const LOGO_SRC = "/brand/sanyuj-lockup.png";
+const LOGO_ASPECT = 736 / 763;
 
 type LogoMarkProps = {
+  /** Render height of the logo, in pixels. */
   size?: number;
-  scale?: number;
   className?: string;
   priority?: boolean;
 };
 
 export function SanyujLogoMark({
   size = 48,
-  scale = LOGO_SCALE,
   className = "",
   priority,
 }: LogoMarkProps) {
-  const renderSize = Math.round(size * scale);
+  const height = size;
+  const width = Math.round(height * LOGO_ASPECT);
 
   return (
-    <span
-      className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden ${className}`}
-      style={{ width: size, height: size }}
-    >
-      <Image
-        src={LOGO_SRC}
-        alt="Sanyuj"
-        width={renderSize}
-        height={renderSize}
-        priority={priority}
-        className="max-w-none object-contain"
-        style={{ width: renderSize, height: renderSize }}
-      />
-    </span>
+    <Image
+      src={LOGO_SRC}
+      alt="Sanyuj"
+      width={width}
+      height={height}
+      priority={priority}
+      className={`inline-block shrink-0 object-contain ${className}`}
+      style={{ width, height }}
+    />
   );
 }
 
 type BrandProps = {
   href?: string;
   size?: number;
+  /** @deprecated Lockup asset includes gradient; kept for call-site compatibility. */
+  plate?: boolean;
   showName?: boolean;
   nameClassName?: string;
   className?: string;
@@ -49,7 +47,7 @@ type BrandProps = {
 export function SanyujBrand({
   href,
   size = 48,
-  showName = true,
+  showName = false,
   nameClassName = "font-display text-xl font-extrabold tracking-tight text-ink",
   className = "inline-flex items-center gap-2.5",
   priority,

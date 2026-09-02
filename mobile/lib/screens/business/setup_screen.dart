@@ -52,7 +52,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
       await ref.read(repoProvider).createBusiness(name: _name.text.trim(), categoryId: _categoryId!);
       if (!mounted) return;
       showAppSnack(context, 'Business listed');
-      context.pop();
+      context.go('/business/coverage');
     } catch (e) {
       if (!mounted) return;
       showAppSnack(context, e.toString().replaceFirst('Exception: ', ''));
@@ -108,7 +108,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                                       width: 30,
                                       height: 30,
                                       decoration: BoxDecoration(
-                                        gradient: AppColors.heroGradient,
+                                        color: AppColors.blueDeep,
                                         borderRadius: BorderRadius.circular(11),
                                         border: Border.all(color: Colors.white, width: 3),
                                       ),
@@ -136,7 +136,8 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                           children: [
                             for (final c in _categories)
                               CategoryChipPill(
-                                label: '${c.emoji ?? ''} ${c.name}'.trim(),
+                                label: c.name,
+                                iconValue: c.emoji,
                                 selected: _categoryId == c.id,
                                 onTap: () => setState(() => _categoryId = c.id),
                               ),

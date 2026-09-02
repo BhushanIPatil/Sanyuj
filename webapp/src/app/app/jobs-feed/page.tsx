@@ -10,6 +10,7 @@ import { useToast } from "@/components/Toast";
 import { JobsFeedPageSkeleton } from "@/components/ui/Skeleton";
 import { GuestCta } from "@/components/GuestCta";
 import { locationLabel } from "@/lib/geo/display";
+import { businessCoversPincode, fetchJobsCoveredByBusiness } from "@/lib/geo/coverage";
 
 type CatRef = { id: string; name: string; slug: string } | null;
 
@@ -21,6 +22,7 @@ type Job = {
   budget_max: number | null;
   pincode: string;
   locality: string | null;
+  area: string | null;
   created_at: string;
   categories: CatRef;
 };
@@ -145,10 +147,10 @@ async function enrichInterestsWithCustomers(
 }
 
 const INTERESTS_SELECT =
-  "id, job_id, status, offered_amount, created_at, jobs(id, title, description, budget_min, budget_max, pincode, locality, status, created_at, updated_at, customer_id, closed_with_business_id, categories(id, name, slug))";
+  "id, job_id, status, offered_amount, created_at, jobs(id, title, description, budget_min, budget_max, pincode, locality, area, status, created_at, updated_at, customer_id, closed_with_business_id, categories(id, name, slug))";
 
 const CLOSED_DEALS_SELECT =
-  "id, title, description, budget_min, budget_max, pincode, locality, created_at, updated_at, customer_id, closed_with_business_id, categories(id, name, slug)";
+  "id, title, description, budget_min, budget_max, pincode, locality, area, created_at, updated_at, customer_id, closed_with_business_id, categories(id, name, slug)";
 
 type DealStats = {
   waiting: number;
@@ -208,20 +210,24 @@ export default function JobsFeedPage() {
           setLiveId(live.id);
         }
 
-        let q = visible(
-          supabase
-            .from("jobs")
-            .select(
-              "id, title, description, budget_min, budget_max, pincode, locality, created_at, categories(id, name, slug)",
-            ),
-        )
-          .eq("status", "open")
-          .eq("category_id", biz.category_id)
-          .order("created_at", { ascending: false })
-          .limit(30);
-        if (prof?.pincode) q = q.eq("pincode", prof.pincode);
-        const { data: jobRows } = await q;
-        setJobs((jobRows as unknown as Job[]) ?? []);
+        const coveredIds = await fetchJobsCoveredByBusiness(supabase, biz.id);
+        if (!coveredIds.length) {
+          setJobs([]);
+        } else {
+          const { data: jobRows } = await visible(
+            supabase
+              .from("jobs")
+              .select(
+                "id, title, description, budget_min, budget_max, pincode, locality, area, created_at, categories(id, name, slug)",
+              ),
+          )
+            .eq("status", "open")
+            .eq("category_id", biz.category_id)
+            .in("id", coveredIds)
+            .order("created_at", { ascending: false })
+            .limit(30);
+          setJobs((jobRows as unknown as Job[]) ?? []);
+        }
 
         const { data: ints } = await visible(
           supabase.from("job_interests").select(INTERESTS_SELECT),
@@ -274,6 +280,11 @@ export default function JobsFeedPage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
+
+      const covers = await businessCoversPincode(supabase, business.id, pincode);
+      if (!covers) {
+        throw new Error("Add this pincode to your service areas before going live");
+      }
 
       await updateCurrentAddress(supabase, user.id);
 
@@ -566,7 +577,7 @@ export default function JobsFeedPage() {
               return (
                 <div key={j.id} className="relative flex flex-col rounded-[18px] border border-line bg-white p-4 shadow-card">
                   <span className="absolute -top-2 right-3 max-w-[120px] truncate rounded-full bg-ink px-2 py-1 font-mono text-[9px] font-bold text-white">
-                    {locationLabel({ locality: j.locality, pincode: j.pincode })}
+                    {locationLabel({ area: j.area, locality: j.locality, pincode: j.pincode })}
                   </span>
                   <span className="mb-2 inline-block rounded-full bg-blue-soft px-2.5 py-1 text-[10px] font-bold text-blue-deep">
                     {categoryDisplayName(j.categories)}

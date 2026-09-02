@@ -9,7 +9,6 @@ import '../../models/models.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
 import '../../widgets/common.dart';
-import '../../widgets/providers_map.dart';
 
 class ExploreScreen extends ConsumerStatefulWidget {
   const ExploreScreen({super.key});
@@ -48,6 +47,8 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       final items = await repo.fetchBusinesses(
         categoryId: _categoryId,
         pincode: profile?.pincode,
+        localityId: profile?.localityId,
+        areaId: profile?.areaId,
       );
       if (!mounted) return;
       setState(() {
@@ -91,11 +92,9 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         return a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
 
-    return Stack(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               child: Column(
@@ -214,7 +213,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                         itemBuilder: (_, i) {
                           if (sorted.isEmpty && i == 0) {
                             return SoftCard(
-                              child: const Text('No providers found.', style: TextStyle(color: AppColors.inkSoft)),
+                              child: const Text('No providers in this area yet.', style: TextStyle(color: AppColors.inkSoft)),
                             );
                           }
                           if ((sorted.isEmpty && i == 1) || i == sorted.length) {
@@ -317,31 +316,6 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                       ),
                     ),
             ),
-          ],
-        ),
-        Positioned(
-          right: 20,
-          bottom: 36,
-          child: GestureDetector(
-            onTap: () => showProvidersMap(context, sorted),
-            child: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: AppColors.heroGradient,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF1F8E7B).withValues(alpha: 0.40),
-                    blurRadius: 22,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: const Icon(Icons.map_rounded, color: Colors.white, size: 24),
-            ),
-          ),
-        ),
       ],
     );
   }

@@ -78,7 +78,7 @@ class SanyujRepository {
     if (uid == null) return [];
     final data = await visible(
       _db.from('jobs').select(
-            'id, title, description, status, pincode, locality, created_at, budget_min, budget_max, urgency, customer_id, categories(id, name, slug, emoji, group_id)',
+            'id, title, description, status, pincode, locality, area, created_at, budget_min, budget_max, urgency, customer_id, categories(id, name, slug, emoji, group_id)',
           ),
     ).eq('customer_id', uid).order('created_at', ascending: false);
     return (data as List)
@@ -86,21 +86,31 @@ class SanyujRepository {
         .toList();
   }
 
-  Future<List<Job>> fetchOpenJobsNearby(String pincode) async {
-    final data = await visible(
-      _db.from('jobs').select(
-            'id, title, description, status, pincode, locality, created_at, budget_min, budget_max, urgency, customer_id, categories(id, name, slug, emoji, group_id)',
-          ),
-    ).eq('status', 'open').eq('pincode', pincode).order('created_at', ascending: false).limit(40);
-    return (data as List)
-        .map((e) => Job.fromJson(Map<String, dynamic>.from(e as Map)))
+  Future<List<Job>> fetchOpenJobsForBusiness(String businessId, {String? categoryId}) async {
+    final rawIds = await _db.rpc('jobs_covered_by_business', params: {'p_business_id': businessId});
+    final ids = (rawIds as List)
+        .map((e) {
+          if (e is String) return e;
+          if (e is Map) return (e['job_id'] ?? e['id']) as String?;
+          return null;
+        })
+        .whereType<String>()
         .toList();
+    if (ids.isEmpty) return [];
+    var q = visible(
+      _db.from('jobs').select(
+            'id, title, description, status, pincode, locality, area, created_at, budget_min, budget_max, urgency, customer_id, categories(id, name, slug, emoji, group_id)',
+          ),
+    ).eq('status', 'open').inFilter('id', ids);
+    if (categoryId != null) q = q.eq('category_id', categoryId);
+    final data = await q.order('created_at', ascending: false).limit(40);
+    return (data as List).map((e) => Job.fromJson(Map<String, dynamic>.from(e as Map))).toList();
   }
 
   Future<Job?> fetchJob(String id) async {
     final row = await visible(
       _db.from('jobs').select(
-            'id, title, description, status, pincode, locality, created_at, budget_min, budget_max, urgency, customer_id, categories(id, name, slug, emoji, group_id)',
+            'id, title, description, status, pincode, locality, area, created_at, budget_min, budget_max, urgency, customer_id, categories(id, name, slug, emoji, group_id)',
           ),
     ).eq('id', id).maybeSingle();
     if (row == null) return null;
@@ -113,6 +123,8 @@ class SanyujRepository {
     required String description,
     required String pincode,
     required String locality,
+    String? areaId,
+    String? area,
     required String urgency,
     int? budgetMin,
     int? budgetMax,
@@ -129,18 +141,47 @@ class SanyujRepository {
       'urgency': urgency,
       'pincode': pincode,
       'locality': locality,
+      'area_id': areaId,
+      'area': area,
       'is_active': true,
       'is_deleted': false,
     });
   }
 
-  Future<List<Business>> fetchBusinesses({String? categoryId, String? pincode}) async {
+  Future<List<Business>> fetchBusinesses({
+    String? categoryId,
+    String? pincode,
+    String? localityId,
+    String? areaId,
+  }) async {
     var q = visible(
       _db.from('businesses').select(
             'id, name, rating, jobs_done, response_rate, owner_id, categories(id, name, slug, emoji, group_id)',
           ),
     );
     if (categoryId != null) q = q.eq('category_id', categoryId);
+
+    if (pincode != null && pincode.isNotEmpty) {
+      final covering = await _db.rpc(
+        'businesses_covering',
+        params: {
+          'p_pincode': pincode,
+          'p_locality_id': localityId,
+          'p_area_id': areaId,
+        },
+      );
+      final ids = (covering as List)
+          .map((e) {
+            if (e is String) return e;
+            if (e is Map) return (e['business_id'] ?? e['id']) as String?;
+            return null;
+          })
+          .whereType<String>()
+          .toList();
+      if (ids.isEmpty) return [];
+      q = q.inFilter('id', ids);
+    }
+
     final data = await q.order('rating', ascending: false).limit(40);
     final businesses = (data as List)
         .map((e) => Business.fromJson(Map<String, dynamic>.from(e as Map)))
@@ -159,7 +200,7 @@ class SanyujRepository {
       }
     }
 
-    final enriched = businesses.map((b) {
+    return businesses.map((b) {
       final o = owners[b.ownerId];
       if (o == null) return b;
       return b.copyWith(
@@ -170,13 +211,6 @@ class SanyujRepository {
         lng: (o['lng'] as num?)?.toDouble(),
       );
     }).toList();
-
-    if (pincode == null || pincode.isEmpty) return enriched;
-    final pinMatches = enriched.where((b) {
-      final o = owners[b.ownerId];
-      return o != null && o['pincode'] == pincode;
-    }).toList();
-    return pinMatches.isNotEmpty ? pinMatches : enriched;
   }
 
   Future<List<Map<String, dynamic>>> fetchLiveSessions([String? pincode]) async {
@@ -221,13 +255,45 @@ class SanyujRepository {
     }).toList();
   }
 
-  Future<List<AdBanner>> fetchAds() async {
+  Future<List<AdBanner>> fetchAds({
+    String? pincode,
+    String? localityId,
+    String? areaId,
+  }) async {
+    final covering = await _db.rpc(
+      'ads_covering',
+      params: {
+        'p_pincode': pincode,
+        'p_locality_id': localityId,
+        'p_area_id': areaId,
+      },
+    );
+    final ids = (covering as List)
+        .map((e) {
+          if (e is String) return e;
+          if (e is Map) return (e['ad_id'] ?? e['id']) as String?;
+          return null;
+        })
+        .whereType<String>()
+        .toList();
+    if (ids.isEmpty) return [];
     final data = await visible(
-      _db.from('ads').select('id, brand_name, title, body, cta_label, cta_url, image_url, background'),
-    ).order('sort_order').limit(8);
+      _db.from('ads').select(
+        'id, brand_name, title, body, cta_label, cta_url, image_url, background, offer_starts_at, offer_ends_at',
+      ),
+    ).inFilter('id', ids).order('sort_order').limit(8);
     return (data as List)
         .map((e) => AdBanner.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
+  }
+
+  Future<void> recordAdClick(String adId) async {
+    if (userId == null) return;
+    try {
+      await _db.rpc('record_ad_click', params: {'p_ad_id': adId});
+    } catch (_) {
+      // Non-blocking analytics
+    }
   }
 
   Future<void> createBusiness({
@@ -259,7 +325,55 @@ class SanyujRepository {
     });
   }
 
+  Future<bool> businessCoversPincode({required String businessId, required String pincode}) async {
+    final data = await _db.rpc(
+      'business_covers_pincode',
+      params: {'p_business_id': businessId, 'p_pincode': pincode},
+    );
+    return data == true;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchBusinessCoverage(String businessId) async {
+    final data = await visible(
+      _db.from('business_service_areas').select(
+            'id, business_id, pincode, locality_id, area_id, localities(id, name), areas(id, name)',
+          ),
+    ).eq('business_id', businessId).order('pincode');
+    return (data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  Future<void> savePincodeCoverage({
+    required String businessId,
+    required String pincode,
+    required bool entirePincode,
+    List<Map<String, dynamic>> items = const [],
+  }) async {
+    await _db.rpc(
+      'replace_pincode_coverage',
+      params: {
+        'p_business_id': businessId,
+        'p_pincode': pincode,
+        'p_mode': entirePincode ? 'whole' : 'precise',
+        'p_items': items
+            .map(
+              (item) => {
+                'locality_name': item['localityName'],
+                'entire_locality': item['entireLocality'] == true,
+                'area_ids': item['areaIds'] ?? <String>[],
+              },
+            )
+            .toList(),
+      },
+    );
+  }
+
+  Future<void> removePincodeCoverage({required String businessId, required String pincode}) async {
+    await _db.from('business_service_areas').delete().eq('business_id', businessId).eq('pincode', pincode);
+  }
+
   Future<void> goLive({required String businessId, required String pincode}) async {
+    final covers = await businessCoversPincode(businessId: businessId, pincode: pincode);
+    if (!covers) throw Exception('Add this pincode to your service areas before going live');
     await _db.from('live_sessions').insert({
       'business_id': businessId,
       'pincode': pincode,

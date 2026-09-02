@@ -70,8 +70,8 @@ function OtpForm() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-bg-page px-4 py-10">
-      <div className="w-full max-w-lg rounded-[28px] border border-line bg-white p-7 shadow-pop sm:p-10">
+    <div className="flex min-h-screen items-center justify-center brand-gradient px-4 py-10">
+      <div className="w-full max-w-lg rounded-[28px] border border-white/20 bg-white p-7 shadow-pop sm:p-10">
         <Link href="/auth/login" className="mb-5 inline-flex h-10 w-10 items-center justify-center rounded-[13px] border border-line bg-white shadow-card">
           ←
         </Link>

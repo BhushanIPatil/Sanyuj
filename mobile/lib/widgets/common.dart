@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
+import 'sanyuj_logo.dart';
 
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
@@ -21,8 +22,7 @@ class PrimaryButton extends StatelessWidget {
     final disabled = onPressed == null || loading;
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: disabled ? null : AppColors.heroGradient,
-        color: disabled ? AppColors.inkFaint : null,
+        color: disabled ? AppColors.inkFaint : AppColors.blueDeep,
         borderRadius: BorderRadius.circular(AppColors.radiusMd),
         boxShadow: disabled ? null : AppColors.ctaShadow,
       ),
@@ -325,8 +325,7 @@ class ProgressSegments extends StatelessWidget {
               height: 4,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(4),
-                gradient: i < done ? AppColors.heroGradient : null,
-                color: i < done ? null : AppColors.line,
+                color: i < done ? AppColors.blueDeep : AppColors.line,
               ),
             ),
           ),
@@ -420,9 +419,11 @@ class CategoryChipPill extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.iconValue,
   });
 
   final String label;
+  final String? iconValue;
   final bool selected;
   final VoidCallback onTap;
 
@@ -440,13 +441,22 @@ class CategoryChipPill extends StatelessWidget {
             width: 1.5,
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: selected ? AppColors.blueDeep : AppColors.inkSoft,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (iconValue != null && iconValue!.trim().isNotEmpty) ...[
+              CategoryIcon(value: iconValue, size: 20, radius: 6, fallback: '•'),
+              const SizedBox(width: 7),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: selected ? AppColors.blueDeep : AppColors.inkSoft,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -867,5 +877,70 @@ class GuestPrompt extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<bool?> showLeaveAppDialog(BuildContext context) {
+  return showDialog<bool>(
+    context: context,
+    barrierDismissible: true,
+    builder: (ctx) => Dialog(
+      backgroundColor: AppColors.bgApp,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusLg)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Center(child: SanyujLogo(size: 72)),
+            const SizedBox(height: 18),
+            Text(
+              'Leave App?',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.nunito(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.ink),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Do you want to exit the application?',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13.5, color: AppColors.inkSoft, height: 1.45),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.inkSoft,
+                      side: const BorderSide(color: AppColors.line, width: 1.5),
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusMd)),
+                      textStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 14),
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.blueDeep,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusMd)),
+                      textStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 14),
+                    ),
+                    child: const Text('Leave'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 

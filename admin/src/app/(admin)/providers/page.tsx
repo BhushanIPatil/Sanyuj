@@ -10,6 +10,15 @@ import { Badge } from "@/components/ui/Badge";
 import { FilterBar, FilterField, FilterInput, FilterSelect } from "@/components/ui/FilterBar";
 import { TablePageSkeleton } from "@/components/ui/Skeleton";
 
+type CoverageRow = {
+  business_id: string;
+  pincode: string;
+  locality_id: string | null;
+  area_id: string | null;
+  localities: { name: string } | null;
+  areas: { name: string } | null;
+};
+
 type ProviderRow = {
   id: string;
   name: string;
@@ -30,6 +39,7 @@ type ProviderRow = {
 
 export default function ProvidersPage() {
   const [rows, setRows] = useState<ProviderRow[]>([]);
+  const [coverage, setCoverage] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
@@ -58,6 +68,34 @@ export default function ProvidersPage() {
         list = list.filter((r) => r.profiles?.pincode === pincode.trim());
       }
 
+      const ids = list.map((r) => r.id);
+      const labels: Record<string, string> = {};
+      if (ids.length) {
+        const { data: bsa } = await supabase
+          .from("business_service_areas")
+          .select("business_id, pincode, locality_id, area_id, localities(name), areas(name)")
+          .in("business_id", ids)
+          .eq("is_deleted", false);
+        const grouped = new Map<string, CoverageRow[]>();
+        for (const row of (bsa as unknown as CoverageRow[] | null) ?? []) {
+          const cur = grouped.get(row.business_id) ?? [];
+          cur.push(row);
+          grouped.set(row.business_id, cur);
+        }
+        for (const [id, items] of grouped) {
+          const pins = [...new Set(items.map((i) => i.pincode))];
+          labels[id] = pins
+            .map((pin) => {
+              const pinRows = items.filter((i) => i.pincode === pin);
+              if (pinRows.some((i) => !i.locality_id && !i.area_id)) return `${pin} (all)`;
+              const bits = pinRows.map((i) => i.areas?.name || i.localities?.name).filter(Boolean);
+              return bits.length ? `${pin}: ${bits.join(", ")}` : pin;
+            })
+            .join(" · ");
+        }
+      }
+
+      setCoverage(labels);
       setRows(list);
       setLoading(false);
     };
@@ -142,11 +180,18 @@ export default function ProvidersPage() {
             },
             {
               key: "location",
-              header: "Location",
+              header: "Owner location",
               render: (row) => (
                 <span className="text-ink-soft">
                   {locationLabel(row.profiles?.pincode ?? null, row.profiles?.locality ?? null)}
                 </span>
+              ),
+            },
+            {
+              key: "coverage",
+              header: "Service areas",
+              render: (row) => (
+                <span className="text-xs text-ink-soft">{coverage[row.id] || "—"}</span>
               ),
             },
             {

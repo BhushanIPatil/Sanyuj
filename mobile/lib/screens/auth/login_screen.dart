@@ -117,100 +117,116 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     };
 
     return Scaffold(
-      backgroundColor: AppColors.bgApp,
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-              children: [
-                const SanyujBrandRow(logoSize: 52),
-                const SizedBox(height: 22),
-                Text(title, style: GoogleFonts.nunito(fontSize: 23, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 8),
-                Text(sub, style: const TextStyle(fontSize: 13.5, color: AppColors.inkSoft, height: 1.5)),
-                const SizedBox(height: 22),
-                const FieldLabel('Mobile Number'),
-                PhoneInputBox(controller: _phone),
-                const SizedBox(height: 14),
-                const FieldLabel('Password'),
-                TextField(
-                  controller: _password,
-                  obscureText: _obscure,
-                  decoration: InputDecoration(
-                    hintText: '••••••••',
-                    suffixIcon: IconButton(
-                      onPressed: () => setState(() => _obscure = !_obscure),
-                      icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+      body: DecoratedBox(
+        decoration: const BoxDecoration(gradient: AppColors.logoGradient),
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                children: [
+                  const Center(child: SanyujLogo(size: 148, plated: false)),
+                  const SizedBox(height: 20),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(AppColors.radiusLg),
+                      boxShadow: AppColors.popShadow,
                     ),
-                  ),
-                ),
-                if (_mode != _AuthMode.login) ...[
-                  const SizedBox(height: 14),
-                  const FieldLabel('Confirm password'),
-                  TextField(
-                    controller: _confirm,
-                    obscureText: true,
-                    decoration: const InputDecoration(hintText: '••••••••'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(title, style: GoogleFonts.nunito(fontSize: 23, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 8),
+                        Text(sub, style: const TextStyle(fontSize: 13.5, color: AppColors.inkSoft, height: 1.5)),
+                        const SizedBox(height: 22),
+                        const FieldLabel('Mobile Number'),
+                        PhoneInputBox(controller: _phone),
+                        const SizedBox(height: 14),
+                        const FieldLabel('Password'),
+                        TextField(
+                          controller: _password,
+                          obscureText: _obscure,
+                          decoration: InputDecoration(
+                            hintText: '••••••••',
+                            suffixIcon: IconButton(
+                              onPressed: () => setState(() => _obscure = !_obscure),
+                              icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                            ),
+                          ),
+                        ),
+                        if (_mode != _AuthMode.login) ...[
+                          const SizedBox(height: 14),
+                          const FieldLabel('Confirm password'),
+                          TextField(
+                            controller: _confirm,
+                            obscureText: true,
+                            decoration: const InputDecoration(hintText: '••••••••'),
+                          ),
+                        ],
+                        if (_error != null) ...[
+                          const SizedBox(height: 12),
+                          Text(_error!, style: const TextStyle(color: AppColors.rose, fontWeight: FontWeight.w600, fontSize: 13)),
+                        ],
+                        const SizedBox(height: 22),
+                        PrimaryButton(
+                          label: _mode == _AuthMode.login
+                              ? 'Log in'
+                              : _mode == _AuthMode.restore
+                                  ? 'Restore account'
+                                  : 'Create account',
+                          loading: _loading,
+                          onPressed: _submit,
+                        ),
+                        const SizedBox(height: 14),
+                        if (_mode != _AuthMode.restore)
+                          Center(
+                            child: TextButton(
+                              onPressed: () => setState(() {
+                                _mode = _mode == _AuthMode.login ? _AuthMode.register : _AuthMode.login;
+                                _error = null;
+                              }),
+                              child: Text(
+                                _mode == _AuthMode.login
+                                    ? 'New here? Create an account'
+                                    : 'Already have an account? Log in',
+                                style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.blueDeep),
+                              ),
+                            ),
+                          ),
+                        Center(
+                          child: TextButton(
+                            onPressed: _continueAsGuest,
+                            child: const Text(
+                              'Continue as guest',
+                              style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.inkSoft),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          children: [
+                            const Text('By continuing you agree to Sanyuj\'s ', style: TextStyle(fontSize: 12, color: AppColors.inkFaint)),
+                            GestureDetector(
+                              onTap: () => launchUrl(Uri.parse(AppConfig.termsUrl)),
+                              child: const Text('Terms', style: TextStyle(fontSize: 12, color: AppColors.blueDeep, fontWeight: FontWeight.w700)),
+                            ),
+                            const Text(' & ', style: TextStyle(fontSize: 12, color: AppColors.inkFaint)),
+                            GestureDetector(
+                              onTap: () => launchUrl(Uri.parse(AppConfig.privacyUrl)),
+                              child: const Text('Privacy Policy', style: TextStyle(fontSize: 12, color: AppColors.blueDeep, fontWeight: FontWeight.w700)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  Text(_error!, style: const TextStyle(color: AppColors.rose, fontWeight: FontWeight.w600, fontSize: 13)),
-                ],
-                const SizedBox(height: 22),
-                PrimaryButton(
-                  label: _mode == _AuthMode.login
-                      ? 'Log in'
-                      : _mode == _AuthMode.restore
-                          ? 'Restore account'
-                          : 'Create account',
-                  loading: _loading,
-                  onPressed: _submit,
-                ),
-                const SizedBox(height: 14),
-                if (_mode != _AuthMode.restore)
-                  Center(
-                    child: TextButton(
-                      onPressed: () => setState(() {
-                        _mode = _mode == _AuthMode.login ? _AuthMode.register : _AuthMode.login;
-                        _error = null;
-                      }),
-                      child: Text(
-                        _mode == _AuthMode.login
-                            ? 'New here? Create an account'
-                            : 'Already have an account? Log in',
-                        style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.blueDeep),
-                      ),
-                    ),
-                  ),
-                Center(
-                  child: TextButton(
-                    onPressed: _continueAsGuest,
-                    child: const Text(
-                      'Continue as guest',
-                      style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.inkSoft),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  children: [
-                    const Text('By continuing you agree to Sanyuj\'s ', style: TextStyle(fontSize: 12, color: AppColors.inkFaint)),
-                    GestureDetector(
-                      onTap: () => launchUrl(Uri.parse(AppConfig.termsUrl)),
-                      child: const Text('Terms', style: TextStyle(fontSize: 12, color: AppColors.blueDeep, fontWeight: FontWeight.w700)),
-                    ),
-                    const Text(' & ', style: TextStyle(fontSize: 12, color: AppColors.inkFaint)),
-                    GestureDetector(
-                      onTap: () => launchUrl(Uri.parse(AppConfig.privacyUrl)),
-                      child: const Text('Privacy Policy', style: TextStyle(fontSize: 12, color: AppColors.blueDeep, fontWeight: FontWeight.w700)),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         ),

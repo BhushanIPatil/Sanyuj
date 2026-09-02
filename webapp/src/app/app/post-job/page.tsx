@@ -13,6 +13,8 @@ import { CategoryPicker } from "@/components/CategoryPicker";
 import { useToast } from "@/components/Toast";
 import { GuestCta } from "@/components/GuestCta";
 import { LocalityPicker } from "@/components/LocalityPicker";
+import { AreaPicker } from "@/components/AreaPicker";
+import { assertAreaIfRequired } from "@/lib/geo/areas";
 
 export default function PostJobPage() {
   const router = useRouter();
@@ -25,6 +27,9 @@ export default function PostJobPage() {
   const [urgency, setUrgency] = useState<"today" | "this_week" | "flexible">("today");
   const [pincode, setPincode] = useState("");
   const [locality, setLocality] = useState("");
+  const [areaId, setAreaId] = useState("");
+  const [areaName, setAreaName] = useState("");
+  const [areaRequired, setAreaRequired] = useState(false);
   const [loading, setLoading] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [guest, setGuest] = useState(false);
@@ -41,11 +46,13 @@ export default function PostJobPage() {
           return;
         }
         const [{ data: prof }, groups] = await Promise.all([
-          visible(supabase.from("profiles").select("pincode, locality")).eq("id", user.id).single(),
+          visible(supabase.from("profiles").select("pincode, locality, area, area_id")).eq("id", user.id).single(),
           fetchCategoryTree(supabase),
         ]);
         setPincode(prof?.pincode ?? "");
         setLocality(prof?.locality ?? "");
+        setAreaId(prof?.area_id ?? "");
+        setAreaName(prof?.area ?? "");
         setTree(groups);
         const first = groups[0]?.categories[0];
         if (first) setCategoryId(first.id);
@@ -67,6 +74,8 @@ export default function PostJobPage() {
       if (!pincode) throw new Error("Set your pincode in profile first");
       if (!locality.trim()) throw new Error("Select a locality for this job");
       if (!description.trim()) throw new Error("Describe what you need");
+      await assertAreaIfRequired(supabase, pincode, locality, areaId);
+      if (areaRequired && !areaId) throw new Error("Select an area / colony for this job");
       if (!categoryId) throw new Error("Select a category");
 
       const catName =
@@ -84,6 +93,8 @@ export default function PostJobPage() {
         urgency,
         pincode,
         locality: locality.trim(),
+        area_id: areaId || null,
+        area: areaName || null,
         is_active: true,
         is_deleted: false,
       });
@@ -208,7 +219,30 @@ export default function PostJobPage() {
             readOnly
           />
           <label className="mb-2 mt-4 block text-xs font-bold">Locality</label>
-          <LocalityPicker pincode={pincode} value={locality} onChange={setLocality} />
+          <LocalityPicker
+            pincode={pincode}
+            value={locality}
+            onChange={(next) => {
+              setLocality(next);
+              setAreaId("");
+              setAreaName("");
+            }}
+          />
+          {locality ? (
+            <>
+              <label className="mb-2 mt-4 block text-xs font-bold">Area / colony</label>
+              <AreaPicker
+                pincode={pincode}
+                locality={locality}
+                value={areaId}
+                onChange={(id, name) => {
+                  setAreaId(id);
+                  setAreaName(name);
+                }}
+                onAvailabilityChange={setAreaRequired}
+              />
+            </>
+          ) : null}
         </>
       ) : (
         <div className="flex items-center gap-2.5 rounded-[18px] bg-cyan-soft px-3.5 py-3 text-xs font-bold text-blue-deep">
@@ -216,7 +250,7 @@ export default function PostJobPage() {
         </div>
       )}
 
-      <button className="btn-primary mt-6" disabled={loading} onClick={() => void submit()}>
+      <button className="btn-primary mt-6" disabled={loading || (areaRequired && !areaId)} onClick={() => void submit()}>
         {loading ? "Posting…" : "Post Job to nearby providers"}
       </button>
     </div>

@@ -19,6 +19,7 @@ type Job = {
   budget_max: number | null;
   pincode: string;
   locality: string | null;
+  area: string | null;
   categories: { id: string; name: string; slug: string } | null;
 };
 
@@ -45,7 +46,7 @@ export default function ProviderJobDetailPage() {
 
       const { data: j } = await visible(
         supabase.from("jobs").select(
-          "id, title, description, urgency, budget_min, budget_max, pincode, locality, categories(id, name, slug)",
+          "id, title, description, urgency, budget_min, budget_max, pincode, locality, area, categories(id, name, slug)",
         ),
       )
         .eq("id", id)
@@ -103,7 +104,7 @@ export default function ProviderJobDetailPage() {
         </Link>
         <div>
           <p className="eyebrow">
-            Job request · {locationLabel({ locality: job.locality, pincode: job.pincode })}
+            Job request · {locationLabel({ area: job.area, locality: job.locality, pincode: job.pincode })}
           </p>
           <h1 className="font-display text-[17px] font-bold">{job.title.slice(0, 36)}</h1>
         </div>
@@ -112,7 +113,7 @@ export default function ProviderJobDetailPage() {
       <div className="rounded-[26px] border border-line bg-white p-4.5 shadow-card">
         <p className="eyebrow">
           {categoryDisplayName(job.categories)} ·{" "}
-          {locationLabel({ locality: job.locality, pincode: job.pincode })}
+          {locationLabel({ area: job.area, locality: job.locality, pincode: job.pincode })}
         </p>
         <h2 className="mt-1.5 font-display text-[16.5px] font-bold leading-snug">{job.title}</h2>
         <p className="mt-2 text-[12.5px] leading-relaxed text-ink-soft">{job.description}</p>
@@ -125,7 +126,7 @@ export default function ProviderJobDetailPage() {
               "Budget",
             ],
             [job.urgency.replace("_", " "), "Timeline"],
-            [locationLabel({ locality: job.locality, pincode: job.pincode }), "Area"],
+            [locationLabel({ area: job.area, locality: job.locality, pincode: job.pincode }), "Area"],
           ].map(([v, l]) => (
             <div key={l} className="flex-1 rounded-[12px] bg-surface p-2.5 text-center">
               <div className="font-mono text-[13.5px] font-bold capitalize">{v}</div>

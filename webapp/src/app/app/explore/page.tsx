@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { MapPinned } from "lucide-react";
+import { Suspense, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { visible } from "@/lib/db/visible";
 import {
@@ -14,11 +13,11 @@ import {
   type CategoryTreeGroup,
 } from "@/lib/categories";
 import { CategoryIcon } from "@/components/CategoryIcon";
-import { ProvidersMapModal, type MapProvider } from "@/components/ProvidersMapModal";
 import { useToast } from "@/components/Toast";
 import { ExplorePageSkeleton, SkeletonProviderRow } from "@/components/ui/Skeleton";
 import { displayPhone } from "@/lib/auth/phone";
 import { loginUrl } from "@/lib/auth/guest";
+import { fetchCoveringBusinessIds } from "@/lib/geo/coverage";
 
 type OwnerProfile = {
   id: string;
@@ -54,7 +53,6 @@ function ExploreInner() {
   const [items, setItems] = useState<Biz[]>([]);
   const [pincode, setPincode] = useState<string | null>(null);
   const [signedIn, setSignedIn] = useState(false);
-  const [mapOpen, setMapOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -69,8 +67,14 @@ function ExploreInner() {
 
         const [profRes, groups] = await Promise.all([
           user
-            ? visible(supabase.from("profiles").select("pincode")).eq("id", user.id).single()
-            : Promise.resolve({ data: { pincode: null } as { pincode: string | null } | null }),
+            ? visible(supabase.from("profiles").select("pincode, locality_id, area_id")).eq("id", user.id).single()
+            : Promise.resolve({
+                data: { pincode: null, locality_id: null, area_id: null } as {
+                  pincode: string | null;
+                  locality_id: string | null;
+                  area_id: string | null;
+                } | null,
+              }),
           fetchCategoryTree(supabase),
         ]);
         setPincode(profRes.data?.pincode ?? null);
@@ -83,6 +87,21 @@ function ExploreInner() {
           supabase.from("businesses").select("id, name, rating, owner_id, categories(id, name, slug, emoji)"),
         );
         if (selected) query = query.eq("category_id", selected.id);
+
+        const userPin = profRes.data?.pincode;
+        if (userPin) {
+          const covering = await fetchCoveringBusinessIds(supabase, {
+            pincode: userPin,
+            localityId: profRes.data?.locality_id,
+            areaId: profRes.data?.area_id,
+          });
+          if (!covering.length) {
+            setItems([]);
+            return;
+          }
+          query = query.in("id", covering);
+        }
+
         const { data: all } = await query.order("rating", { ascending: false }).limit(40);
 
         if (!all?.length) {
@@ -113,19 +132,7 @@ function ExploreInner() {
           } satisfies Biz;
         });
 
-        const userPin = profRes.data?.pincode;
-        if (!userPin) {
-          setItems(withAddr);
-          return;
-        }
-
-        const pinSet = new Set(
-          [...byOwner.values()]
-            .filter((p) => p.pincode === userPin)
-            .map((p) => p.id),
-        );
-        const filtered = withAddr.filter((b) => pinSet.has(b.owner_id));
-        setItems(filtered.length ? filtered : withAddr);
+        setItems(withAddr);
       } finally {
         setLoading(false);
       }
@@ -143,22 +150,6 @@ function ExploreInner() {
 
   const sorted = [...filtered].sort((a, b) =>
     sort === "rated" ? b.rating - a.rating : a.name.localeCompare(b.name),
-  );
-
-  const mapProviders: MapProvider[] = useMemo(
-    () =>
-      sorted.map((b) => ({
-        id: b.id,
-        name: b.name,
-        providerName: b.providerName,
-        rating: b.rating,
-        phone: b.phone,
-        address: b.address,
-        lat: b.lat,
-        lng: b.lng,
-        categories: b.categories,
-      })),
-    [sorted],
   );
 
   if (loading && !tree.length) return <ExplorePageSkeleton />;
@@ -297,7 +288,7 @@ function ExploreInner() {
           </div>
 
           {!sorted.length ? (
-            <p className="py-10 text-center text-sm text-ink-soft">No providers found.</p>
+            <p className="py-10 text-center text-sm text-ink-soft">No providers in this area yet.</p>
           ) : null}
         </>
       )}
@@ -313,22 +304,6 @@ function ExploreInner() {
           {signedIn ? "Post a Job" : "Log in to post a job"}
         </Link>
       </div>
-
-      {/* Floating map button — sits above mobile bottom nav */}
-      <button
-        type="button"
-        aria-label="Open providers map"
-        onClick={() => setMapOpen(true)}
-        className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full grad-hero text-white shadow-pop transition hover:scale-105 active:scale-95 lg:bottom-8 lg:right-8"
-      >
-        <MapPinned size={22} strokeWidth={2.2} />
-      </button>
-
-      <ProvidersMapModal
-        open={mapOpen}
-        onClose={() => setMapOpen(false)}
-        providers={mapProviders}
-      />
     </div>
   );
 }

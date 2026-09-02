@@ -39,10 +39,14 @@ class AppColors {
     colors: [blue, green],
   );
 
-  static const bizBannerGradient = LinearGradient(
+  static const logoGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFE1F9EE), Color(0xFFE6F2FE)],
+    colors: [
+      Color(0xFF10549C),
+      Color(0xFF0E8094),
+      Color(0xFF12966C),
+    ],
   );
 
   static List<BoxShadow> get cardShadow => [
@@ -63,7 +67,7 @@ class AppColors {
 
   static List<BoxShadow> get ctaShadow => [
         BoxShadow(
-          color: const Color(0xFF1F8E7B).withValues(alpha: 0.30),
+          color: const Color(0xFF1D5FA0).withValues(alpha: 0.30),
           blurRadius: 22,
           offset: const Offset(0, 10),
         ),

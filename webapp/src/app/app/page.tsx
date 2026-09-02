@@ -19,11 +19,15 @@ import { loginUrl } from "@/lib/auth/guest";
 import { Bell, RefreshCw } from "lucide-react";
 import { jobStatusLabel } from "@/lib/jobs/status";
 import { locationLabel } from "@/lib/geo/display";
+import { fetchCoveringBusinessIds } from "@/lib/geo/coverage";
 
 type Profile = {
   full_name: string | null;
   pincode: string | null;
   locality: string | null;
+  locality_id: string | null;
+  area: string | null;
+  area_id: string | null;
   address: string | null;
 };
 
@@ -185,7 +189,7 @@ export default function HomePage() {
         let prof: Profile | null = null;
         if (user) {
           const { data } = await visible(
-            supabase.from("profiles").select("full_name, pincode, locality, address"),
+            supabase.from("profiles").select("full_name, pincode, locality, locality_id, area, area_id, address"),
           )
             .eq("id", user.id)
             .single();
@@ -207,24 +211,26 @@ export default function HomePage() {
 
         await loadLiveNearby(prof?.pincode);
 
-        const { data: allBiz } = await visible(
-          supabase.from("businesses").select("id, name, rating, owner_id, categories(id, name, slug, emoji)"),
-        ).limit(40);
-        if (allBiz?.length) {
-          const { data: owners } = await visible(supabase.from("profiles").select("id, pincode")).in(
-            "id",
-            allBiz.map((b: { owner_id: string }) => b.owner_id),
-          );
-          const pin = prof?.pincode;
-          const pinOwners = new Set(
-            (owners ?? [])
-              .filter((o: { id: string; pincode: string | null }) => !pin || o.pincode === pin)
-              .map((o: { id: string }) => o.id),
-          );
-          const near = pin
-            ? allBiz.filter((b: { owner_id: string }) => pinOwners.has(b.owner_id)).slice(0, 6)
-            : allBiz.slice(0, 6);
-          setNearby(((near.length ? near : allBiz.slice(0, 6)) as unknown as NearbyBiz[]) ?? []);
+        const bizSelect = "id, name, rating, owner_id, categories(id, name, slug, emoji)";
+        const pin = prof?.pincode;
+        if (!pin) {
+          const { data: allBiz } = await visible(supabase.from("businesses").select(bizSelect)).limit(6);
+          setNearby((allBiz as unknown as NearbyBiz[]) ?? []);
+        } else {
+          const covering = await fetchCoveringBusinessIds(supabase, {
+            pincode: pin,
+            localityId: prof?.locality_id,
+            areaId: prof?.area_id,
+          });
+          if (!covering.length) {
+            setNearby([]);
+          } else {
+            const { data: nearbyBiz } = await visible(supabase.from("businesses").select(bizSelect))
+              .in("id", covering)
+              .order("rating", { ascending: false })
+              .limit(6);
+            setNearby((nearbyBiz as unknown as NearbyBiz[]) ?? []);
+          }
         }
 
         if (user) {
@@ -252,6 +258,7 @@ export default function HomePage() {
   const displayAddress = isGuest
     ? "Browsing as guest"
     : locationLabel({
+        area: profile?.area,
         locality: profile?.locality,
         pincode: profile?.pincode,
         address: profile?.address,
@@ -282,7 +289,7 @@ export default function HomePage() {
         </button>
       </header>
 
-      <HomeAds />
+      <HomeAds pincode={profile?.pincode} localityId={profile?.locality_id} areaId={profile?.area_id} />
 
       <div className="mt-8 flex items-start justify-between gap-3">
         <div>
@@ -458,7 +465,7 @@ export default function HomePage() {
           <h2 className="font-display text-lg font-bold">Nearby providers</h2>
           <div className="mt-4 space-y-3">
             {nearby.length === 0 ? (
-              <p className="text-sm text-ink-soft">No listed businesses in your pincode yet.</p>
+              <p className="text-sm text-ink-soft">No providers in this area yet.</p>
             ) : (
               nearby.map((b) => (
                 <div

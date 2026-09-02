@@ -22,7 +22,7 @@ export default function LandingPage() {
         }`}
       >
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-          <SanyujBrand href="/" size={52} priority />
+          <SanyujBrand href="/" size={56} priority />
           <Link
             href="/auth/login"
             className="rounded-full grad-hero px-5 py-2.5 text-sm font-bold text-white shadow-card"

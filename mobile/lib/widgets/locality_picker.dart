@@ -24,6 +24,7 @@ class _LocalityPickerState extends State<LocalityPicker> {
   List<PostalLocality> _localities = [];
   bool _loading = false;
   String? _error;
+  bool _fromCache = false;
 
   @override
   void didUpdateWidget(covariant LocalityPicker oldWidget) {
@@ -45,6 +46,7 @@ class _LocalityPickerState extends State<LocalityPicker> {
         _localities = [];
         _error = null;
         _loading = false;
+        _fromCache = false;
       });
       if (widget.value != null) widget.onChanged(null);
       return;
@@ -53,25 +55,32 @@ class _LocalityPickerState extends State<LocalityPicker> {
     setState(() {
       _loading = true;
       _error = null;
+      _fromCache = false;
     });
     try {
-      final list = await fetchLocalitiesForPincode(widget.pincode);
+      final cached = await fetchCachedLocalities(widget.pincode);
+      List<PostalLocality> list;
+      var fromCache = false;
+      try {
+        list = await fetchLocalitiesForPincode(widget.pincode);
+        fromCache = cached.isNotEmpty && list.every((l) => cached.any((c) => c.name == l.name)) && cached.length == list.length;
+      } catch (_) {
+        list = cached;
+        fromCache = cached.isNotEmpty;
+        if (list.isEmpty) rethrow;
+      }
       if (!mounted) return;
       setState(() {
         _localities = list;
         _loading = false;
+        _fromCache = fromCache;
       });
-      if (widget.value != null && !list.any((l) => l.name == widget.value)) {
-        widget.onChanged(null);
-      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _localities = [];
         _loading = false;
         _error = e.toString().replaceFirst('Exception: ', '');
       });
-      if (widget.value != null) widget.onChanged(null);
     }
   }
 
@@ -100,7 +109,12 @@ class _LocalityPickerState extends State<LocalityPicker> {
       );
     }
 
-    if (_error != null) {
+    final options = [..._localities];
+    if (widget.value != null && widget.value!.isNotEmpty && !options.any((l) => l.name == widget.value)) {
+      options.insert(0, PostalLocality(name: widget.value!));
+    }
+
+    if (_error != null && options.isEmpty) {
       return Padding(
         padding: const EdgeInsets.only(top: 6),
         child: Text(_error!, style: const TextStyle(fontSize: 12, color: AppColors.rose)),
@@ -112,12 +126,10 @@ class _LocalityPickerState extends State<LocalityPicker> {
       children: [
         const FieldLabel('Locality'),
         DropdownButtonFormField<String>(
-          value: widget.value != null && _localities.any((l) => l.name == widget.value)
-              ? widget.value
-              : null,
+          value: widget.value != null && options.any((l) => l.name == widget.value) ? widget.value : null,
           decoration: const InputDecoration(hintText: 'Select your locality'),
           items: [
-            for (final l in _localities)
+            for (final l in options)
               DropdownMenuItem(
                 value: l.name,
                 child: Text(
@@ -128,6 +140,14 @@ class _LocalityPickerState extends State<LocalityPicker> {
           ],
           onChanged: widget.onChanged,
         ),
+        if (_fromCache)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text(
+              'Showing saved localities while postal lookup is unavailable.',
+              style: TextStyle(fontSize: 11, color: AppColors.inkSoft),
+            ),
+          ),
       ],
     );
   }

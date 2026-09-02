@@ -9,6 +9,7 @@ import '../../models/models.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
 import '../../widgets/common.dart';
+import '../../widgets/ad_detail_sheet.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -42,7 +43,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final groups = await repo.fetchCategoryTree();
       final recent = await repo.fetchMyJobs();
       final business = await repo.fetchMyBusiness();
-      final ads = await repo.fetchAds().catchError((_) => <AdBanner>[]);
+      final ads = await repo
+          .fetchAds(
+            pincode: profile?.pincode,
+            localityId: profile?.localityId,
+            areaId: profile?.areaId,
+          )
+          .catchError((_) => <AdBanner>[]);
       final live = await repo.fetchLiveSessions(profile?.pincode);
       if (!mounted) return;
       setState(() {
@@ -98,18 +105,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  Future<void> _openAd(AdBanner ad) async {
-    final url = ad.ctaUrl?.trim();
-    if (url == null || url.isEmpty) return;
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      return;
-    }
-    if (url.contains('explore')) {
-      context.go('/explore');
-    } else if (url.contains('post-job') || url.contains('post_job')) {
-      context.push(ref.read(repoProvider).userId == null ? '/login?next=/post-job' : '/post-job');
-    }
+  Future<void> _showAd(AdBanner ad) async {
+    await ref.read(repoProvider).recordAdClick(ad.id);
+    if (!mounted) return;
+    final isGuest = ref.read(repoProvider).userId == null;
+    await showAdDetailSheet(
+      context,
+      ad: ad,
+      onCta: (ad.ctaUrl ?? '').trim().isEmpty
+          ? null
+          : () => openAdCta(
+                context,
+                ad,
+                isGuest: isGuest,
+                goTo: (path) {
+                  if (path.startsWith('/login')) {
+                    context.push(path);
+                  } else if (path == '/explore') {
+                    context.go(path);
+                  } else {
+                    context.push(path);
+                  }
+                },
+              ),
+    );
   }
 
   @override
@@ -124,7 +143,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final firstName = isGuest ? 'there' : (_profile?.fullName?.split(' ').first ?? 'there');
     final location = isGuest
         ? 'Browsing as guest'
-        : locationLabel(locality: _profile?.locality, pincode: _profile?.pincode, address: _profile?.address);
+        : locationLabel(area: _profile?.area, locality: _profile?.locality, pincode: _profile?.pincode, address: _profile?.address);
     final closedCount = _recent.where((j) => j.status == 'closed').length;
     final closedPct = _recent.isEmpty ? 0 : ((closedCount / _recent.length) * 100).round();
 
@@ -139,27 +158,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Row(
               children: [
                 AvatarBadge(
-                  label: initials(_profile?.fullName),
+                  label: isGuest ? 'S' : initials(_profile?.fullName),
                   size: 42,
                   radius: 14,
-                  background: AppColors.indigoSoft,
-                  foreground: AppColors.indigo,
+                  background: AppColors.blueSoft,
+                  foreground: AppColors.blueDeep,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Hi, $firstName 👋', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 1),
-                      Text(
-                        location.isEmpty
-                            ? (isGuest ? 'Browsing as guest' : 'Set your location in profile')
-                            : location,
-                        style: const TextStyle(fontSize: 11.5, color: AppColors.inkSoft, height: 1.35),
-                      ),
-                    ],
-                  ),
+                  child: isGuest
+                      ? Align(
+                          alignment: Alignment.centerLeft,
+                          child: Material(
+                            color: AppColors.blueDeep,
+                            borderRadius: BorderRadius.circular(100),
+                            child: InkWell(
+                              onTap: () => context.push('/login'),
+                              borderRadius: BorderRadius.circular(100),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                child: Text(
+                                  'Log in',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13.5),
+                                ),
+                              ),
+                            ),
+                          ),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Hi, $firstName 👋', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                            const SizedBox(height: 1),
+                            Text(
+                              location.isEmpty ? 'Set your location in profile' : location,
+                              style: const TextStyle(fontSize: 11.5, color: AppColors.inkSoft, height: 1.35),
+                            ),
+                          ],
+                        ),
                 ),
                 Container(
                   width: 40,
@@ -176,32 +212,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
 
-          if (isGuest)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              child: SoftCard(
-                onTap: () => context.push('/login'),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                child: const Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Browsing as guest · Log in to post a job',
-                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.blueDeep),
-                      ),
-                    ),
-                    Icon(Icons.arrow_forward_rounded, size: 16, color: AppColors.blueDeep),
-                  ],
-                ),
-              ),
-            ),
-
           if (_ads.isNotEmpty) ...[
             const SizedBox(height: 10),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: SizedBox(
-                height: 148,
+                height: adBannerHeight,
                 child: PageView.builder(
                   itemCount: _ads.length,
                   onPageChanged: (i) => setState(() => _adIndex = i),
@@ -209,31 +225,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     final ad = _ads[i];
                     final imageUrl = ad.imageUrl?.trim();
                     return GestureDetector(
-                      onTap: () => _openAd(ad),
+                      onTap: () => _showAd(ad),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(AppColors.radiusLg),
-                        child: imageUrl != null && imageUrl.isNotEmpty
-                            ? Image.network(
-                                imageUrl,
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                height: double.infinity,
-                                errorBuilder: (_, _, _) => _AdFallback(ad: ad),
-                                loadingBuilder: (context, child, progress) {
-                                  if (progress == null) return child;
-                                  return Container(
-                                    color: AppColors.surface,
-                                    child: const Center(
-                                      child: SizedBox(
-                                        width: 22,
-                                        height: 22,
-                                        child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.blueDeep),
+                        borderRadius: BorderRadius.circular(adBannerRadius),
+                        child: ColoredBox(
+                          color: AppColors.surface,
+                          child: imageUrl != null && imageUrl.isNotEmpty
+                              ? Image.network(
+                                  imageUrl,
+                                  fit: BoxFit.contain,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                  alignment: Alignment.center,
+                                  errorBuilder: (_, _, _) => _AdFallback(ad: ad),
+                                  loadingBuilder: (context, child, progress) {
+                                    if (progress == null) return child;
+                                    return Container(
+                                      color: AppColors.surface,
+                                      child: const Center(
+                                        child: SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.blueDeep),
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                },
-                              )
-                            : _AdFallback(ad: ad),
+                                    );
+                                  },
+                                )
+                              : _AdFallback(ad: ad),
+                        ),
                       ),
                     );
                   },
@@ -263,38 +283,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(AppColors.radiusMd),
-                border: Border.all(color: AppColors.line, width: 1.5),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(color: AppColors.blueSoft, borderRadius: BorderRadius.circular(11)),
-                    child: const Icon(Icons.campaign_outlined, size: 17, color: AppColors.blueDeep),
+            child: Material(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(100),
+              child: InkWell(
+                onTap: () => launchUrl(Uri.parse('mailto:support@sanyuj.app?subject=Banner%20ad%20on%20Sanyuj')),
+                borderRadius: BorderRadius.circular(100),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(color: AppColors.line, width: 1.5),
                   ),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Want your business featured here?', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
-                        SizedBox(height: 1),
-                        Text('Reach nearby customers with a banner ad.', style: TextStyle(fontSize: 11, color: AppColors.inkSoft, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.campaign_outlined, size: 16, color: AppColors.blueDeep),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Want your business featured here?',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Contact →',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.blueDeep),
+                      ),
+                    ],
                   ),
-                  TextButton(
-                    onPressed: () => launchUrl(Uri.parse('mailto:support@sanyuj.app?subject=Banner%20ad%20on%20Sanyuj')),
-                    style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                    child: const Text('Contact →', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.blueDeep)),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -515,7 +535,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: Ink(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      gradient: AppColors.bizBannerGradient,
+                      color: AppColors.greenSoft,
                       borderRadius: BorderRadius.circular(AppColors.radiusLg),
                       border: Border.all(color: AppColors.green.withValues(alpha: 0.15)),
                     ),
@@ -559,7 +579,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Container(
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  gradient: AppColors.heroGradient,
+                  color: AppColors.blueDeep,
                   borderRadius: BorderRadius.circular(AppColors.radiusLg),
                   boxShadow: [
                     BoxShadow(
@@ -647,7 +667,7 @@ class _AdFallback extends StatelessWidget {
     return Container(
       width: double.infinity,
       height: double.infinity,
-      decoration: const BoxDecoration(gradient: AppColors.heroGradient),
+      decoration: const BoxDecoration(color: AppColors.blueDeep),
       padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

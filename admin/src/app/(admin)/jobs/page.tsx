@@ -16,6 +16,7 @@ type JobRow = {
   status: string;
   pincode: string;
   locality: string | null;
+  area: string | null;
   budget_min: number | null;
   budget_max: number | null;
   created_at: string;
@@ -42,7 +43,7 @@ export default function JobsPage() {
       let query = supabase
         .from("jobs")
         .select(
-          "id, title, status, pincode, locality, budget_min, budget_max, created_at, closed_with_business_id, categories(name), profiles(full_name, phone), businesses(name)",
+          "id, title, status, pincode, locality, area, budget_min, budget_max, created_at, closed_with_business_id, categories(name), profiles(full_name, phone), businesses(name)",
         )
         .order("created_at", { ascending: false })
         .limit(500);
@@ -141,7 +142,7 @@ export default function JobsPage() {
               key: "location",
               header: "Location",
               render: (row) => (
-                <span className="text-ink-soft">{locationLabel(row.pincode, row.locality)}</span>
+                <span className="text-ink-soft">{locationLabel(row.pincode, row.locality, row.area)}</span>
               ),
             },
             {

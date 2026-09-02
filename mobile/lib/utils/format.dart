@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+
 String? normalizePhone(String raw) {
   final digits = raw.replaceAll(RegExp(r'\D'), '');
   if (digits.length == 10) return '+91$digits';
@@ -58,13 +60,15 @@ String addressWithPincode(String? address, String? pincode) {
   return '$addr, $pin';
 }
 
-String locationLabel({String? locality, String? pincode, String? address}) {
+String locationLabel({String? area, String? locality, String? pincode, String? address}) {
+  final colony = area?.trim() ?? '';
   final loc = locality?.trim() ?? '';
   final pin = pincode?.trim() ?? '';
   final addr = address?.trim() ?? '';
+  final place = [colony, loc].where((v) => v.isNotEmpty).join(', ');
 
-  if (loc.isNotEmpty && pin.isNotEmpty) return '$loc, $pin';
-  if (loc.isNotEmpty) return loc;
+  if (place.isNotEmpty && pin.isNotEmpty) return '$place, $pin';
+  if (place.isNotEmpty) return place;
   if (addr.isNotEmpty) return addressWithPincode(addr, pin);
   return pin;
 }
@@ -74,4 +78,9 @@ bool isCategoryImageUrl(String? value) {
   if (value == null || value.trim().isEmpty) return false;
   return RegExp(r'^(https?:\/\/|\/\/|\/|data:image\/)', caseSensitive: false)
       .hasMatch(value.trim());
+}
+
+String formatAdDate(DateTime? dt) {
+  if (dt == null) return 'Not set';
+  return DateFormat('d MMM yyyy').format(dt.toLocal());
 }

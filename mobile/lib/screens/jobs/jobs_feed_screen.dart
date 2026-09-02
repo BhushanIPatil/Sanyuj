@@ -36,7 +36,9 @@ class _JobsFeedScreenState extends ConsumerState<JobsFeedScreen> {
       final profile = await repo.fetchProfile();
       final business = await repo.fetchMyBusiness();
       final pin = profile?.pincode;
-      final jobs = pin == null || pin.isEmpty ? <Job>[] : await repo.fetchOpenJobsNearby(pin);
+      final jobs = business == null
+          ? <Job>[]
+          : await repo.fetchOpenJobsForBusiness(business.id, categoryId: business.category?.id);
       if (!mounted) return;
       setState(() {
         _pincode = pin;
@@ -92,7 +94,7 @@ class _JobsFeedScreenState extends ConsumerState<JobsFeedScreen> {
               child: Container(
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  gradient: AppColors.heroGradient,
+                  color: AppColors.blueDeep,
                   borderRadius: BorderRadius.circular(AppColors.radiusLg),
                   boxShadow: [
                     BoxShadow(
@@ -209,9 +211,11 @@ class _JobsFeedScreenState extends ConsumerState<JobsFeedScreen> {
             SoftCard(
               margin: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
-                _pincode == null
-                    ? 'Add a pincode in your profile to see nearby jobs.'
-                    : 'No open jobs in your area right now.',
+                _business == null
+                    ? 'Set up your business and service areas to see matching jobs.'
+                    : _pincode == null
+                    ? 'Add a pincode in your profile to go live near customers.'
+                    : 'No open jobs in your service area right now.',
                 style: const TextStyle(color: AppColors.inkSoft),
               ),
             )
@@ -253,7 +257,7 @@ class _JobsFeedScreenState extends ConsumerState<JobsFeedScreen> {
                         const SizedBox(width: 14),
                         const Text('📍 ', style: TextStyle(fontSize: 11)),
                         Text(
-                          locationLabel(locality: j.locality, pincode: j.pincode),
+                          locationLabel(area: j.area, locality: j.locality, pincode: j.pincode),
                           style: monoStyle(fontSize: 11, color: AppColors.inkSoft),
                         ),
                       ],

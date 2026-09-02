@@ -16,18 +16,22 @@ Future<void> main() async {
     publishableKey: AppConfig.supabaseAnonKey,
   );
 
-  runApp(const ProviderScope(child: SanyujApp()));
+  final initialRoute = await resolveInitialRoute();
+
+  runApp(ProviderScope(child: SanyujApp(initialRoute: initialRoute)));
 }
 
 class SanyujApp extends StatefulWidget {
-  const SanyujApp({super.key});
+  const SanyujApp({super.key, required this.initialRoute});
+
+  final String initialRoute;
 
   @override
   State<SanyujApp> createState() => _SanyujAppState();
 }
 
 class _SanyujAppState extends State<SanyujApp> {
-  late final _router = createRouter();
+  late final _router = createRouter(initialLocation: widget.initialRoute);
 
   @override
   Widget build(BuildContext context) {

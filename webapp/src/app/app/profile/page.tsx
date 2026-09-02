@@ -17,6 +17,7 @@ type Profile = {
   phone: string;
   pincode: string | null;
   locality: string | null;
+  area: string | null;
   address: string | null;
   current_address: string | null;
 };
@@ -156,6 +157,7 @@ export default function ProfilePage() {
             <p className="text-[10.5px] font-bold uppercase tracking-wide text-ink-soft">Location</p>
             <p className="mt-1 text-sm font-semibold leading-snug">
               {locationLabel({
+                area: profile?.area,
                 locality: profile?.locality,
                 pincode: profile?.pincode,
                 address: profile?.address,
@@ -229,10 +231,10 @@ export default function ProfilePage() {
           </div>
           <div className="mt-3.5 flex gap-2.5">
             <Link
-              href="/app/my-interests"
+              href="/app/business/coverage"
               className="flex-1 rounded-full border-[1.5px] border-line bg-white py-2.5 text-center text-[11.5px] font-bold"
             >
-              My Interests
+              Service areas
             </Link>
             <Link
               href="/app/jobs-feed"
@@ -276,7 +278,7 @@ export default function ProfilePage() {
         <button
           type="button"
           onClick={() => void logout()}
-          className="flex w-full items-center px-4 py-4 text-left text-[13px] font-semibold text-rose"
+          className="flex w-full cursor-pointer items-center px-4 py-4 text-left text-[13px] font-semibold text-rose"
         >
           Log out
         </button>
@@ -294,7 +296,7 @@ export default function ProfilePage() {
               type="button"
               disabled={deleting}
               onClick={() => void deleteAccount()}
-              className="flex-1 rounded-full bg-rose py-2.5 text-[12px] font-bold text-white disabled:opacity-60"
+              className="flex-1 cursor-pointer rounded-full bg-rose py-2.5 text-[12px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {deleting ? "Deleting…" : "Yes, delete my account"}
             </button>
@@ -302,7 +304,7 @@ export default function ProfilePage() {
               type="button"
               disabled={deleting}
               onClick={() => setConfirmDelete(false)}
-              className="flex-1 rounded-full border-[1.5px] border-line bg-white py-2.5 text-[12px] font-bold"
+              className="flex-1 cursor-pointer rounded-full border-[1.5px] border-line bg-white py-2.5 text-[12px] font-bold disabled:cursor-not-allowed disabled:opacity-60"
             >
               Cancel
             </button>
@@ -311,7 +313,7 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
-            className="mt-3 w-full rounded-full border-[1.5px] border-rose bg-white py-2.5 text-[12px] font-bold text-rose"
+            className="mt-3 w-full cursor-pointer rounded-full border-[1.5px] border-rose bg-white py-2.5 text-[12px] font-bold text-rose"
           >
             Delete my account
           </button>

@@ -25,10 +25,11 @@ export function formatBudget(min: number | null, max: number | null) {
   return `Up to ₹${max!.toLocaleString()}`;
 }
 
-export function locationLabel(pincode: string | null, locality: string | null) {
-  if (locality && pincode) return `${locality}, ${pincode}`;
+export function locationLabel(pincode: string | null, locality: string | null, area?: string | null) {
+  const place = [area, locality].filter((v) => v?.trim()).join(", ");
+  if (place && pincode) return `${place}, ${pincode}`;
+  if (place) return place;
   if (pincode) return pincode;
-  if (locality) return locality;
   return "—";
 }
 

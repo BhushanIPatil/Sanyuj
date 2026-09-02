@@ -69,14 +69,22 @@ export async function updateSession(request: NextRequest) {
     }
 
     if (isLoginFlow) {
-      const redirect = request.nextUrl.clone();
-      redirect.pathname = profile?.onboarding_complete ? "/app" : "/auth/onboarding";
-      return clearGuestCookie(NextResponse.redirect(redirect));
+      // Only skip login when the account is fully set up. An unfinished
+      // session used to jump straight to onboarding and hid guest / sign-in.
+      if (profile?.onboarding_complete) {
+        const redirect = request.nextUrl.clone();
+        const next = request.nextUrl.searchParams.get("next");
+        redirect.pathname = next && next.startsWith("/app") ? next : "/app";
+        redirect.search = "";
+        return clearGuestCookie(NextResponse.redirect(redirect));
+      }
+      return clearGuestCookie(supabaseResponse);
     }
 
     if (isApp && profile && !profile.onboarding_complete) {
       const redirect = request.nextUrl.clone();
-      redirect.pathname = "/auth/onboarding";
+      redirect.pathname = "/auth/login";
+      redirect.searchParams.set("next", path);
       return clearGuestCookie(NextResponse.redirect(redirect));
     }
   }

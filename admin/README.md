@@ -15,12 +15,7 @@ insert into public.admins (id, email, full_name)
 values ('YOUR_AUTH_USER_UUID', 'admin@example.com', 'Admin Name');
 ```
 
-4. Copy the brand logo from the webapp:
-
-```bash
-mkdir -p public/brand
-cp ../webapp/public/brand/sanyuj-logo.png public/brand/
-```
+4. Brand assets live in `webapp/public/brand/sanyuj-lockup.png` and are copied to `admin/public/brand/` for the admin app.
 
 5. Copy env template and fill values:
 

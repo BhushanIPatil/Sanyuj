@@ -128,7 +128,7 @@ class _MyJobsScreenState extends ConsumerState<MyJobsScreen> {
             ...shown.map(
               (j) => JobCardTile(
                 title: j.title,
-                subtitle: '${j.category?.name ?? 'Service'} · ${timeAgo(j.createdAt)} · ${locationLabel(locality: j.locality, pincode: j.pincode)}',
+                subtitle: '${j.category?.name ?? 'Service'} · ${timeAgo(j.createdAt)} · ${locationLabel(area: j.area, locality: j.locality, pincode: j.pincode)}',
                 amount: j.budgetLabel,
                 statusLabel: jobStatusLabel(j.status),
                 open: j.status == 'open',

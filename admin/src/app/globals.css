@@ -25,6 +25,7 @@
   --amber: #d6a020;
   --amber-soft: #fbf3de;
   --grad-hero: linear-gradient(135deg, #2e86d6 0%, #1fae7a 100%);
+  --grad-logo: linear-gradient(135deg, #10549c 0%, #0e8094 48%, #12966c 100%);
   --radius-lg: 26px;
   --radius-md: 18px;
   --radius-sm: 12px;
@@ -101,6 +102,10 @@ h3,
 
 .grad-hero {
   background: var(--grad-hero);
+}
+
+.brand-gradient {
+  background: var(--grad-logo);
 }
 
 .shadow-card {

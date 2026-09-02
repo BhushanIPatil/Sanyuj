@@ -6,6 +6,8 @@ import '../../providers.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/locality_picker.dart';
+import '../../widgets/area_picker.dart';
+import '../../services/postal.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
@@ -19,6 +21,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _pincode = TextEditingController();
   final _address = TextEditingController();
   String? _locality;
+  String? _areaId;
+  String? _areaName;
+  bool _areaRequired = false;
   bool _loading = false;
   bool _ready = false;
 
@@ -35,6 +40,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _pincode.text = p?.pincode ?? '';
     _address.text = p?.address ?? '';
     _locality = p?.locality;
+    _areaId = p?.areaId;
+    _areaName = p?.area;
     setState(() => _ready = true);
   }
 
@@ -51,10 +58,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     try {
       if (_pincode.text.trim().length != 6) throw Exception('Enter a valid 6-digit pincode');
       if ((_locality ?? '').isEmpty) throw Exception('Select your locality');
+      await assertAreaIfRequired(_pincode.text.trim(), _locality!, _areaId);
+      if (_areaRequired && (_areaId ?? '').isEmpty) throw Exception('Select your area / colony');
       await ref.read(repoProvider).updateProfile({
         'full_name': _name.text.trim(),
         'pincode': _pincode.text.trim(),
         'locality': _locality,
+        'area_id': _areaId,
+        'area': _areaName,
         'address': _address.text.trim(),
       });
       if (!mounted) return;
@@ -95,14 +106,32 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           controller: _pincode,
                           maxLength: 6,
                           keyboardType: TextInputType.number,
-                          onChanged: (_) => setState(() => _locality = null),
+                          onChanged: (_) => setState(() {
+                            _locality = null;
+                            _areaId = null;
+                            _areaName = null;
+                          }),
                           style: monoStyle(fontSize: 16, letterSpacing: 0.8),
                           decoration: const InputDecoration(hintText: '425001', counterText: ''),
                         ),
                         LocalityPicker(
                           pincode: _pincode.text.trim(),
                           value: _locality,
-                          onChanged: (v) => setState(() => _locality = v),
+                          onChanged: (v) => setState(() {
+                            _locality = v;
+                            _areaId = null;
+                            _areaName = null;
+                          }),
+                        ),
+                        AreaPicker(
+                          pincode: _pincode.text.trim(),
+                          locality: _locality,
+                          value: _areaId,
+                          onChanged: (id, name) => setState(() {
+                            _areaId = id;
+                            _areaName = name;
+                          }),
+                          onAvailabilityChange: (has) => setState(() => _areaRequired = has),
                         ),
                         const SizedBox(height: 12),
                         const FieldLabel('Address / Landmark'),
@@ -115,7 +144,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         PrimaryButton(
                           label: 'Save changes',
                           loading: _loading,
-                          onPressed: _pincode.text.trim().length == 6 && (_locality ?? '').isNotEmpty
+                          onPressed: _pincode.text.trim().length == 6 &&
+                                  (_locality ?? '').isNotEmpty &&
+                                  (!_areaRequired || (_areaId ?? '').isNotEmpty)
                               ? _save
                               : null,
                         ),

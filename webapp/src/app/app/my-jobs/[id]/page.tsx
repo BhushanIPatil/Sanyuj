@@ -48,6 +48,7 @@ type Job = {
   budget_max: number | null;
   pincode: string;
   locality: string | null;
+  area: string | null;
   created_at: string;
   updated_at: string;
   closed_with_business_id: string | null;
@@ -94,7 +95,7 @@ export default function JobDetailPage() {
     const supabase = createClient();
     const { data: j } = await visible(
       supabase.from("jobs").select(
-        "id, title, description, status, urgency, budget_min, budget_max, pincode, locality, created_at, updated_at, closed_with_business_id, categories(id, name, slug)",
+        "id, title, description, status, urgency, budget_min, budget_max, pincode, locality, area, created_at, updated_at, closed_with_business_id, categories(id, name, slug)",
       ),
     )
       .eq("id", id)
@@ -261,7 +262,7 @@ export default function JobDetailPage() {
       <div className="rounded-[26px] border border-line bg-white p-4.5 shadow-card">
         <p className="eyebrow">
           {categoryDisplayName(job.categories)} ·{" "}
-          {locationLabel({ locality: job.locality, pincode: job.pincode })}
+          {locationLabel({ area: job.area, locality: job.locality, pincode: job.pincode })}
         </p>
         <h2 className="mt-1.5 font-display text-[16.5px] font-bold leading-snug">{job.title}</h2>
         <p className="mt-2 text-[12.5px] leading-relaxed text-ink-soft">{job.description}</p>

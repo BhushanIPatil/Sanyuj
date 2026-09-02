@@ -53,10 +53,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _logout() async {
-    await GuestSession.instance.clear();
+    await GuestSession.instance.enter();
     await Supabase.instance.client.auth.signOut();
     if (!mounted) return;
-    context.go('/login');
+    context.go('/home');
   }
 
   Future<void> _deleteAccount() async {
@@ -87,8 +87,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (token == null) throw Exception('Not signed in');
       await AuthApi().deleteAccount(token);
       await Supabase.instance.client.auth.signOut();
+      await GuestSession.instance.enter();
       if (!mounted) return;
-      context.go('/login');
+      context.go('/home');
     } catch (e) {
       if (!mounted) return;
       showAppSnack(context, e.toString().replaceFirst('Exception: ', ''));
@@ -114,7 +115,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       );
     }
     final p = _profile;
-    final location = locationLabel(locality: p?.locality, pincode: p?.pincode, address: p?.address);
+    final location = locationLabel(area: p?.area, locality: p?.locality, pincode: p?.pincode, address: p?.address);
 
     return ListView(
       padding: const EdgeInsets.only(bottom: 32),
@@ -128,7 +129,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  gradient: AppColors.heroGradient,
+                  color: AppColors.blueDeep,
                   borderRadius: BorderRadius.circular(26),
                   boxShadow: [
                     BoxShadow(
@@ -221,7 +222,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   width: double.infinity,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      gradient: AppColors.heroGradient,
+                      color: AppColors.blueDeep,
                       borderRadius: BorderRadius.circular(100),
                     ),
                     child: Material(
@@ -249,11 +250,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             margin: const EdgeInsets.fromLTRB(20, 0, 20, 18),
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFF2F9FF), Color(0xFFEFFBF5)],
-              ),
+              color: AppColors.blueSoft,
               borderRadius: BorderRadius.circular(AppColors.radiusLg),
               boxShadow: AppColors.cardShadow,
             ),
@@ -265,7 +262,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       label: initials(_business!.name),
                       size: 52,
                       radius: 16,
-                      gradient: AppColors.heroGradient,
+                      background: AppColors.blueDeep,
+                      foreground: Colors.white,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -305,21 +303,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => context.go('/jobs-feed'),
+                        onPressed: () => context.push('/business/coverage'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.ink,
                           side: const BorderSide(color: AppColors.line, width: 1.5),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
                           padding: const EdgeInsets.symmetric(vertical: 11),
                         ),
-                        child: Text('Edit listing', style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 11.5)),
+                        child: Text('Service areas', style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 11.5)),
                       ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: DecoratedBox(
                         decoration: BoxDecoration(
-                          gradient: AppColors.heroGradient,
+                          color: AppColors.blueDeep,
                           borderRadius: BorderRadius.circular(100),
                         ),
                         child: Material(

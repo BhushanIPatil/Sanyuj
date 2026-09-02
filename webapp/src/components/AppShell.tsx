@@ -14,7 +14,7 @@ import {
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { loginUrl } from "@/lib/auth/guest";
-import { SanyujBrand, SanyujLogoMark } from "@/components/SanyujLogo";
+import { SanyujBrand } from "@/components/SanyujLogo";
 
 export const APP_NAV = [
   { href: "/app", label: "Home", icon: Home, match: "/app", exact: true },
@@ -96,14 +96,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-bg-page">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-line bg-white lg:flex">
-        <div className="flex items-center gap-2.5 px-5 py-5">
-          <SanyujLogoMark size={48} />
-          <div>
-            <Link href="/app" className="font-display text-lg font-extrabold leading-none">
-              Sanyuj
-            </Link>
-            <p className="mt-1 text-[11px] font-semibold text-ink-faint">Local help nearby</p>
-          </div>
+        <div className="flex flex-col items-center px-4 py-5">
+          <SanyujBrand href="/app" size={108} priority />
+          <p className="mt-2 text-center text-[11px] font-semibold text-ink-faint">Local help nearby</p>
         </div>
         <nav className="flex flex-1 flex-col gap-1 px-3 py-2">
           <NavLinks pathname={pathname} variant="side" />
@@ -130,7 +125,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Top bar (mobile + tablet) */}
       <header className="sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur lg:hidden">
         <div className="flex h-14 items-center justify-between px-4">
-          <SanyujBrand href="/app" size={40} nameClassName="font-display text-base font-extrabold" />
+          <SanyujBrand href="/app" size={44} />
           <button
             type="button"
             aria-label={menuOpen ? "Close menu" : "Open menu"}

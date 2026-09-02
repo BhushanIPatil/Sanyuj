@@ -5,6 +5,9 @@ class Profile {
     this.fullName,
     this.pincode,
     this.locality,
+    this.localityId,
+    this.area,
+    this.areaId,
     this.address,
     this.currentAddress,
     this.lat,
@@ -17,6 +20,9 @@ class Profile {
   final String? fullName;
   final String? pincode;
   final String? locality;
+  final String? localityId;
+  final String? area;
+  final String? areaId;
   final String? address;
   final String? currentAddress;
   final double? lat;
@@ -29,6 +35,9 @@ class Profile {
         fullName: json['full_name'] as String?,
         pincode: json['pincode'] as String?,
         locality: json['locality'] as String?,
+        localityId: json['locality_id'] as String?,
+        area: json['area'] as String?,
+        areaId: json['area_id'] as String?,
         address: json['address'] as String?,
         currentAddress: json['current_address'] as String?,
         lat: (json['lat'] as num?)?.toDouble(),
@@ -163,6 +172,7 @@ class Job {
     required this.pincode,
     required this.createdAt,
     this.locality,
+    this.area,
     this.budgetMin,
     this.budgetMax,
     this.urgency,
@@ -176,6 +186,7 @@ class Job {
   final String status;
   final String pincode;
   final String? locality;
+  final String? area;
   final DateTime createdAt;
   final int? budgetMin;
   final int? budgetMax;
@@ -192,6 +203,7 @@ class Job {
       status: json['status'] as String? ?? 'open',
       pincode: json['pincode'] as String? ?? '',
       locality: json['locality'] as String?,
+      area: json['area'] as String?,
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
       budgetMin: json['budget_min'] as int?,
       budgetMax: json['budget_max'] as int?,
@@ -227,6 +239,8 @@ class AdBanner {
     this.ctaUrl,
     this.imageUrl,
     this.background,
+    this.offerStartsAt,
+    this.offerEndsAt,
   });
 
   final String id;
@@ -237,6 +251,8 @@ class AdBanner {
   final String? ctaUrl;
   final String? imageUrl;
   final String? background;
+  final DateTime? offerStartsAt;
+  final DateTime? offerEndsAt;
 
   factory AdBanner.fromJson(Map<String, dynamic> json) => AdBanner(
         id: json['id'] as String,
@@ -247,5 +263,16 @@ class AdBanner {
         ctaUrl: json['cta_url'] as String?,
         imageUrl: json['image_url'] as String?,
         background: json['background'] as String?,
+        offerStartsAt: json['offer_starts_at'] != null
+            ? DateTime.tryParse(json['offer_starts_at'] as String)
+            : null,
+        offerEndsAt: json['offer_ends_at'] != null
+            ? DateTime.tryParse(json['offer_ends_at'] as String)
+            : null,
       );
 }
+
+/// Home carousel banner: ~148px tall; use images around **2.4:1** (e.g. 1200×500 px).
+const adBannerHeight = 148.0;
+const adBannerRadius = 12.0;
+const adBannerAspectRatio = 2.4;

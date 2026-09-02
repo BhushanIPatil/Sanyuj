@@ -1,87 +1,52 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { AdBannerSkeleton } from "@/components/ui/Skeleton";
-
-type Ad = {
-  id: string;
-  brand_name: string;
-  title: string;
-  body: string | null;
-  cta_label: string | null;
-  cta_url: string | null;
-  image_url: string | null;
-  background: string | null;
-};
+import { AdDetailSheet } from "@/components/AdDetailSheet";
+import {
+  AD_BANNER_HEIGHT,
+  AD_BANNER_RADIUS,
+  fetchCoveringAdIds,
+  recordAdClick,
+  type AdDetail,
+} from "@/lib/geo/ads";
 
 const DEFAULT_BG = "linear-gradient(135deg,#2E86D6,#3B5BDB)";
 const ADS_CONTACT = "mailto:support@sanyuj.app?subject=Banner%20ad%20on%20Sanyuj";
 
-function isExternalUrl(url: string) {
-  return /^https?:\/\//i.test(url);
-}
-
-function AdCard({ ad }: { ad: Ad }) {
-  const style: React.CSSProperties = ad.image_url
-    ? {
-        backgroundImage: `linear-gradient(100deg, rgba(15,23,42,0.78) 0%, rgba(15,23,42,0.42) 55%, rgba(15,23,42,0.2) 100%), url("${ad.image_url}")`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }
-    : { background: ad.background || DEFAULT_BG };
-
-  const inner = (
-    <>
-      <div className="flex items-center gap-2">
-        <span className="rounded-full bg-white/25 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide">
-          {ad.brand_name}
-        </span>
-        <span className="rounded-full bg-black/20 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-white/85">
-          Ad
-        </span>
-      </div>
-      <h3 className="mt-3 max-w-sm font-display text-lg font-bold leading-snug">{ad.title}</h3>
-      {ad.body ? <p className="mt-1 max-w-md text-sm text-white/90">{ad.body}</p> : null}
-      {ad.cta_label ? (
-        <span className="mt-4 inline-block rounded-full bg-white px-4 py-2 text-sm font-bold text-blue-deep">
-          {ad.cta_label}
-        </span>
-      ) : null}
-    </>
-  );
-
-  const className =
-    "relative flex min-h-[148px] flex-col overflow-hidden rounded-[24px] p-5 text-white shadow-card";
-
-  if (!ad.cta_url) {
-    return (
-      <div className={className} style={style}>
-        {inner}
-      </div>
-    );
-  }
-
-  if (isExternalUrl(ad.cta_url)) {
-    return (
-      <a
-        href={ad.cta_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`${className} transition hover:brightness-105`}
-        style={style}
-      >
-        {inner}
-      </a>
-    );
-  }
+function AdCard({ ad, onOpen }: { ad: AdDetail; onOpen: (ad: AdDetail) => void }) {
+  const hasImage = Boolean(ad.image_url?.trim());
 
   return (
-    <Link href={ad.cta_url} className={`${className} transition hover:brightness-105`} style={style}>
-      {inner}
-    </Link>
+    <button
+      type="button"
+      onClick={() => onOpen(ad)}
+      className={`relative flex w-full overflow-hidden bg-surface text-left shadow-card transition hover:brightness-[1.02] ${
+        hasImage ? "" : "text-white"
+      }`}
+      style={{
+        minHeight: AD_BANNER_HEIGHT,
+        borderRadius: AD_BANNER_RADIUS,
+        background: hasImage ? undefined : ad.background || DEFAULT_BG,
+      }}
+    >
+      {hasImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={ad.image_url!}
+          alt=""
+          className="h-full max-h-[148px] w-full object-contain object-center"
+          style={{ minHeight: AD_BANNER_HEIGHT }}
+        />
+      ) : (
+        <div className="flex min-h-[148px] w-full flex-col justify-end p-5">
+          <span className="text-[10px] font-bold uppercase tracking-wide opacity-85">{ad.brand_name}</span>
+          <h3 className="mt-1 font-display text-lg font-bold leading-snug">{ad.title}</h3>
+        </div>
+      )}
+    </button>
   );
 }
 
@@ -89,46 +54,59 @@ function FeaturedCta() {
   return (
     <a
       href={ADS_CONTACT}
-      className="mt-3 flex items-center gap-3 rounded-[16px] border border-line bg-surface px-3.5 py-2.5 transition hover:border-blue-deep/40"
+      className="mt-3 flex h-11 items-center gap-2.5 rounded-full border border-line bg-surface px-4 transition hover:border-blue-deep/40"
     >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-indigo-soft text-indigo">
-        <Megaphone size={14} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold leading-tight">Want your business featured here?</span>
-        <span className="mt-0.5 block text-[11px] leading-snug text-ink-soft">
-          Reach nearby customers &amp; providers with a banner ad.
-        </span>
-      </span>
-      <span className="shrink-0 whitespace-nowrap text-xs font-bold text-blue-deep">Contact us →</span>
+      <Megaphone size={14} className="shrink-0 text-blue-deep" />
+      <span className="min-w-0 flex-1 truncate text-sm font-bold">Want your business featured here?</span>
+      <span className="shrink-0 whitespace-nowrap text-xs font-bold text-blue-deep">Contact →</span>
     </a>
   );
 }
 
-export function HomeAds() {
-  const [ads, setAds] = useState<Ad[]>([]);
+export function HomeAds({
+  pincode,
+  localityId,
+  areaId,
+}: {
+  pincode?: string | null;
+  localityId?: string | null;
+  areaId?: string | null;
+}) {
+  const [ads, setAds] = useState<AdDetail[]>([]);
   const [active, setActive] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [detailAd, setDetailAd] = useState<AdDetail | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       try {
         const supabase = createClient();
+        const covering = await fetchCoveringAdIds(supabase, { pincode, localityId, areaId });
+        if (!covering.length) {
+          setAds([]);
+          return;
+        }
         const { data } = await supabase
           .from("ads")
-          .select("id, brand_name, title, body, cta_label, cta_url, image_url, background")
+          .select(
+            "id, brand_name, title, body, cta_label, cta_url, image_url, background, offer_starts_at, offer_ends_at",
+          )
           .eq("is_active", true)
           .eq("is_deleted", false)
+          .in("id", covering)
           .order("sort_order", { ascending: true })
           .limit(8);
-        setAds((data as Ad[] | null) ?? []);
+        setAds((data as AdDetail[] | null) ?? []);
+      } catch {
+        setAds([]);
       } finally {
         setLoading(false);
       }
     };
     void load();
-  }, []);
+  }, [pincode, localityId, areaId]);
 
   const onScroll = useCallback(() => {
     const el = scrollerRef.current;
@@ -140,6 +118,11 @@ export function HomeAds() {
     const el = scrollerRef.current;
     if (!el) return;
     el.scrollTo({ left: index * el.clientWidth, behavior: "smooth" });
+  };
+
+  const openAd = (ad: AdDetail) => {
+    void recordAdClick(ad.id);
+    setDetailAd(ad);
   };
 
   useEffect(() => {
@@ -167,8 +150,8 @@ export function HomeAds() {
               className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto"
             >
               {ads.map((ad) => (
-                <div key={ad.id} className="min-w-full shrink-0 snap-center">
-                  <AdCard ad={ad} />
+                <div key={ad.id} className="min-w-full shrink-0 snap-center bg-surface">
+                  <AdCard ad={ad} onOpen={openAd} />
                 </div>
               ))}
             </div>
@@ -191,13 +174,15 @@ export function HomeAds() {
 
           <div className={ads.length === 1 ? "hidden md:block" : "hidden gap-4 md:grid md:grid-cols-2"}>
             {ads.map((ad) => (
-              <AdCard key={ad.id} ad={ad} />
+              <AdCard key={ad.id} ad={ad} onOpen={openAd} />
             ))}
           </div>
         </>
       ) : null}
 
       <FeaturedCta />
+
+      <AdDetailSheet ad={detailAd} open={detailAd != null} onClose={() => setDetailAd(null)} />
     </section>
   );
 }

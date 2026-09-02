@@ -4,7 +4,7 @@
     "start_url": ".",
     "display": "standalone",
     "background_color": "#ECF3F1",
-    "theme_color": "#2E86D6",
+    "theme_color": "#10549C",
     "description": "Trusted local help near you",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,

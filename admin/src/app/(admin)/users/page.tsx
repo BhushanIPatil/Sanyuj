@@ -16,6 +16,7 @@ type UserRow = {
   full_name: string | null;
   pincode: string | null;
   locality: string | null;
+  area: string | null;
   onboarding_complete: boolean;
   is_active: boolean;
   is_deleted: boolean;
@@ -36,7 +37,7 @@ export default function UsersPage() {
       let query = supabase
         .from("profiles")
         .select(
-          "id, phone, full_name, pincode, locality, onboarding_complete, is_active, is_deleted, created_at",
+          "id, phone, full_name, pincode, locality, area, onboarding_complete, is_active, is_deleted, created_at",
         )
         .order("created_at", { ascending: false })
         .limit(500);
@@ -121,7 +122,7 @@ export default function UsersPage() {
               header: "Location",
               render: (row) => (
                 <span className="text-ink-soft">
-                  {locationLabel(row.pincode, row.locality)}
+                  {locationLabel(row.pincode, row.locality, row.area)}
                 </span>
               ),
             },
