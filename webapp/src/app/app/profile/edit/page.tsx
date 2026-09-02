@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { displayPhone } from "@/lib/auth/phone";
+import { normalizePhone } from "@/lib/auth/phone";
 import { detectLocation } from "@/lib/geo/location";
 import { LocalityPicker } from "@/components/LocalityPicker";
 import { AreaPicker } from "@/components/AreaPicker";
@@ -16,7 +16,10 @@ import { EditProfileSkeleton } from "@/components/ui/Skeleton";
 export default function EditProfilePage() {
   const router = useRouter();
   const { showToast } = useToast();
+  const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneDigits, setPhoneDigits] = useState("");
+  const [hasBusiness, setHasBusiness] = useState(false);
   const [fullName, setFullName] = useState("");
   const [pincode, setPincode] = useState("");
   const [locality, setLocality] = useState("");
@@ -43,7 +46,9 @@ export default function EditProfilePage() {
         return;
       }
       const { data: prof } = await visible(
-        supabase.from("profiles").select("full_name, phone, pincode, locality, area, area_id, address, lat, lng"),
+        supabase
+          .from("profiles")
+          .select("full_name, email, phone, pincode, locality, area, area_id, address, lat, lng"),
       )
         .eq("id", user.id)
         .single();
@@ -51,7 +56,20 @@ export default function EditProfilePage() {
         showToast("Could not load profile");
         return;
       }
+      const { data: biz } = await visible(supabase.from("businesses").select("id"))
+        .eq("owner_id", user.id)
+        .maybeSingle();
+      setEmail(prof.email ?? user.email ?? "");
       setPhone(prof.phone ?? "");
+      setPhoneDigits(
+        prof.phone
+          ? (() => {
+              const d = prof.phone.replace(/\D/g, "");
+              return d.length === 12 && d.startsWith("91") ? d.slice(2) : d.slice(0, 10);
+            })()
+          : "",
+      );
+      setHasBusiness(!!biz);
       setFullName(prof.full_name ?? "");
       setPincode(prof.pincode ?? "");
       setLocality(prof.locality ?? "");
@@ -96,6 +114,10 @@ export default function EditProfilePage() {
     setError("");
     try {
       if (!fullName.trim()) throw new Error("Enter your full name");
+      if (hasBusiness || phoneDigits.trim()) {
+        const normalized = normalizePhone(phoneDigits);
+        if (!normalized) throw new Error("Enter a valid 10-digit Indian mobile number");
+      }
       if (pincode.length !== 6) throw new Error("Enter a valid 6-digit pincode");
       if (!locality.trim()) throw new Error("Select your locality");
       if (!address.trim()) throw new Error("Enter your address");
@@ -108,10 +130,14 @@ export default function EditProfilePage() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
 
+      const phoneValue =
+        hasBusiness || phoneDigits.trim() ? normalizePhone(phoneDigits) : phone || null;
+
       const { error: updErr } = await supabase
         .from("profiles")
         .update({
           full_name: fullName.trim(),
+          phone: phoneValue,
           pincode,
           locality: locality.trim(),
           area_id: areaId || null,
@@ -123,7 +149,12 @@ export default function EditProfilePage() {
         .eq("id", user.id)
         .eq("is_active", true)
         .eq("is_deleted", false);
-      if (updErr) throw updErr;
+      if (updErr) {
+        if (/unique|duplicate/i.test(updErr.message)) {
+          throw new Error("This mobile number is already used by another account");
+        }
+        throw updErr;
+      }
 
       showToast("Profile updated");
       router.replace("/app/profile");
@@ -163,14 +194,38 @@ export default function EditProfilePage() {
         autoComplete="name"
       />
 
-      <label className="mb-2 mt-5 block text-xs font-bold">Mobile number</label>
+      <label className="mb-2 mt-5 block text-xs font-bold">Email</label>
       <input
-        className="input-box font-mono text-ink-soft"
-        value={phone ? displayPhone(phone) : ""}
+        className="input-box text-ink-soft"
+        type="email"
+        value={email}
         disabled
         readOnly
       />
-      <p className="mt-1.5 text-[11px] text-ink-faint">Phone number can’t be changed.</p>
+      <p className="mt-1.5 text-[11px] text-ink-faint">Email is used to sign in and can’t be changed here.</p>
+
+      <label className="mb-2 mt-5 block text-xs font-bold">
+        Mobile number{hasBusiness ? <span className="text-rose"> *</span> : null}
+      </label>
+      <div className="flex overflow-hidden rounded-[18px] border-[1.5px] border-line bg-white focus-within:border-blue-deep">
+        <span className="border-r border-line px-3 py-3.5 font-mono text-sm font-bold text-ink-soft">
+          +91
+        </span>
+        <input
+          className="flex-1 px-3 py-3.5 font-mono text-[15px] font-semibold outline-none"
+          inputMode="numeric"
+          placeholder="98230 12345"
+          value={phoneDigits}
+          onChange={(e) => setPhoneDigits(e.target.value.replace(/[^\d\s]/g, "").slice(0, 12))}
+          autoComplete="tel"
+          required={hasBusiness}
+        />
+      </div>
+      <p className="mt-1.5 text-[11px] text-ink-faint">
+        {hasBusiness
+          ? "Required for your business listing so customers can call you."
+          : "Optional for customers. Required when you list a business."}
+      </p>
 
       <div className="mt-6 border-t border-line pt-5">
         <p className="text-xs font-bold uppercase tracking-wide text-ink-soft">Location</p>

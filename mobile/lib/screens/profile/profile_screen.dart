@@ -108,7 +108,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const ScreenTopBar(eyebrow: 'Account', title: 'Profile'),
           GuestPrompt(
             title: "You're browsing as a guest",
-            body: 'Log in with your mobile number to post jobs, save your location, and list a business.',
+            body: 'Log in with your email to post jobs, save your location, and list a business.',
             onLogin: () => context.push('/login?next=/profile'),
           ),
         ],
@@ -149,10 +149,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 12),
               Text(p?.fullName ?? 'Your name', style: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.w700)),
               const SizedBox(height: 3),
-              Text(
-                p?.phone != null ? displayPhone(p!.phone) : '',
-                style: monoStyle(fontSize: 12, color: AppColors.inkSoft, fontWeight: FontWeight.w500),
-              ),
+              if (p?.email != null && p!.email!.isNotEmpty)
+                Text(
+                  p!.email!,
+                  style: const TextStyle(fontSize: 12, color: AppColors.inkSoft, fontWeight: FontWeight.w500),
+                ),
+              if (p?.phone != null && p!.phone!.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  displayPhone(p!.phone!),
+                  style: monoStyle(fontSize: 12, color: AppColors.inkFaint, fontWeight: FontWeight.w500),
+                ),
+              ],
             ],
           ),
         ),

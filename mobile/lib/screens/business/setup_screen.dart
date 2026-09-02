@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/format.dart';
 import '../../widgets/common.dart';
 
 class BusinessSetupScreen extends ConsumerStatefulWidget {
@@ -16,6 +17,7 @@ class BusinessSetupScreen extends ConsumerStatefulWidget {
 
 class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   final _name = TextEditingController();
+  final _phone = TextEditingController();
   List<Category> _categories = [];
   String? _categoryId;
   bool _loading = false;
@@ -29,8 +31,12 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
 
   Future<void> _boot() async {
     final groups = await ref.read(repoProvider).fetchCategoryTree();
+    final profile = await ref.read(repoProvider).fetchProfile();
     if (!mounted) return;
     final cats = groups.expand((g) => g.categories).toList();
+    if (profile?.phone != null && profile!.phone!.isNotEmpty) {
+      _phone.text = digitsFromPhone(profile.phone!);
+    }
     setState(() {
       _categories = cats;
       _categoryId = cats.isNotEmpty ? cats.first.id : null;
@@ -41,6 +47,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   @override
   void dispose() {
     _name.dispose();
+    _phone.dispose();
     super.dispose();
   }
 
@@ -49,7 +56,13 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
     try {
       if (_name.text.trim().isEmpty) throw Exception('Enter a business name');
       if (_categoryId == null) throw Exception('Select a category');
-      await ref.read(repoProvider).createBusiness(name: _name.text.trim(), categoryId: _categoryId!);
+      final phone = normalizePhone(digitsFromPhone(_phone.text));
+      if (phone == null) throw Exception('Enter a valid 10-digit Indian mobile number');
+      await ref.read(repoProvider).createBusiness(
+            name: _name.text.trim(),
+            categoryId: _categoryId!,
+            phone: phone,
+          );
       if (!mounted) return;
       showAppSnack(context, 'Business listed');
       context.go('/business/coverage');
@@ -81,7 +94,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                       padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
                       children: [
                         const Text(
-                          'Your pincode & landmark are already saved on your account — just the essentials below.',
+                          'Customers need a contact number to call you. Your pincode & address are already on your account.',
                           style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft, height: 1.5),
                         ),
                         const SizedBox(height: 18),
@@ -127,6 +140,14 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                         TextField(
                           controller: _name,
                           decoration: const InputDecoration(hintText: 'e.g. Patil Plumbing Works'),
+                        ),
+                        const SizedBox(height: 14),
+                        const FieldLabel('Contact mobile number *'),
+                        PhoneInputBox(controller: _phone),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Required to list as a provider. Shown to customers when they want to call you.',
+                          style: TextStyle(fontSize: 11, color: AppColors.inkFaint),
                         ),
                         const SizedBox(height: 14),
                         const FieldLabel('What service do you provide?'),

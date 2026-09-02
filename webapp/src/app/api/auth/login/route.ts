@@ -1,45 +1,47 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, sessionPayload } from "@/lib/auth/admin";
 import { isAccountRestorable, isAccountUsable } from "@/lib/auth/account";
-import { normalizePhone, phoneToEmail } from "@/lib/auth/phone";
+import { normalizeEmail } from "@/lib/auth/email";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const phone = normalizePhone(body.phone ?? "");
+    const email = normalizeEmail(body.email ?? "");
     const password = String(body.password ?? "");
 
-    if (!phone) {
-      return NextResponse.json({ error: "Enter a valid 10-digit Indian mobile number" }, { status: 400 });
+    if (!email) {
+      return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 });
     }
     if (!password) {
       return NextResponse.json({ error: "Enter your password" }, { status: 400 });
     }
 
     const supabase = createAdminClient();
-    const email = phoneToEmail(phone);
 
     const { data: profile } = await supabase
       .from("profiles")
       .select("id, is_active, is_deleted")
-      .eq("phone", phone)
+      .eq("email", email)
       .maybeSingle();
 
     if (isAccountRestorable(profile)) {
       return NextResponse.json(
         {
           restore_available: true,
-          error: "This account was deleted. Create an account with this number to restore it.",
+          error: "This account was deleted. Create an account with this email to restore it.",
         },
         { status: 409 },
       );
     }
 
-    const { data: sessionData, error: signErr } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: sessionData, error: signErr } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
     if (signErr || !sessionData.session || !sessionData.user) {
-      return NextResponse.json({ error: "Invalid mobile number or password" }, { status: 401 });
+      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
 
     if (profile && !isAccountUsable(profile)) {
@@ -47,7 +49,12 @@ export async function POST(req: Request) {
     }
 
     await supabase.from("profiles").upsert(
-      { id: sessionData.user.id, phone, is_active: true, is_deleted: false },
+      {
+        id: sessionData.user.id,
+        email,
+        is_active: true,
+        is_deleted: false,
+      },
       { onConflict: "id" },
     );
 

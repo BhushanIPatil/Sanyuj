@@ -34,24 +34,24 @@ class AuthApi {
 
   final http.Client _client;
 
-  Future<AuthSessionResult> login({required String phone, required String password}) =>
-      _auth('/api/auth/login', phone: phone, password: password);
+  Future<AuthSessionResult> login({required String email, required String password}) =>
+      _auth('/api/auth/login', email: email, password: password);
 
-  Future<AuthSessionResult> register({required String phone, required String password}) =>
-      _auth('/api/auth/register', phone: phone, password: password);
+  Future<AuthSessionResult> register({required String email, required String password}) =>
+      _auth('/api/auth/register', email: email, password: password);
 
-  Future<AuthSessionResult> restore({required String phone, required String password}) =>
-      _auth('/api/auth/restore', phone: phone, password: password);
+  Future<AuthSessionResult> restore({required String email, required String password}) =>
+      _auth('/api/auth/restore', email: email, password: password);
 
   Future<AuthSessionResult> _auth(
     String path, {
-    required String phone,
+    required String email,
     required String password,
   }) async {
     final res = await _client.post(
       Uri.parse('${AppConfig.apiBaseUrl}$path'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'phone': phone, 'password': password}),
+      body: jsonEncode({'email': email, 'password': password}),
     );
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode == 409 && data['restore_available'] == true) {

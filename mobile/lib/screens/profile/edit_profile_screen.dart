@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../providers.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/format.dart';
 import '../../widgets/common.dart';
 import '../../widgets/locality_picker.dart';
 import '../../widgets/area_picker.dart';
@@ -18,12 +19,15 @@ class EditProfileScreen extends ConsumerStatefulWidget {
 
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _phone = TextEditingController();
   final _pincode = TextEditingController();
   final _address = TextEditingController();
   String? _locality;
   String? _areaId;
   String? _areaName;
   bool _areaRequired = false;
+  bool _hasBusiness = false;
   bool _loading = false;
   bool _ready = false;
 
@@ -34,20 +38,31 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Future<void> _boot() async {
-    final p = await ref.read(repoProvider).fetchProfile();
+    final repo = ref.read(repoProvider);
+    final p = await repo.fetchProfile();
+    final biz = await repo.fetchMyBusiness();
     if (!mounted) return;
     _name.text = p?.fullName ?? '';
+    _email.text = p?.email ?? '';
+    if (p?.phone != null && p!.phone!.isNotEmpty) {
+      _phone.text = digitsFromPhone(p.phone!);
+    }
     _pincode.text = p?.pincode ?? '';
     _address.text = p?.address ?? '';
     _locality = p?.locality;
     _areaId = p?.areaId;
     _areaName = p?.area;
-    setState(() => _ready = true);
+    setState(() {
+      _hasBusiness = biz != null;
+      _ready = true;
+    });
   }
 
   @override
   void dispose() {
     _name.dispose();
+    _email.dispose();
+    _phone.dispose();
     _pincode.dispose();
     _address.dispose();
     super.dispose();
@@ -60,8 +75,17 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       if ((_locality ?? '').isEmpty) throw Exception('Select your locality');
       await assertAreaIfRequired(_pincode.text.trim(), _locality!, _areaId);
       if (_areaRequired && (_areaId ?? '').isEmpty) throw Exception('Select your area / colony');
+
+      String? phoneValue;
+      final digits = digitsFromPhone(_phone.text);
+      if (_hasBusiness || digits.isNotEmpty) {
+        phoneValue = normalizePhone(digits);
+        if (phoneValue == null) throw Exception('Enter a valid 10-digit Indian mobile number');
+      }
+
       await ref.read(repoProvider).updateProfile({
         'full_name': _name.text.trim(),
+        if (phoneValue != null) 'phone': phoneValue,
         'pincode': _pincode.text.trim(),
         'locality': _locality,
         'area_id': _areaId,
@@ -73,7 +97,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       context.pop();
     } catch (e) {
       if (!mounted) return;
-      showAppSnack(context, e.toString());
+      showAppSnack(context, e.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -100,6 +124,29 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       children: [
                         const FieldLabel('Full name'),
                         TextField(controller: _name, decoration: const InputDecoration(hintText: 'Priya Deshmukh')),
+                        const SizedBox(height: 12),
+                        const FieldLabel('Email'),
+                        TextField(
+                          controller: _email,
+                          readOnly: true,
+                          enabled: false,
+                          decoration: const InputDecoration(hintText: 'you@example.com'),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'Email is used to sign in and can’t be changed here.',
+                          style: TextStyle(fontSize: 11, color: AppColors.inkFaint),
+                        ),
+                        const SizedBox(height: 12),
+                        FieldLabel(_hasBusiness ? 'Mobile number *' : 'Mobile number'),
+                        PhoneInputBox(controller: _phone),
+                        const SizedBox(height: 6),
+                        Text(
+                          _hasBusiness
+                              ? 'Required for your business listing so customers can call you.'
+                              : 'Optional for customers. Required when you list a business.',
+                          style: const TextStyle(fontSize: 11, color: AppColors.inkFaint),
+                        ),
                         const SizedBox(height: 12),
                         const FieldLabel('Pincode'),
                         TextField(

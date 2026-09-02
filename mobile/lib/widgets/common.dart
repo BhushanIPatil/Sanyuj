@@ -871,7 +871,7 @@ class GuestPrompt extends StatelessWidget {
             const SizedBox(height: 20),
             PrimaryButton(label: buttonLabel, onPressed: onLogin),
             const SizedBox(height: 10),
-            const Text('Free account · Indian mobile number', style: TextStyle(fontSize: 11, color: AppColors.inkFaint)),
+            const Text('Free account · Email & password', style: TextStyle(fontSize: 11, color: AppColors.inkFaint)),
           ],
         ),
       ),

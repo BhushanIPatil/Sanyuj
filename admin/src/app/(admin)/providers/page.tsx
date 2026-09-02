@@ -30,7 +30,7 @@ type ProviderRow = {
   categories: { name: string; slug: string } | null;
   profiles: {
     id: string;
-    phone: string;
+    phone: string | null;
     full_name: string | null;
     pincode: string | null;
     locality: string | null;
@@ -109,7 +109,7 @@ export default function ProvidersPage() {
       (r) =>
         r.name.toLowerCase().includes(q) ||
         (r.profiles?.full_name?.toLowerCase().includes(q) ?? false) ||
-        (r.profiles?.phone.toLowerCase().includes(q) ?? false),
+        (r.profiles?.phone?.toLowerCase().includes(q) ?? false),
     );
   }, [rows, search]);
 

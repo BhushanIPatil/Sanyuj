@@ -3,21 +3,21 @@
 Next.js app that includes:
 
 - Marketing landing (`/`)
-- Phone OTP login (`/auth/*`)
+- Email + password auth (`/auth/*`)
 - Full customer + business web app (`/app/*`)
 
 Deploy this folder to **Vercel**.
 
 ## Local setup
 
-1. Apply the SQL migration from `../backend/supabase/migrations/` in your Supabase project
+1. Apply the SQL migrations from `../backend/supabase/migrations/` in your Supabase project (including `20260903120000_profiles_email_auth.sql`)
 2. Copy env template:
 
 ```bash
 cp .env.example .env.local
 ```
 
-3. Fill values from Supabase → Project Settings → API (and set `SUPABASE_SERVICE_ROLE_KEY` for OTP routes)
+3. Fill values from Supabase → Project Settings → API (set `SUPABASE_SERVICE_ROLE_KEY` for auth API routes)
 4. Run:
 
 ```bash
@@ -27,7 +27,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-With `OTP_DEV_MODE=true` (default), OTP is always **123456** and is also returned in the send-otp response for convenience.
+Sign up / log in with a real email and password. Phone is only collected when listing a business (provider contact).
 
 ## Deploy (Vercel)
 

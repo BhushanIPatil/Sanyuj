@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, sessionPayload } from "@/lib/auth/admin";
 import { isAccountRestorable, restoreUserData } from "@/lib/auth/account";
-import { normalizePhone, phoneToEmail } from "@/lib/auth/phone";
+import { normalizeEmail } from "@/lib/auth/email";
 
 export const runtime = "nodejs";
 
@@ -10,11 +10,11 @@ const MIN_PASSWORD_LENGTH = 6;
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const phone = normalizePhone(body.phone ?? "");
+    const email = normalizeEmail(body.email ?? "");
     const password = String(body.password ?? "");
 
-    if (!phone) {
-      return NextResponse.json({ error: "Enter a valid 10-digit Indian mobile number" }, { status: 400 });
+    if (!email) {
+      return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 });
     }
     if (password.length < MIN_PASSWORD_LENGTH) {
       return NextResponse.json(
@@ -27,18 +27,18 @@ export async function POST(req: Request) {
     const { data: existing } = await supabase
       .from("profiles")
       .select("id, is_active, is_deleted")
-      .eq("phone", phone)
+      .eq("email", email)
       .maybeSingle();
 
     if (!existing || !isAccountRestorable(existing)) {
-      return NextResponse.json({ error: "No deleted account found for this number" }, { status: 404 });
+      return NextResponse.json({ error: "No deleted account found for this email" }, { status: 404 });
     }
 
     const { error: updateErr } = await supabase.auth.admin.updateUserById(existing.id, {
+      email,
       password,
-      phone,
-      phone_confirm: true,
-      user_metadata: { phone },
+      email_confirm: true,
+      user_metadata: { email },
     });
     if (updateErr) {
       return NextResponse.json({ error: updateErr.message }, { status: 500 });
@@ -46,7 +46,6 @@ export async function POST(req: Request) {
 
     await restoreUserData(supabase, existing.id);
 
-    const email = phoneToEmail(phone);
     const { data: sessionData, error: signErr } = await supabase.auth.signInWithPassword({
       email,
       password,

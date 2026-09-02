@@ -20,7 +20,7 @@ export function GuestCta({
       <Link href={loginUrl(next)} className="btn-primary mt-5 inline-block w-auto px-8">
         Log in to continue
       </Link>
-      <p className="mt-3 text-xs text-ink-faint">Free account · Indian mobile number</p>
+      <p className="mt-3 text-xs text-ink-faint">Free account · Email &amp; password</p>
     </div>
   );
 }

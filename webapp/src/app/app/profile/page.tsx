@@ -14,7 +14,8 @@ import { locationLabel } from "@/lib/geo/display";
 
 type Profile = {
   full_name: string | null;
-  phone: string;
+  email: string | null;
+  phone: string | null;
   pincode: string | null;
   locality: string | null;
   area: string | null;
@@ -106,7 +107,7 @@ export default function ProfilePage() {
         <div className="mt-6">
           <GuestCta
             title="You're browsing as a guest"
-            body="Log in with your mobile number to post jobs, save your location, and list a business."
+            body="Log in with your email to post jobs, save your location, and list a business."
             next="/app/profile"
           />
         </div>
@@ -140,9 +141,10 @@ export default function ProfilePage() {
           {initials}
         </div>
         <h2 className="font-display text-lg font-bold">{profile?.full_name ?? "Your name"}</h2>
-        <p className="mt-1 font-mono text-xs text-ink-soft">
-          {profile?.phone ? displayPhone(profile.phone) : ""}
-        </p>
+        <p className="mt-1 text-xs text-ink-soft">{profile?.email ?? ""}</p>
+        {profile?.phone ? (
+          <p className="mt-0.5 font-mono text-xs text-ink-faint">{displayPhone(profile.phone)}</p>
+        ) : null}
         <Link
           href="/app/profile/edit"
           className="mt-3 rounded-full bg-blue-soft px-4 py-2 text-[12px] font-bold text-blue-deep"
@@ -288,7 +290,7 @@ export default function ProfilePage() {
         <p className="text-[13px] font-bold text-rose">Delete account</p>
         <p className="mt-1 text-[11.5px] leading-relaxed text-ink-soft">
           Your profile, jobs, and business listing will be hidden. You can restore this account later
-          with the same mobile number.
+          with the same email.
         </p>
         {confirmDelete ? (
           <div className="mt-3 flex gap-2">

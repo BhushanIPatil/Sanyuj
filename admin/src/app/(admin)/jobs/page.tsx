@@ -22,7 +22,7 @@ type JobRow = {
   created_at: string;
   closed_with_business_id: string | null;
   categories: { name: string } | null;
-  profiles: { full_name: string | null; phone: string } | null;
+  profiles: { full_name: string | null; phone: string | null } | null;
   businesses: { name: string } | null;
   interest_count: number;
 };
@@ -78,7 +78,7 @@ export default function JobsPage() {
       (r) =>
         r.title.toLowerCase().includes(q) ||
         (r.profiles?.full_name?.toLowerCase().includes(q) ?? false) ||
-        (r.profiles?.phone.toLowerCase().includes(q) ?? false),
+        (r.profiles?.phone?.toLowerCase().includes(q) ?? false),
     );
   }, [rows, search]);
 

@@ -1,20 +1,9 @@
+/** Normalize Indian mobile numbers for provider contact (not used for auth). */
 export function normalizePhone(raw: string): string | null {
   const digits = raw.replace(/\D/g, "");
   if (digits.length === 10) return `+91${digits}`;
   if (digits.length === 12 && digits.startsWith("91")) return `+${digits}`;
   return null;
-}
-
-export function phoneToEmail(phone: string) {
-  return `${phone.replace(/\D/g, "")}@users.sanyuj.app`;
-}
-
-export async function sha256(text: string) {
-  const data = new TextEncoder().encode(text);
-  const hash = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hash))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
 }
 
 export function displayPhone(phone: string) {

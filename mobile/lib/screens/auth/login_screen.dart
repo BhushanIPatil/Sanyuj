@@ -9,7 +9,6 @@ import '../../providers.dart';
 import '../../services/auth_api.dart';
 import '../../services/guest.dart';
 import '../../theme/app_theme.dart';
-import '../../utils/format.dart';
 import '../../widgets/common.dart';
 import '../../widgets/sanyuj_logo.dart';
 
@@ -25,18 +24,19 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _phone = TextEditingController();
+  final _email = TextEditingController();
   final _password = TextEditingController();
   final _confirm = TextEditingController();
   final _api = AuthApi();
   _AuthMode _mode = _AuthMode.login;
   bool _loading = false;
   bool _obscure = true;
+  bool _obscureConfirm = true;
   String? _error;
 
   @override
   void dispose() {
-    _phone.dispose();
+    _email.dispose();
     _password.dispose();
     _confirm.dispose();
     super.dispose();
@@ -48,9 +48,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _loading = true;
     });
     try {
-      final phone = digitsFromPhone(_phone.text);
-      if (normalizePhone(phone) == null) {
-        throw AuthApiException('Enter a valid 10-digit Indian mobile number');
+      final email = _email.text.trim().toLowerCase();
+      if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
+        throw AuthApiException('Enter a valid email address');
       }
       if ((_mode == _AuthMode.register || _mode == _AuthMode.restore) &&
           _password.text != _confirm.text) {
@@ -59,11 +59,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final AuthSessionResult session;
       switch (_mode) {
         case _AuthMode.login:
-          session = await _api.login(phone: phone, password: _password.text);
+          session = await _api.login(email: email, password: _password.text);
         case _AuthMode.register:
-          session = await _api.register(phone: phone, password: _password.text);
+          session = await _api.register(email: email, password: _password.text);
         case _AuthMode.restore:
-          session = await _api.restore(phone: phone, password: _password.text);
+          session = await _api.restore(email: email, password: _password.text);
       }
       await applyAuthSession(session);
       if (!mounted) return;
@@ -112,7 +112,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     };
     final sub = switch (_mode) {
       _AuthMode.restore => 'Set a new password to restore your deleted account.',
-      _AuthMode.login => 'Use your Indian mobile number to continue.',
+      _AuthMode.login => 'Use your email and password to continue.',
       _AuthMode.register => 'One account for everything — find help or list your business.',
     };
 
@@ -126,8 +126,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                 children: [
-                  const Center(child: SanyujLogo(size: 148, plated: false)),
-                  const SizedBox(height: 20),
+                  const Center(child: SanyujLogo(size: 96, plated: false)),
+                  const SizedBox(height: 14),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
@@ -143,8 +143,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         const SizedBox(height: 8),
                         Text(sub, style: const TextStyle(fontSize: 13.5, color: AppColors.inkSoft, height: 1.5)),
                         const SizedBox(height: 22),
-                        const FieldLabel('Mobile Number'),
-                        PhoneInputBox(controller: _phone),
+                        const FieldLabel('Email'),
+                        TextField(
+                          controller: _email,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const [AutofillHints.email],
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          readOnly: _mode == _AuthMode.restore,
+                          decoration: const InputDecoration(hintText: 'you@example.com'),
+                        ),
                         const SizedBox(height: 14),
                         const FieldLabel('Password'),
                         TextField(
@@ -163,8 +172,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           const FieldLabel('Confirm password'),
                           TextField(
                             controller: _confirm,
-                            obscureText: true,
-                            decoration: const InputDecoration(hintText: '••••••••'),
+                            obscureText: _obscureConfirm,
+                            decoration: InputDecoration(
+                              hintText: '••••••••',
+                              suffixIcon: IconButton(
+                                onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                                icon: Icon(
+                                  _obscureConfirm
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                         if (_error != null) ...[

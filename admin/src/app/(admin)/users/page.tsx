@@ -12,7 +12,8 @@ import { TablePageSkeleton } from "@/components/ui/Skeleton";
 
 type UserRow = {
   id: string;
-  phone: string;
+  email: string | null;
+  phone: string | null;
   full_name: string | null;
   pincode: string | null;
   locality: string | null;
@@ -37,7 +38,7 @@ export default function UsersPage() {
       let query = supabase
         .from("profiles")
         .select(
-          "id, phone, full_name, pincode, locality, area, onboarding_complete, is_active, is_deleted, created_at",
+          "id, email, phone, full_name, pincode, locality, area, onboarding_complete, is_active, is_deleted, created_at",
         )
         .order("created_at", { ascending: false })
         .limit(500);
@@ -59,7 +60,8 @@ export default function UsersPage() {
     if (!q) return rows;
     return rows.filter(
       (r) =>
-        r.phone.toLowerCase().includes(q) ||
+        r.email?.toLowerCase().includes(q) ||
+        (r.phone?.toLowerCase().includes(q) ?? false) ||
         (r.full_name?.toLowerCase().includes(q) ?? false),
     );
   }, [rows, search]);
@@ -80,7 +82,7 @@ export default function UsersPage() {
             <FilterInput
               value={search}
               onChange={setSearch}
-              placeholder="Name or phone"
+              placeholder="Name, email, or phone"
             />
           </FilterField>
           <FilterField label="Status">
@@ -112,7 +114,10 @@ export default function UsersPage() {
                   </span>
                   <div>
                     <p className="font-semibold">{row.full_name || "—"}</p>
-                    <p className="text-xs text-ink-soft">{row.phone}</p>
+                    <p className="text-xs text-ink-soft">{row.email || "—"}</p>
+                    {row.phone ? (
+                      <p className="text-xs text-ink-faint">{row.phone}</p>
+                    ) : null}
                   </div>
                 </div>
               ),

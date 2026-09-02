@@ -125,7 +125,7 @@ export default function PostJobPage() {
         </header>
         <GuestCta
           title="Log in to post a job"
-          body="You can browse providers as a guest. Create a free account with your mobile number to post a job."
+          body="You can browse providers as a guest. Create a free account with your email to post a job."
           next="/app/post-job"
         />
       </div>

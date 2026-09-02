@@ -299,9 +299,11 @@ class SanyujRepository {
   Future<void> createBusiness({
     required String name,
     required String categoryId,
+    required String phone,
   }) async {
     final uid = userId;
     if (uid == null) throw Exception('Not signed in');
+    await _db.from('profiles').update({'phone': phone}).eq('id', uid);
     await _db.from('businesses').insert({
       'owner_id': uid,
       'name': name,
