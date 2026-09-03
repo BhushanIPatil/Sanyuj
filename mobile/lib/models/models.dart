@@ -56,6 +56,7 @@ class Category {
     required this.name,
     this.emoji,
     required this.groupId,
+    this.sortOrder = 0,
   });
 
   final String id;
@@ -63,6 +64,7 @@ class Category {
   final String name;
   final String? emoji;
   final String groupId;
+  final int sortOrder;
 
   factory Category.fromJson(Map<String, dynamic> json) => Category(
         id: json['id'] as String,
@@ -70,6 +72,7 @@ class Category {
         name: json['name'] as String,
         emoji: json['emoji'] as String?,
         groupId: json['group_id'] as String,
+        sortOrder: json['sort_order'] as int? ?? 0,
       );
 }
 
@@ -79,12 +82,14 @@ class CategoryGroup {
     required this.slug,
     required this.name,
     required this.categories,
+    this.sortOrder = 0,
   });
 
   final String id;
   final String slug;
   final String name;
   final List<Category> categories;
+  final int sortOrder;
 }
 
 class Business {
@@ -176,11 +181,14 @@ class Job {
     required this.createdAt,
     this.locality,
     this.area,
+    this.areaId,
     this.budgetMin,
     this.budgetMax,
     this.urgency,
     this.category,
     this.customerId,
+    this.updatedAt,
+    this.closedWithBusinessId,
   });
 
   final String id;
@@ -190,12 +198,15 @@ class Job {
   final String pincode;
   final String? locality;
   final String? area;
+  final String? areaId;
   final DateTime createdAt;
+  final DateTime? updatedAt;
   final int? budgetMin;
   final int? budgetMax;
   final String? urgency;
   final Category? category;
   final String? customerId;
+  final String? closedWithBusinessId;
 
   factory Job.fromJson(Map<String, dynamic> json) {
     final cat = json['categories'];
@@ -207,11 +218,14 @@ class Job {
       pincode: json['pincode'] as String? ?? '',
       locality: json['locality'] as String?,
       area: json['area'] as String?,
+      areaId: json['area_id'] as String?,
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
+      updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),
       budgetMin: json['budget_min'] as int?,
       budgetMax: json['budget_max'] as int?,
       urgency: json['urgency'] as String?,
       customerId: json['customer_id'] as String?,
+      closedWithBusinessId: json['closed_with_business_id'] as String?,
       category: cat is Map<String, dynamic>
           ? Category(
               id: cat['id'] as String,
@@ -226,10 +240,39 @@ class Job {
 
   String get budgetLabel {
     if (budgetMin == null && budgetMax == null) return 'Flexible';
-    if (budgetMin != null && budgetMax != null) return '₹$budgetMin–₹$budgetMax';
+    if (budgetMin != null && budgetMax != null) {
+      if (budgetMin == budgetMax) return '₹$budgetMin';
+      return '₹$budgetMin–$budgetMax';
+    }
     if (budgetMin != null) return 'From ₹$budgetMin';
     return 'Up to ₹$budgetMax';
   }
+}
+
+class JobInterest {
+  JobInterest({
+    required this.id,
+    required this.status,
+    this.offeredAmount,
+    this.businessId,
+    this.businessName,
+    this.businessRating,
+    this.categoryName,
+    this.ownerId,
+    this.ownerName,
+    this.ownerPhone,
+  });
+
+  final String id;
+  final String status;
+  final int? offeredAmount;
+  final String? businessId;
+  final String? businessName;
+  final double? businessRating;
+  final String? categoryName;
+  final String? ownerId;
+  final String? ownerName;
+  final String? ownerPhone;
 }
 
 class AdBanner {
@@ -276,6 +319,6 @@ class AdBanner {
 }
 
 /// Home carousel banner: ~148px tall; use images around **2.4:1** (e.g. 1200×500 px).
-const adBannerHeight = 148.0;
+const adBannerHeight = 188.0;
 const adBannerRadius = 12.0;
 const adBannerAspectRatio = 2.4;

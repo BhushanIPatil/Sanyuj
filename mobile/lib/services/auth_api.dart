@@ -18,6 +18,14 @@ class AuthSessionResult {
   final String userId;
 }
 
+class AuthRegisterResult {
+  AuthRegisterResult({this.session, this.confirmationSent = false, this.email});
+
+  final AuthSessionResult? session;
+  final bool confirmationSent;
+  final String? email;
+}
+
 class AuthApiException implements Exception {
   AuthApiException(this.message, {this.statusCode, this.restoreAvailable = false});
 
@@ -37,11 +45,49 @@ class AuthApi {
   Future<AuthSessionResult> login({required String email, required String password}) =>
       _auth('/api/auth/login', email: email, password: password);
 
-  Future<AuthSessionResult> register({required String email, required String password}) =>
-      _auth('/api/auth/register', email: email, password: password);
+  Future<AuthRegisterResult> register({required String email, required String password}) async {
+    final res = await _client.post(
+      Uri.parse('${AppConfig.apiBaseUrl}/api/auth/register'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email,
+        'password': password,
+        'redirectTo': '${Uri.parse(AppConfig.privacyUrl).origin}/auth/login',
+      }),
+    );
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    if (res.statusCode == 409 && data['restore_available'] == true) {
+      throw AuthApiException(
+        data['error'] as String? ?? 'Restore available',
+        statusCode: 409,
+        restoreAvailable: true,
+      );
+    }
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      throw AuthApiException(
+        data['error'] as String? ?? 'Authentication failed',
+        statusCode: res.statusCode,
+      );
+    }
+    if (data['confirmation_sent'] == true) {
+      return AuthRegisterResult(
+        confirmationSent: true,
+        email: data['email'] as String? ?? email,
+      );
+    }
+    return AuthRegisterResult(session: _sessionFrom(data));
+  }
 
   Future<AuthSessionResult> restore({required String email, required String password}) =>
       _auth('/api/auth/restore', email: email, password: password);
+
+  Future<void> resendSignupEmail(String email) async {
+    await Supabase.instance.client.auth.resend(
+      type: OtpType.signup,
+      email: email,
+      emailRedirectTo: '${Uri.parse(AppConfig.privacyUrl).origin}/auth/login',
+    );
+  }
 
   Future<AuthSessionResult> _auth(
     String path, {
@@ -67,8 +113,15 @@ class AuthApi {
         statusCode: res.statusCode,
       );
     }
-    final session = data['session'] as Map<String, dynamic>;
-    final user = session['user'] as Map<String, dynamic>;
+    return _sessionFrom(data);
+  }
+
+  AuthSessionResult _sessionFrom(Map<String, dynamic> data) {
+    final session = data['session'] as Map<String, dynamic>?;
+    final user = session?['user'] as Map<String, dynamic>?;
+    if (session == null || user == null) {
+      throw AuthApiException('Authentication failed');
+    }
     return AuthSessionResult(
       accessToken: session['access_token'] as String,
       refreshToken: session['refresh_token'] as String,

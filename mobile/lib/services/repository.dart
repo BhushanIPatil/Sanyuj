@@ -53,12 +53,19 @@ class SanyujRepository {
           id: gid,
           slug: gMap['slug'] as String? ?? '',
           name: gMap['name'] as String? ?? '',
+          sortOrder: gMap['sort_order'] as int? ?? 0,
           categories: [],
         ),
       );
       group.categories.add(Category.fromJson(row));
     }
-    return byGroup.values.toList();
+
+    final groups = byGroup.values.toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    for (final g in groups) {
+      g.categories.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    }
+    return groups;
   }
 
   Future<Business?> fetchMyBusiness() async {
@@ -78,7 +85,7 @@ class SanyujRepository {
     if (uid == null) return [];
     final data = await visible(
       _db.from('jobs').select(
-            'id, title, description, status, pincode, locality, area, created_at, budget_min, budget_max, urgency, customer_id, categories(id, name, slug, emoji, group_id)',
+            'id, title, description, status, pincode, locality, area, area_id, created_at, updated_at, closed_with_business_id, budget_min, budget_max, urgency, customer_id, categories(id, name, slug, emoji, group_id)',
           ),
     ).eq('customer_id', uid).order('created_at', ascending: false);
     return (data as List)
@@ -99,7 +106,7 @@ class SanyujRepository {
     if (ids.isEmpty) return [];
     var q = visible(
       _db.from('jobs').select(
-            'id, title, description, status, pincode, locality, area, created_at, budget_min, budget_max, urgency, customer_id, categories(id, name, slug, emoji, group_id)',
+            'id, title, description, status, pincode, locality, area, created_at, updated_at, closed_with_business_id, budget_min, budget_max, urgency, customer_id, categories(id, name, slug, emoji, group_id)',
           ),
     ).eq('status', 'open').inFilter('id', ids);
     if (categoryId != null) q = q.eq('category_id', categoryId);
@@ -110,7 +117,7 @@ class SanyujRepository {
   Future<Job?> fetchJob(String id) async {
     final row = await visible(
       _db.from('jobs').select(
-            'id, title, description, status, pincode, locality, area, created_at, budget_min, budget_max, urgency, customer_id, categories(id, name, slug, emoji, group_id)',
+            'id, title, description, status, pincode, locality, area, area_id, created_at, updated_at, closed_with_business_id, budget_min, budget_max, urgency, customer_id, categories(id, name, slug, emoji, group_id)',
           ),
     ).eq('id', id).maybeSingle();
     if (row == null) return null;
@@ -146,6 +153,44 @@ class SanyujRepository {
       'is_active': true,
       'is_deleted': false,
     });
+  }
+
+  Future<void> updateJob({
+    required String jobId,
+    required String categoryId,
+    required String title,
+    required String description,
+    required String pincode,
+    required String locality,
+    String? areaId,
+    String? area,
+    required String urgency,
+    int? budgetMin,
+    int? budgetMax,
+  }) async {
+    final uid = userId;
+    if (uid == null) throw Exception('Not signed in');
+    await visible(_db.from('jobs').update({
+      'category_id': categoryId,
+      'title': title,
+      'description': description,
+      'budget_min': budgetMin,
+      'budget_max': budgetMax,
+      'urgency': urgency,
+      'pincode': pincode,
+      'locality': locality,
+      'area_id': areaId,
+      'area': area,
+    })).eq('id', jobId).eq('customer_id', uid);
+  }
+
+  Future<void> deleteJob(String jobId) async {
+    final uid = userId;
+    if (uid == null) throw Exception('Not signed in');
+    await visible(_db.from('jobs').update({
+      'is_deleted': true,
+      'is_active': false,
+    })).eq('id', jobId).eq('customer_id', uid);
   }
 
   Future<List<Business>> fetchBusinesses({
@@ -325,6 +370,108 @@ class SanyujRepository {
       'is_active': true,
       'is_deleted': false,
     });
+  }
+
+  Future<List<JobInterest>> fetchJobInterests(String jobId) async {
+    final data = await visible(
+      _db.from('job_interests').select(
+            'id, offered_amount, status, businesses(id, name, rating, owner_id, categories(id, name, slug, emoji, group_id))',
+          ),
+    ).eq('job_id', jobId).neq('status', 'withdrawn');
+
+    final raw = (data as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    final ownerIds = <String>{};
+    for (final row in raw) {
+      final biz = row['businesses'];
+      if (biz is Map && biz['owner_id'] is String) {
+        ownerIds.add(biz['owner_id'] as String);
+      }
+    }
+
+    final owners = <String, Map<String, dynamic>>{};
+    if (ownerIds.isNotEmpty) {
+      final ownerRows = await visible(
+        _db.from('profiles').select('id, full_name, phone'),
+      ).inFilter('id', ownerIds.toList());
+      for (final rawOwner in ownerRows as List) {
+        final o = Map<String, dynamic>.from(rawOwner as Map);
+        owners[o['id'] as String] = o;
+      }
+    }
+
+    return raw.map((row) {
+      final biz = row['businesses'];
+      Map<String, dynamic>? bMap;
+      if (biz is Map) bMap = Map<String, dynamic>.from(biz);
+      final ownerId = bMap?['owner_id'] as String?;
+      final owner = ownerId != null ? owners[ownerId] : null;
+      final cat = bMap?['categories'];
+      String? categoryName;
+      if (cat is Map) categoryName = cat['name'] as String?;
+
+      return JobInterest(
+        id: row['id'] as String,
+        status: row['status'] as String? ?? 'waiting',
+        offeredAmount: row['offered_amount'] as int?,
+        businessId: bMap?['id'] as String?,
+        businessName: bMap?['name'] as String?,
+        businessRating: (bMap?['rating'] as num?)?.toDouble(),
+        categoryName: categoryName,
+        ownerId: ownerId,
+        ownerName: owner?['full_name'] as String?,
+        ownerPhone: owner?['phone'] as String?,
+      );
+    }).toList();
+  }
+
+  Future<void> finalizeJobDeal({
+    required String jobId,
+    String? selectedInterestId,
+    int? finalAmount,
+  }) async {
+    String? businessId;
+    if (selectedInterestId != null) {
+      final interest = await visible(
+        _db.from('job_interests').select('business_id'),
+      ).eq('id', selectedInterestId).eq('job_id', jobId).maybeSingle();
+      businessId = interest?['business_id'] as String?;
+    }
+
+    final jobUpdate = <String, dynamic>{
+      'status': 'closed',
+      'closed_with_business_id': businessId,
+    };
+    if (finalAmount != null && finalAmount >= 0) {
+      jobUpdate['budget_min'] = finalAmount;
+      jobUpdate['budget_max'] = finalAmount;
+    }
+
+    await visible(_db.from('jobs').update(jobUpdate)).eq('id', jobId);
+
+    if (selectedInterestId != null) {
+      await visible(_db.from('job_interests').update({'status': 'selected'}))
+          .eq('id', selectedInterestId)
+          .eq('job_id', jobId);
+      await visible(_db.from('job_interests').update({'status': 'closed'}))
+          .eq('job_id', jobId)
+          .neq('id', selectedInterestId)
+          .neq('status', 'withdrawn');
+      return;
+    }
+
+    await visible(_db.from('job_interests').update({'status': 'closed'}))
+        .eq('job_id', jobId)
+        .neq('status', 'withdrawn');
+  }
+
+  Future<void> reopenJob(String jobId) async {
+    await visible(_db.from('jobs').update({
+      'status': 'open',
+      'closed_with_business_id': null,
+    })).eq('id', jobId);
+    await visible(_db.from('job_interests').update({'status': 'waiting'}))
+        .eq('job_id', jobId)
+        .inFilter('status', ['selected', 'closed']);
   }
 
   Future<bool> businessCoversPincode({required String businessId, required String pincode}) async {

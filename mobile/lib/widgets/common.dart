@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_theme.dart';
+import '../utils/errors.dart';
 import '../utils/format.dart';
-import 'sanyuj_logo.dart';
 
 class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
@@ -218,18 +218,37 @@ class SoftCard extends StatelessWidget {
   }
 }
 
+enum StatusChipTone { open, closed, done }
+
 class StatusChip extends StatelessWidget {
-  const StatusChip({super.key, required this.label, this.open = true});
+  const StatusChip({super.key, required this.label, this.open = true, this.tone});
 
   final String label;
   final bool open;
+  final StatusChipTone? tone;
+
+  StatusChipTone get _tone =>
+      tone ?? (open ? StatusChipTone.open : StatusChipTone.closed);
 
   @override
   Widget build(BuildContext context) {
+    final Color bg;
+    final Color fg;
+    switch (_tone) {
+      case StatusChipTone.open:
+        bg = AppColors.greenSoft;
+        fg = AppColors.greenDeep;
+      case StatusChipTone.done:
+        bg = AppColors.blueSoft;
+        fg = AppColors.blueDeep;
+      case StatusChipTone.closed:
+        bg = AppColors.amberSoft;
+        fg = AppColors.amber;
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        color: open ? AppColors.greenSoft : AppColors.surface,
+        color: bg,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -238,7 +257,7 @@ class StatusChip extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.3,
-          color: open ? AppColors.greenDeep : AppColors.inkSoft,
+          color: fg,
         ),
       ),
     );
@@ -557,7 +576,7 @@ class JobCardTile extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text(amount, style: monoStyle(fontSize: 13.5)),
+                Text(amount, style: currencyStyle(fontSize: 13.5)),
                 const Spacer(),
                 if (trailingLabel != null)
                   Container(
@@ -698,7 +717,7 @@ class StatusRowTile extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(amount, style: monoStyle(fontSize: 13.5)),
+              Text(amount, style: currencyStyle(fontSize: 13.5)),
               const SizedBox(height: 2),
               Text(when, style: const TextStyle(fontSize: 10.5, color: AppColors.inkFaint)),
             ],
@@ -833,6 +852,184 @@ void showAppSnack(BuildContext context, String message) {
   );
 }
 
+void showAppErrorSnack(BuildContext context, Object error) {
+  showAppSnack(context, friendlyError(error));
+}
+
+Future<void> showAppErrorAlert(
+  BuildContext context,
+  Object error, {
+  String title = 'Something went wrong',
+  String? actionLabel,
+  VoidCallback? onAction,
+}) {
+  final message = friendlyError(error);
+  return showDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    builder: (ctx) => Dialog(
+      backgroundColor: AppColors.bgApp,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusLg)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 28, 24, 22),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppColors.roseSoft,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Icon(Icons.error_outline_rounded, size: 30, color: AppColors.rose),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.nunito(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.ink),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13.5, color: AppColors.inkSoft, height: 1.45),
+            ),
+            const SizedBox(height: 24),
+            if (onAction != null && actionLabel != null)
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.inkSoft,
+                        side: const BorderSide(color: AppColors.line, width: 1.5),
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusMd)),
+                        textStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 14),
+                      ),
+                      child: const Text('Dismiss'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        onAction();
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.blueDeep,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(48),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusMd)),
+                        textStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 14),
+                      ),
+                      child: Text(actionLabel),
+                    ),
+                  ),
+                ],
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.blueDeep,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusMd)),
+                    textStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 14),
+                  ),
+                  child: const Text('OK'),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+Future<bool?> showDeleteConfirmDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+}) {
+  return showActionConfirmDialog(
+    context,
+    title: title,
+    message: message,
+    confirmLabel: 'Delete',
+    icon: Icons.delete_outline_rounded,
+    destructive: true,
+  );
+}
+
+class EmptyState extends StatelessWidget {
+  const EmptyState({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.message,
+    this.action,
+    this.iconColor = AppColors.blueDeep,
+    this.iconBackground = AppColors.blueSoft,
+    this.padding = const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
+  });
+
+  final IconData icon;
+  final String title;
+  final String? message;
+  final Widget? action;
+  final Color iconColor;
+  final Color iconBackground;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: padding,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: iconBackground,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 32, color: iconColor),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.nunito(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.ink),
+          ),
+          if (message != null && message!.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              message!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13, color: AppColors.inkSoft, height: 1.45),
+            ),
+          ],
+          if (action != null) ...[
+            const SizedBox(height: 18),
+            action!,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class GuestPrompt extends StatelessWidget {
   const GuestPrompt({
     super.key,
@@ -880,6 +1077,31 @@ class GuestPrompt extends StatelessWidget {
 }
 
 Future<bool?> showLeaveAppDialog(BuildContext context) {
+  return showActionConfirmDialog(
+    context,
+    title: 'Leave App?',
+    message: 'Do you want to exit the application?',
+    confirmLabel: 'Leave',
+  );
+}
+
+Future<bool?> showLogoutConfirmDialog(BuildContext context) {
+  return showActionConfirmDialog(
+    context,
+    title: 'Logout',
+    message: 'Are you sure you want to logout?',
+    confirmLabel: 'Logout',
+  );
+}
+
+Future<bool?> showActionConfirmDialog(
+  BuildContext context, {
+  required String title,
+  required String message,
+  required String confirmLabel,
+  IconData icon = Icons.logout_rounded,
+  bool destructive = false,
+}) {
   return showDialog<bool>(
     context: context,
     barrierDismissible: true,
@@ -892,18 +1114,26 @@ Future<bool?> showLeaveAppDialog(BuildContext context) {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Center(child: SanyujLogo(size: 72)),
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppColors.blueSoft,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(icon, size: 30, color: AppColors.blueDeep),
+            ),
             const SizedBox(height: 18),
             Text(
-              'Leave App?',
+              title,
               textAlign: TextAlign.center,
               style: GoogleFonts.nunito(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.ink),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Do you want to exit the application?',
+            Text(
+              message,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13.5, color: AppColors.inkSoft, height: 1.45),
+              style: const TextStyle(fontSize: 13.5, color: AppColors.inkSoft, height: 1.45),
             ),
             const SizedBox(height: 24),
             Row(
@@ -926,13 +1156,22 @@ Future<bool?> showLeaveAppDialog(BuildContext context) {
                   child: FilledButton(
                     onPressed: () => Navigator.pop(ctx, true),
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.blueDeep,
+                      backgroundColor: destructive ? AppColors.rose : AppColors.blueDeep,
                       foregroundColor: Colors.white,
                       minimumSize: const Size.fromHeight(48),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusMd)),
                       textStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 14),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
                     ),
-                    child: const Text('Leave'),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon, size: 18),
+                        const SizedBox(width: 6),
+                        Flexible(child: Text(confirmLabel, overflow: TextOverflow.ellipsis)),
+                      ],
+                    ),
                   ),
                 ),
               ],

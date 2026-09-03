@@ -7,6 +7,14 @@ export function createAdminClient() {
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
+/** Anon client — required for `signUp` so Supabase actually sends the confirmation email. */
+export function createAnonAuthClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error("Missing Supabase anon env");
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+}
+
 export function sessionPayload(session: Session, user: User) {
   return {
     access_token: session.access_token,

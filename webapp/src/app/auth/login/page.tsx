@@ -30,6 +30,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [unfinished, setUnfinished] = useState(false);
+  const [confirmEmail, setConfirmEmail] = useState("");
 
   useEffect(() => {
     const supabase = createClient();
@@ -106,14 +107,28 @@ function LoginForm() {
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email,
+          password,
+          redirectTo: `${window.location.origin}/auth/login`,
+        }),
       });
       const data = await res.json();
       if (res.status === 409 && data.restore_available) {
         enterRestore();
         return;
       }
+      if (res.status === 403 && data.confirmation_required) {
+        setConfirmEmail(email.trim().toLowerCase());
+        setError(data.error || "Confirm your email first.");
+        return;
+      }
       if (!res.ok) throw new Error(data.error || "Authentication failed");
+      if (data.confirmation_sent) {
+        setConfirmEmail((data.email as string | undefined) || email.trim().toLowerCase());
+        setError("");
+        return;
+      }
       await applySession(data.session);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -149,6 +164,12 @@ function LoginForm() {
             ? "An account already exists with this email. Set a new password to restore it."
             : "One account for everything — find trusted local help, or list your own business for free."}
         </p>
+
+        {confirmEmail ? (
+          <div className="mt-4 rounded-[14px] bg-blue-soft px-3.5 py-3 text-sm font-semibold leading-relaxed text-blue-deep">
+            We sent a confirmation link to {confirmEmail}. Open it to authorize this account, then log in.
+          </div>
+        ) : null}
 
         {unfinished ? (
           <div className="mt-4 rounded-[14px] bg-blue-soft px-3.5 py-3 text-sm font-semibold leading-relaxed text-blue-deep">

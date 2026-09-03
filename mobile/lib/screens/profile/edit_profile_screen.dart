@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../providers.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/errors.dart';
 import '../../utils/format.dart';
 import '../../widgets/common.dart';
 import '../../widgets/locality_picker.dart';
 import '../../widgets/area_picker.dart';
 import '../../services/postal.dart';
+import '../../services/location.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
@@ -30,6 +32,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   bool _hasBusiness = false;
   bool _loading = false;
   bool _ready = false;
+  bool _fetchingAddress = false;
+  String? _loadError;
 
   @override
   void initState() {
@@ -38,24 +42,36 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Future<void> _boot() async {
-    final repo = ref.read(repoProvider);
-    final p = await repo.fetchProfile();
-    final biz = await repo.fetchMyBusiness();
-    if (!mounted) return;
-    _name.text = p?.fullName ?? '';
-    _email.text = p?.email ?? '';
-    if (p?.phone != null && p!.phone!.isNotEmpty) {
-      _phone.text = digitsFromPhone(p.phone!);
-    }
-    _pincode.text = p?.pincode ?? '';
-    _address.text = p?.address ?? '';
-    _locality = p?.locality;
-    _areaId = p?.areaId;
-    _areaName = p?.area;
     setState(() {
-      _hasBusiness = biz != null;
-      _ready = true;
+      _ready = false;
+      _loadError = null;
     });
+    try {
+      final repo = ref.read(repoProvider);
+      final p = await repo.fetchProfile();
+      final biz = await repo.fetchMyBusiness();
+      if (!mounted) return;
+      _name.text = p?.fullName ?? '';
+      _email.text = p?.email ?? '';
+      if (p?.phone != null && p!.phone!.isNotEmpty) {
+        _phone.text = digitsFromPhone(p.phone!);
+      }
+      _pincode.text = p?.pincode ?? '';
+      _address.text = p?.address ?? '';
+      _locality = p?.locality;
+      _areaId = p?.areaId;
+      _areaName = p?.area;
+      setState(() {
+        _hasBusiness = biz != null;
+        _ready = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = friendlyError(e);
+        _ready = true;
+      });
+    }
   }
 
   @override
@@ -66,6 +82,42 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _pincode.dispose();
     _address.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshAddress() async {
+    if (_fetchingAddress) return;
+    setState(() => _fetchingAddress = true);
+    try {
+      final loc = await LocationService.instance.fetchCurrentLocation(forceRefresh: true);
+      if (!mounted) return;
+      if (loc == null || loc.address.isEmpty) {
+        if (_address.text.trim().isNotEmpty) {
+          showAppSnack(context, 'Couldn’t refresh — keeping the address we already have');
+        } else {
+          showAppSnack(context, 'Could not fetch your current address');
+        }
+      } else {
+        setState(() {
+          _address.text = loc.address;
+          if (loc.pincode != null && _pincode.text.trim().length != 6) {
+            _pincode.text = loc.pincode!;
+            _locality = null;
+            _areaId = null;
+            _areaName = null;
+          }
+        });
+        showAppSnack(context, 'Address updated from your location');
+      }
+    } catch (_) {
+      if (!mounted) return;
+      if (_address.text.trim().isNotEmpty) {
+        showAppSnack(context, 'Couldn’t refresh — keeping the address we already have');
+      } else {
+        showAppErrorSnack(context, 'Could not fetch your current address');
+      }
+    } finally {
+      if (mounted) setState(() => _fetchingAddress = false);
+    }
   }
 
   Future<void> _save() async {
@@ -97,7 +149,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       context.pop();
     } catch (e) {
       if (!mounted) return;
-      showAppSnack(context, e.toString().replaceFirst('Exception: ', ''));
+      showAppErrorSnack(context, e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -110,10 +162,29 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       body: SafeArea(
         child: !_ready
             ? const Center(child: CircularProgressIndicator(color: AppColors.blueDeep))
-            : Column(
+            : _loadError != null
+                ? Column(
+                    children: [
+                      ScreenTopBar(
+                        title: 'Edit profile',
+                        showBack: true,
+                        onBack: () => context.pop(),
+                      ),
+                      Expanded(
+                        child: EmptyState(
+                          icon: Icons.cloud_off_outlined,
+                          title: 'Could not load profile',
+                          message: _loadError!,
+                          iconColor: AppColors.rose,
+                          iconBackground: AppColors.roseSoft,
+                          action: PrimaryButton(label: 'Try again', onPressed: _boot),
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
                 children: [
                   ScreenTopBar(
-                    eyebrow: 'Account',
                     title: 'Edit profile',
                     showBack: true,
                     onBack: () => context.pop(),
@@ -181,7 +252,22 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           onAvailabilityChange: (has) => setState(() => _areaRequired = has),
                         ),
                         const SizedBox(height: 12),
-                        const FieldLabel('Address / Landmark'),
+                        Row(
+                          children: [
+                            const Expanded(child: FieldLabel('Address / Landmark')),
+                            IconButton(
+                              tooltip: 'Fetch latest address',
+                              onPressed: _fetchingAddress ? null : _refreshAddress,
+                              icon: _fetchingAddress
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.blueDeep),
+                                    )
+                                  : const Icon(Icons.refresh_rounded, color: AppColors.blueDeep),
+                            ),
+                          ],
+                        ),
                         TextField(
                           controller: _address,
                           maxLines: 3,

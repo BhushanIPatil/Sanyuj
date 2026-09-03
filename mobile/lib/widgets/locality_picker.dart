@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../utils/errors.dart';
 import '../services/postal.dart';
 import '../theme/app_theme.dart';
-import 'common.dart';
+import 'searchable_select.dart';
 
 class LocalityPicker extends StatefulWidget {
   const LocalityPicker({
@@ -79,7 +80,7 @@ class _LocalityPickerState extends State<LocalityPicker> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = friendlyError(e);
       });
     }
   }
@@ -124,18 +125,16 @@ class _LocalityPickerState extends State<LocalityPicker> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const FieldLabel('Locality'),
-        DropdownButtonFormField<String>(
+        SearchableSelect<String>(
+          label: 'Locality',
+          hint: 'Select your locality',
           value: widget.value != null && options.any((l) => l.name == widget.value) ? widget.value : null,
-          decoration: const InputDecoration(hintText: 'Select your locality'),
-          items: [
+          options: [
             for (final l in options)
-              DropdownMenuItem(
+              SearchableSelectOption(
                 value: l.name,
-                child: Text(
-                  l.district != null ? '${l.name} · ${l.district}' : l.name,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                label: l.name,
+                subtitle: l.district,
               ),
           ],
           onChanged: widget.onChanged,

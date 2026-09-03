@@ -6,6 +6,8 @@ import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
 
+import '../widgets/common.dart';
+
 Future<void> showAdDetailSheet(
   BuildContext context, {
   required AdBanner ad,
@@ -227,13 +229,19 @@ class _BannerFallback extends StatelessWidget {
 Future<void> openAdCta(BuildContext context, AdBanner ad, {required bool isGuest, required void Function(String) goTo}) async {
   final url = ad.ctaUrl?.trim();
   if (url == null || url.isEmpty) return;
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    return;
-  }
-  if (url.contains('explore')) {
-    goTo('/explore');
-  } else if (url.contains('post-job') || url.contains('post_job')) {
-    goTo(isGuest ? '/login?next=/post-job' : '/post-job');
+  try {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!ok && context.mounted) showAppErrorSnack(context, 'Could not open link');
+      return;
+    }
+    if (url.contains('explore')) {
+      goTo('/explore');
+    } else if (url.contains('post-job') || url.contains('post_job')) {
+      goTo(isGuest ? '/login?next=/post-job' : '/post-job');
+    }
+  } catch (e) {
+    if (!context.mounted) return;
+    showAppErrorSnack(context, e);
   }
 }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../providers.dart';
 import '../../models/models.dart';
+import '../../utils/errors.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/locality_picker.dart';
@@ -11,7 +12,9 @@ import '../../widgets/area_picker.dart';
 import '../../services/postal.dart';
 
 class PostJobScreen extends ConsumerStatefulWidget {
-  const PostJobScreen({super.key});
+  const PostJobScreen({super.key, this.jobId});
+
+  final String? jobId;
 
   @override
   ConsumerState<PostJobScreen> createState() => _PostJobScreenState();
@@ -31,6 +34,9 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
   bool _areaRequired = false;
   bool _loading = false;
   bool _ready = false;
+  String? _loadError;
+
+  bool get _isEdit => (widget.jobId ?? '').isNotEmpty;
 
   @override
   void initState() {
@@ -39,21 +45,49 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
   }
 
   Future<void> _boot() async {
-    final repo = ref.read(repoProvider);
-    final profile = await repo.fetchProfile();
-    final groups = await repo.fetchCategoryTree();
-    if (!mounted) return;
     setState(() {
-      _pincode = profile?.pincode;
-      _locality = profile?.locality;
-      _areaId = profile?.areaId;
-      _areaName = profile?.area;
-      _groups = groups;
-      _categoryId = groups.isNotEmpty && groups.first.categories.isNotEmpty
-          ? groups.first.categories.first.id
-          : null;
-      _ready = true;
+      _ready = false;
+      _loadError = null;
     });
+    try {
+      final repo = ref.read(repoProvider);
+      final profile = await repo.fetchProfile();
+      final groups = await repo.fetchCategoryTree();
+      Job? existing;
+      if (_isEdit) {
+        existing = await repo.fetchJob(widget.jobId!);
+      }
+      if (!mounted) return;
+      setState(() {
+        _groups = groups;
+        if (existing != null) {
+          _description.text = existing.description;
+          _budgetMin.text = existing.budgetMin?.toString() ?? '';
+          _budgetMax.text = existing.budgetMax?.toString() ?? '';
+          _categoryId = existing.category?.id;
+          _urgency = existing.urgency ?? 'today';
+          _pincode = existing.pincode;
+          _locality = existing.locality;
+          _areaId = existing.areaId;
+          _areaName = existing.area;
+        } else {
+          _pincode = profile?.pincode;
+          _locality = profile?.locality;
+          _areaId = profile?.areaId;
+          _areaName = profile?.area;
+          _categoryId = groups.isNotEmpty && groups.first.categories.isNotEmpty
+              ? groups.first.categories.first.id
+              : null;
+        }
+        _ready = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = friendlyError(e);
+        _ready = true;
+      });
+    }
   }
 
   @override
@@ -76,24 +110,47 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
       final cats = _groups.expand((g) => g.categories);
       final catName = cats.firstWhere((c) => c.id == _categoryId).name;
       final title = _description.text.trim().split(RegExp(r'[.!\n]')).first;
-      await ref.read(repoProvider).postJob(
-            categoryId: _categoryId!,
-            title: title.isEmpty ? '$catName request' : title.substring(0, title.length.clamp(0, 80)),
-            description: _description.text.trim(),
-            pincode: _pincode!,
-            locality: _locality!,
-            areaId: _areaId,
-            area: _areaName,
-            urgency: _urgency,
-            budgetMin: int.tryParse(_budgetMin.text),
-            budgetMax: int.tryParse(_budgetMax.text),
-          );
+      final resolvedTitle = title.isEmpty ? '$catName request' : title.substring(0, title.length.clamp(0, 80));
+      final repo = ref.read(repoProvider);
+      if (_isEdit) {
+        await repo.updateJob(
+          jobId: widget.jobId!,
+          categoryId: _categoryId!,
+          title: resolvedTitle,
+          description: _description.text.trim(),
+          pincode: _pincode!,
+          locality: _locality!,
+          areaId: _areaId,
+          area: _areaName,
+          urgency: _urgency,
+          budgetMin: int.tryParse(_budgetMin.text),
+          budgetMax: int.tryParse(_budgetMax.text),
+        );
+      } else {
+        await repo.postJob(
+          categoryId: _categoryId!,
+          title: resolvedTitle,
+          description: _description.text.trim(),
+          pincode: _pincode!,
+          locality: _locality!,
+          areaId: _areaId,
+          area: _areaName,
+          urgency: _urgency,
+          budgetMin: int.tryParse(_budgetMin.text),
+          budgetMax: int.tryParse(_budgetMax.text),
+        );
+      }
       if (!mounted) return;
-      showAppSnack(context, 'Job posted');
-      context.go('/my-jobs');
+      showAppSnack(context, _isEdit ? 'Job updated' : 'Job posted');
+      ref.read(myJobsRefreshTickProvider.notifier).state++;
+      if (_isEdit && context.canPop()) {
+        context.pop(true);
+      } else {
+        context.go('/my-jobs');
+      }
     } catch (e) {
       if (!mounted) return;
-      showAppSnack(context, e.toString().replaceFirst('Exception: ', ''));
+      showAppErrorSnack(context, e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -106,11 +163,30 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
       body: SafeArea(
         child: !_ready
             ? const Center(child: CircularProgressIndicator(color: AppColors.blueDeep))
-            : Column(
+            : _loadError != null
+                ? Column(
+                    children: [
+                      ScreenTopBar(
+                        title: _isEdit ? 'Edit Job' : 'Post a Job',
+                        showBack: true,
+                        onBack: () => context.pop(),
+                      ),
+                      Expanded(
+                        child: EmptyState(
+                          icon: Icons.cloud_off_outlined,
+                          title: 'Could not load job form',
+                          message: _loadError!,
+                          iconColor: AppColors.rose,
+                          iconBackground: AppColors.roseSoft,
+                          action: PrimaryButton(label: 'Try again', onPressed: _boot),
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
                 children: [
                   ScreenTopBar(
-                    eyebrow: 'New request',
-                    title: 'Post a Job',
+                    title: _isEdit ? 'Edit Job' : 'Post a Job',
                     showBack: true,
                     onBack: () => context.pop(),
                   ),
@@ -125,7 +201,8 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
                           children: [
                             for (final c in _groups.expand((g) => g.categories))
                               CategoryChipPill(
-                                label: '${c.emoji ?? ''} ${c.name}'.trim(),
+                                label: c.name,
+                                iconValue: c.emoji,
                                 selected: _categoryId == c.id,
                                 onTap: () => setState(() => _categoryId = c.id),
                               ),
@@ -154,7 +231,7 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 14),
                                 child: Row(
                                   children: [
-                                    Text('₹', style: monoStyle(fontSize: 15, color: AppColors.greenDeep)),
+                                    Text('₹', style: currencyStyle(fontSize: 15, color: AppColors.greenDeep)),
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: TextField(
@@ -189,7 +266,7 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 14),
                                 child: Row(
                                   children: [
-                                    Text('₹', style: monoStyle(fontSize: 15, color: AppColors.greenDeep)),
+                                    Text('₹', style: currencyStyle(fontSize: 15, color: AppColors.greenDeep)),
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: TextField(
@@ -236,7 +313,7 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        const FieldLabel('Location'),
+                        const FieldLabel('Location (Pincode)'),
                         if (_pincode == null || _pincode!.isEmpty)
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -254,7 +331,7 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
                             readOnly: true,
                             controller: TextEditingController(text: _pincode),
                             style: monoStyle(fontSize: 14),
-                            decoration: const InputDecoration(labelText: 'Pincode'),
+                            decoration: const InputDecoration(hintText: 'Pincode from your profile'),
                           ),
                           const SizedBox(height: 8),
                           LocalityPicker(
@@ -279,7 +356,7 @@ class _PostJobScreenState extends ConsumerState<PostJobScreen> {
                         ],
                         const SizedBox(height: 24),
                         PrimaryButton(
-                          label: 'Post Job to nearby providers',
+                          label: _isEdit ? 'Save changes' : 'Post Job to nearby providers',
                           loading: _loading,
                           onPressed: _submit,
                         ),

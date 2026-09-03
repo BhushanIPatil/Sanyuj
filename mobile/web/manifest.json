@@ -3,7 +3,7 @@
     "short_name": "Sanyuj",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#ECF3F1",
+    "background_color": "#FFFFFF",
     "theme_color": "#10549C",
     "description": "Trusted local help near you",
     "orientation": "portrait-primary",

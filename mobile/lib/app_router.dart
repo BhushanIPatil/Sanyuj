@@ -8,6 +8,7 @@ import 'screens/business/setup_screen.dart';
 import 'screens/business/coverage_screen.dart';
 import 'screens/explore/explore_screen.dart';
 import 'screens/home/home_screen.dart';
+import 'screens/home/live_nearby_screen.dart';
 import 'screens/jobs/job_detail_screen.dart';
 import 'screens/jobs/jobs_feed_screen.dart';
 import 'screens/jobs/my_jobs_screen.dart';
@@ -58,7 +59,11 @@ GoRouter createRouter({String initialLocation = '/home'}) {
         return null;
       }
 
-      if (loc == '/login') return '/home';
+      if (loc == '/login') {
+        final next = state.uri.queryParameters['next'];
+        if (next != null && next.startsWith('/')) return next;
+        return '/home';
+      }
       return null;
     },
     routes: [
@@ -70,15 +75,24 @@ GoRouter createRouter({String initialLocation = '/home'}) {
           GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
           GoRoute(path: '/jobs-feed', builder: (context, state) => const JobsFeedScreen()),
           GoRoute(path: '/my-jobs', builder: (context, state) => const MyJobsScreen()),
-          GoRoute(path: '/explore', builder: (context, state) => const ExploreScreen()),
+          GoRoute(
+            path: '/explore',
+            builder: (context, state) => ExploreScreen(
+              initialCategoryId: state.uri.queryParameters['category'],
+            ),
+          ),
           GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
         ],
       ),
-      GoRoute(path: '/post-job', builder: (context, state) => const PostJobScreen()),
+      GoRoute(
+        path: '/post-job',
+        builder: (context, state) => PostJobScreen(jobId: state.uri.queryParameters['edit']),
+      ),
       GoRoute(
         path: '/jobs/:id',
         builder: (context, state) => JobDetailScreen(jobId: state.pathParameters['id']!),
       ),
+      GoRoute(path: '/live-nearby', builder: (context, state) => const LiveNearbyScreen()),
       GoRoute(path: '/profile/edit', builder: (context, state) => const EditProfileScreen()),
       GoRoute(path: '/business/setup', builder: (context, state) => const BusinessSetupScreen()),
       GoRoute(path: '/business/coverage', builder: (context, state) => const BusinessCoverageScreen()),

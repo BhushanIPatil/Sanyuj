@@ -49,7 +49,7 @@ class _JobsFeedScreenState extends ConsumerState<JobsFeedScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      showAppSnack(context, e.toString());
+      showAppErrorAlert(context, e, actionLabel: 'Retry', onAction: _load);
     }
   }
 
@@ -70,7 +70,7 @@ class _JobsFeedScreenState extends ConsumerState<JobsFeedScreen> {
       showAppSnack(context, 'Interest sent');
     } catch (e) {
       if (!mounted) return;
-      showAppSnack(context, e.toString());
+      showAppErrorSnack(context, e);
     }
   }
 
@@ -85,7 +85,6 @@ class _JobsFeedScreenState extends ConsumerState<JobsFeedScreen> {
         padding: const EdgeInsets.only(bottom: 24),
         children: [
           ScreenTopBar(
-            eyebrow: _business == null ? 'Provider' : 'Business · ${_business!.name}',
             title: 'Job Feed',
           ),
           if (_business != null)
@@ -208,16 +207,27 @@ class _JobsFeedScreenState extends ConsumerState<JobsFeedScreen> {
             ),
           ),
           if (_jobs.isEmpty)
-            SoftCard(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                _business == null
-                    ? 'Set up your business and service areas to see matching jobs.'
-                    : _pincode == null
-                    ? 'Add a pincode in your profile to go live near customers.'
-                    : 'No open jobs in your service area right now.',
-                style: const TextStyle(color: AppColors.inkSoft),
-              ),
+            EmptyState(
+              icon: Icons.work_outline_rounded,
+              title: 'No matching jobs',
+              message: _business == null
+                  ? 'Set up your business and service areas to see matching jobs.'
+                  : _pincode == null
+                      ? 'Add a pincode in your profile to go live near customers.'
+                      : 'No open jobs in your service area right now.',
+              iconColor: AppColors.blueDeep,
+              iconBackground: AppColors.blueSoft,
+              action: _business == null
+                  ? SizedBox(
+                      width: double.infinity,
+                      child: PrimaryButton(
+                        label: 'Set up business',
+                        onPressed: () => context.push(
+                          ref.read(repoProvider).userId == null ? '/login?next=/business/setup' : '/business/setup',
+                        ),
+                      ),
+                    )
+                  : null,
             )
           else
             ..._jobs.map((j) {
@@ -225,7 +235,10 @@ class _JobsFeedScreenState extends ConsumerState<JobsFeedScreen> {
               return SoftCard(
                 margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                 padding: const EdgeInsets.all(15),
-                onTap: () => context.push('/jobs/${j.id}'),
+                onTap: () async {
+                  await context.push('/jobs/${j.id}');
+                  if (mounted) await _load();
+                },
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -270,7 +283,7 @@ class _JobsFeedScreenState extends ConsumerState<JobsFeedScreen> {
                       ),
                       child: Row(
                         children: [
-                          Text(j.budgetLabel, style: monoStyle(fontSize: 13.5)),
+                          Text(j.budgetLabel, style: currencyStyle(fontSize: 13.5)),
                           const Spacer(),
                           InterestButton(
                             sent: sent,

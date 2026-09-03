@@ -13,6 +13,8 @@ class AppColors {
   static const blue = Color(0xFF2E86D6);
   static const blueDeep = Color(0xFF1D5FA0);
   static const blueSoft = Color(0xFFE6F2FE);
+  /// White plate behind the app mark.
+  static const logoPlate = Color(0xFFFFFFFF);
   static const green = Color(0xFF1FAE7A);
   static const greenDeep = Color(0xFF167F5A);
   static const greenSoft = Color(0xFFE1F9EE);
@@ -182,6 +184,20 @@ TextStyle monoStyle({
   return GoogleFonts.jetBrainsMono(
     fontSize: fontSize,
     fontWeight: fontWeight,
+    color: color,
+    letterSpacing: letterSpacing,
+  );
+}
+
+/// Currency / ₹ amounts — medium weight (not bold).
+TextStyle currencyStyle({
+  double fontSize = 14,
+  Color color = AppColors.ink,
+  double? letterSpacing,
+}) {
+  return monoStyle(
+    fontSize: fontSize,
+    fontWeight: FontWeight.w500,
     color: color,
     letterSpacing: letterSpacing,
   );

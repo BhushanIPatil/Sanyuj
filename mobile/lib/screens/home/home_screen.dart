@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -6,10 +6,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers.dart';
 import '../../models/models.dart';
+import '../../config/app_config.dart';
+import '../../services/location.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
 import '../../widgets/common.dart';
 import '../../widgets/ad_detail_sheet.dart';
+import '../../widgets/live_provider_card.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -26,13 +29,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<Map<String, dynamic>> _live = [];
   List<AdBanner> _ads = [];
   bool _loading = true;
-  bool _refreshingLive = false;
   int _adIndex = 0;
+  String? _guestAddress;
+  bool _guestAddressLoading = false;
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  Future<void> _loadGuestAddress() async {
+    if (_guestAddressLoading) return;
+    setState(() => _guestAddressLoading = true);
+    try {
+      final address = await LocationService.instance.fetchCurrentAddress();
+      if (!mounted) return;
+      setState(() {
+        _guestAddress = address;
+        _guestAddressLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _guestAddressLoading = false);
+      showAppErrorSnack(context, 'Could not detect your location');
+    }
+  }
+
+  Future<void> _refetchLocation() async {
+    await _loadGuestAddress();
   }
 
   Future<void> _load() async {
@@ -56,52 +81,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _profile = profile;
         _business = business;
         _groups = groups;
-        _recent = recent.take(5).toList();
+        _recent = recent.take(2).toList();
         _live = live;
         _ads = ads;
         _loading = false;
       });
+      if (repo.userId == null) {
+        _loadGuestAddress();
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      showAppSnack(context, e.toString());
+      showAppErrorAlert(context, e, actionLabel: 'Retry', onAction: _load);
     }
   }
 
-  Future<void> _refreshLive() async {
-    final pin = _profile?.pincode;
-    if (_refreshingLive) return;
-    setState(() => _refreshingLive = true);
-    final started = DateTime.now();
+  Future<void> _openUrl(String url) async {
     try {
-      final live = await ref.read(repoProvider).fetchLiveSessions(pin);
+      final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!ok && mounted) showAppErrorSnack(context, 'Could not open link');
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _live = live);
-    } catch (_) {
-      if (!mounted) return;
-      showAppSnack(context, 'Could not refresh live providers');
-    } finally {
-      final elapsed = DateTime.now().difference(started).inMilliseconds;
-      if (elapsed < 600) {
-        await Future<void>.delayed(Duration(milliseconds: 600 - elapsed));
-      }
-      if (mounted) setState(() => _refreshingLive = false);
-    }
-  }
-
-  Future<void> _callPhone(String? phone, String name) async {
-    final digits = phone?.replaceAll(RegExp(r'\D'), '') ?? '';
-    if (digits.isEmpty) {
-      showAppSnack(context, 'No contact for $name');
-      return;
-    }
-    final uri = Uri.parse('tel:$digits');
-    try {
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!ok && mounted) showAppSnack(context, 'Could not open dialer');
-    } catch (_) {
-      if (!mounted) return;
-      showAppSnack(context, 'Could not open dialer');
+      showAppErrorSnack(context, e);
     }
   }
 
@@ -137,22 +138,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return const Center(child: CircularProgressIndicator(color: AppColors.blueDeep));
     }
 
-    final cats = _groups.expand((g) => g.categories).take(6).toList();
+    final cats = _groups.expand((g) => g.categories).take(9).toList();
     final userId = ref.read(repoProvider).userId;
     final isGuest = userId == null;
     final firstName = isGuest ? 'there' : (_profile?.fullName?.split(' ').first ?? 'there');
-    final location = isGuest
-        ? 'Browsing as guest'
-        : locationLabel(area: _profile?.area, locality: _profile?.locality, pincode: _profile?.pincode, address: _profile?.address);
+    final profileLocation =
+        locationLabel(area: _profile?.area, locality: _profile?.locality, pincode: _profile?.pincode, address: _profile?.address);
+    final location = _guestAddressLoading
+        ? 'Detecting your location\u2026'
+        : (_guestAddress?.isNotEmpty == true
+            ? _guestAddress!
+            : (isGuest
+                ? 'Location unavailable'
+                : (profileLocation.isEmpty ? 'Set your location in profile' : profileLocation)));
     final closedCount = _recent.where((j) => j.status == 'closed').length;
     final closedPct = _recent.isEmpty ? 0 : ((closedCount / _recent.length) * 100).round();
 
-    return RefreshIndicator(
-      color: AppColors.blueDeep,
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.only(bottom: 24),
-        children: [
+    return Stack(
+      children: [
+        RefreshIndicator(
+          color: AppColors.blueDeep,
+          onRefresh: _load,
+          child: ListView(
+            padding: const EdgeInsets.only(bottom: 88),
+            children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
             child: Row(
@@ -166,47 +175,108 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: isGuest
-                      ? Align(
-                          alignment: Alignment.centerLeft,
-                          child: Material(
-                            color: AppColors.blueDeep,
-                            borderRadius: BorderRadius.circular(100),
-                            child: InkWell(
-                              onTap: () => context.push('/login'),
-                              borderRadius: BorderRadius.circular(100),
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                child: Text(
-                                  'Log in',
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13.5),
-                                ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isGuest ? 'Hi there' : 'Hi, $firstName \u{1F44B}',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 1),
+                      GestureDetector(
+                        onTap: _refetchLocation,
+                        behavior: HitTestBehavior.opaque,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                location,
+                                style: const TextStyle(fontSize: 11.5, color: AppColors.inkSoft, height: 1.35),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                          ),
-                        )
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Hi, $firstName 👋', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                            const SizedBox(height: 1),
-                            Text(
-                              location.isEmpty ? 'Set your location in profile' : location,
-                              style: const TextStyle(fontSize: 11.5, color: AppColors.inkSoft, height: 1.35),
-                            ),
+                            if (_guestAddressLoading) ...[
+                              const SizedBox(width: 6),
+                              const SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(strokeWidth: 1.8, color: AppColors.blueDeep),
+                              ),
+                            ],
                           ],
                         ),
-                ),
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.line),
-                    boxShadow: AppColors.cardShadow,
+                      ),
+                    ],
                   ),
-                  child: const Icon(Icons.notifications_none_rounded, size: 18, color: AppColors.ink),
+                ),
+                PopupMenuButton<_HomeMenuAction>(
+                  tooltip: 'Sanyuj',
+                  offset: const Offset(0, 44),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  onSelected: (action) {
+                    switch (action) {
+                      case _HomeMenuAction.profile:
+                        context.go('/profile');
+                      case _HomeMenuAction.policies:
+                        _openUrl(AppConfig.policiesUrl);
+                      case _HomeMenuAction.help:
+                        _openUrl(AppConfig.helpUrl);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: _HomeMenuAction.profile,
+                      child: Row(
+                        children: [
+                          Icon(Icons.person_outline_rounded, size: 18, color: AppColors.blueDeep),
+                          const SizedBox(width: 10),
+                          const Text('My Profile', style: TextStyle(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _HomeMenuAction.policies,
+                      child: Row(
+                        children: [
+                          Icon(Icons.policy_outlined, size: 18, color: AppColors.indigo),
+                          const SizedBox(width: 10),
+                          const Text('Sanyuj Policies', style: TextStyle(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _HomeMenuAction.help,
+                      child: Row(
+                        children: [
+                          Icon(Icons.support_agent_rounded, size: 18, color: AppColors.greenDeep),
+                          const SizedBox(width: 10),
+                          const Text('Help and support', style: TextStyle(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ],
+                  child: Container(
+                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(100),
+                      border: Border.all(color: AppColors.line),
+                      boxShadow: AppColors.cardShadow,
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Sanyuj',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.blueDeep),
+                        ),
+                        SizedBox(width: 2),
+                        Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.inkSoft),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -287,7 +357,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(100),
               child: InkWell(
-                onTap: () => launchUrl(Uri.parse('mailto:support@sanyuj.app?subject=Banner%20ad%20on%20Sanyuj')),
+                onTap: () => _openUrl('mailto:support@sanyuj.app?subject=Banner%20ad%20on%20Sanyuj'),
                 borderRadius: BorderRadius.circular(100),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
@@ -301,7 +371,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       const SizedBox(width: 8),
                       const Expanded(
                         child: Text(
-                          'Want your business featured here?',
+                          'Want your ad here?',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
@@ -309,114 +379,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       const SizedBox(width: 8),
                       const Text(
-                        'Contact →',
+                        'Contact',
                         style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.blueDeep),
                       ),
+                      const SizedBox(width: 2),
+                      const Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.blueDeep),
                     ],
                   ),
                 ),
               ),
             ),
-          ),
-
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: AppColors.greenDeep,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.greenDeep.withValues(alpha: 0.35), width: 3),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text('Working near you now', style: GoogleFonts.nunito(fontSize: 16, fontWeight: FontWeight.w700)),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Providers who checked in as currently working — call them directly.',
-                        style: TextStyle(fontSize: 11.5, color: AppColors.inkSoft, height: 1.4),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Row(
-                  children: [
-                    Text(
-                      '${_live.length} live',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.greenDeep),
-                    ),
-                    const SizedBox(width: 8),
-                    Material(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      child: InkWell(
-                        onTap: _refreshingLive ? null : _refreshLive,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.line),
-                            boxShadow: AppColors.cardShadow,
-                          ),
-                          child: _refreshingLive
-                              ? const Padding(
-                                  padding: EdgeInsets.all(9),
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.greenDeep),
-                                )
-                              : const Icon(Icons.refresh_rounded, size: 18, color: AppColors.greenDeep),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          if (_live.isEmpty)
-            SoftCard(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              child: const Text(
-                'No one is live nearby right now. Post a job or check Explore.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.inkSoft, fontSize: 13),
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-              child: Column(
-                children: [
-                  for (final row in _live)
-                    _LiveProviderCard(
-                      row: row,
-                      isOwn: userId != null &&
-                          row['businesses'] is Map &&
-                          (row['businesses'] as Map)['owner_id'] == userId,
-                      onCall: _callPhone,
-                    ),
-                ],
-              ),
-            ),
-
-          SearchFakeField(
-            hint: 'Search "electrician", "AC repair"...',
-            onTap: () => context.go('/explore'),
           ),
 
           SectionHeader(
@@ -434,26 +406,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               itemCount: cats.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
-                mainAxisSpacing: 14,
-                crossAxisSpacing: 12,
-                childAspectRatio: 0.85,
+                mainAxisSpacing: 6,
+                crossAxisSpacing: 8,
+                childAspectRatio: 1.05,
               ),
               itemBuilder: (_, i) {
                 final c = cats[i];
                 return InkWell(
-                  onTap: () => context.go('/explore'),
+                  onTap: () => context.go('/explore?category=${Uri.encodeComponent(c.id)}'),
                   borderRadius: BorderRadius.circular(12),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CategoryIcon(value: c.emoji, size: 52, radius: 14),
-                      const SizedBox(height: 8),
+                      CategoryIcon(value: c.emoji, size: 48, radius: 14),
+                      const SizedBox(height: 6),
                       Text(
                         c.name,
                         textAlign: TextAlign.center,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, height: 1.25),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, height: 1.2),
                       ),
                     ],
                   ),
@@ -499,30 +471,54 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
 
-          const SectionHeader(title: 'Recent activity'),
+          SectionHeader(
+            title: 'Recent activity',
+            trailing: GestureDetector(
+              onTap: () => context.go('/my-jobs'),
+              child: const Text('Show all', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.blueDeep)),
+            ),
+          ),
           if (_recent.isEmpty)
-            SoftCard(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                isGuest
-                    ? 'Log in to post a job and track it here.'
-                    : 'You have not posted any jobs yet.',
-                style: const TextStyle(color: AppColors.inkSoft),
-              ),
+            EmptyState(
+              icon: Icons.history_rounded,
+              title: isGuest ? 'Nothing here yet' : 'No recent jobs',
+              message: isGuest
+                  ? 'Log in to post a job and track it here.'
+                  : 'Jobs you post will show up in this list.',
+              action: isGuest
+                  ? SizedBox(
+                      width: double.infinity,
+                      child: PrimaryButton(
+                        label: 'Log in',
+                        onPressed: () => context.push('/login?next=/post-job'),
+                      ),
+                    )
+                  : SizedBox(
+                      width: double.infinity,
+                      child: PrimaryButton(
+                        label: 'Post a job',
+                        onPressed: () => context.push('/post-job'),
+                      ),
+                    ),
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
             )
-          else
+          else ...[
             ..._recent.map(
               (j) => GestureDetector(
-                onTap: () => context.push('/jobs/${j.id}'),
+                onTap: () async {
+                  await context.push('/jobs/${j.id}');
+                  if (mounted) await _load();
+                },
                 child: StatusRowTile(
                   title: j.title,
-                  subtitle: j.status == 'open' ? 'Open — waiting for responses' : 'Closed',
+                  subtitle: j.status == 'open' ? 'Open - waiting for responses' : 'Closed',
                   amount: j.budgetLabel,
                   when: timeAgo(j.createdAt),
                   ok: j.status == 'closed',
                 ),
               ),
             ),
+          ],
 
           if (isGuest || _business == null)
             Padding(
@@ -565,7 +561,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ],
                           ),
                         ),
-                        const Text('→', style: TextStyle(color: AppColors.greenDeep, fontSize: 18, fontWeight: FontWeight.w700)),
+                        const Icon(Icons.arrow_forward_rounded, color: AppColors.greenDeep, size: 20),
                       ],
                     ),
                   ),
@@ -652,7 +648,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
         ],
-      ),
+          ),
+        ),
+        Positioned(
+          right: 16,
+          bottom: 28,
+          child: LiveNearbyFab(
+            liveCount: _live.length,
+            onTap: () => context.push('/live-nearby'),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -689,137 +695,5 @@ class _AdFallback extends StatelessWidget {
   }
 }
 
-class _LiveProviderCard extends StatelessWidget {
-  const _LiveProviderCard({
-    required this.row,
-    required this.isOwn,
-    required this.onCall,
-  });
+enum _HomeMenuAction { profile, policies, help }
 
-  final Map<String, dynamic> row;
-  final bool isOwn;
-  final Future<void> Function(String? phone, String name) onCall;
-
-  @override
-  Widget build(BuildContext context) {
-    final biz = row['businesses'];
-    if (biz is! Map) return const SizedBox.shrink();
-
-    final name = biz['name'] as String? ?? 'Provider';
-    final ownerName = (biz['ownerName'] as String?)?.trim();
-    final ownerPhone = biz['ownerPhone'] as String?;
-    final cat = biz['categories'];
-    final categoryName = cat is Map ? (cat['name'] as String? ?? '') : '';
-    final startedAt = DateTime.tryParse(row['started_at'] as String? ?? '') ?? DateTime.now();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: isOwn ? AppColors.greenDeep.withValues(alpha: 0.4) : AppColors.line),
-        boxShadow: AppColors.cardShadow,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.greenDeep, width: 2),
-                ),
-                padding: const EdgeInsets.all(2),
-                child: AvatarBadge(
-                  label: initials(name),
-                  size: 48,
-                  radius: 14,
-                  background: AppColors.blueSoft,
-                  foreground: AppColors.blueDeep,
-                ),
-              ),
-              Positioned(
-                bottom: -6,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.greenDeep,
-                      borderRadius: BorderRadius.circular(100),
-                    ),
-                    child: const Text('LIVE', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, height: 1.3)),
-                if (categoryName.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.blueSoft,
-                      borderRadius: BorderRadius.circular(100),
-                    ),
-                    child: Text(
-                      categoryName,
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.blueDeep),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 6),
-                if (isOwn)
-                  const Text('You are live', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.greenDeep))
-                else ...[
-                  Text(
-                    (ownerName == null || ownerName.isEmpty) ? 'Provider' : ownerName,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 2),
-                  if (ownerPhone != null && ownerPhone.isNotEmpty)
-                    Text(displayPhone(ownerPhone), style: monoStyle(fontSize: 11.5, color: AppColors.blueDeep))
-                  else
-                    const Text('No contact shared', style: TextStyle(fontSize: 11, color: AppColors.inkFaint)),
-                ],
-                const SizedBox(height: 6),
-                Text(
-                  'Checked in ${timeAgo(startedAt)}',
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.greenDeep),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: isOwn ? null : () => onCall(ownerPhone, ownerName ?? name),
-            tooltip: 'Call',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            icon: Icon(
-              Icons.phone_rounded,
-              size: 22,
-              color: isOwn
-                  ? AppColors.inkFaint
-                  : (ownerPhone != null && ownerPhone.isNotEmpty)
-                      ? AppColors.blueDeep
-                      : AppColors.inkFaint,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

@@ -22,7 +22,7 @@ class WelcomeScreen extends StatelessWidget {
             child: Column(
               children: [
                 const Spacer(flex: 2),
-                const SanyujLogo(size: 168, plated: false),
+                const SanyujTransparentLogo(size: 168),
                 const SizedBox(height: 18),
                 Text(
                   'One account for everything — find trusted local help, or list your own business for free.',
@@ -78,6 +78,15 @@ class WelcomeScreen extends StatelessWidget {
                       child: const Text('Privacy Policy', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w700)),
                     ),
                   ],
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'App Version: ${AppConfig.appVersion}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: 0.55),
+                  ),
                 ),
               ],
             ),

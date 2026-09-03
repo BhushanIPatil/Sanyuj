@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/errors.dart';
 import '../../utils/format.dart';
 import '../../widgets/common.dart';
 
@@ -22,6 +23,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   String? _categoryId;
   bool _loading = false;
   bool _ready = false;
+  String? _loadError;
 
   @override
   void initState() {
@@ -30,18 +32,30 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   }
 
   Future<void> _boot() async {
-    final groups = await ref.read(repoProvider).fetchCategoryTree();
-    final profile = await ref.read(repoProvider).fetchProfile();
-    if (!mounted) return;
-    final cats = groups.expand((g) => g.categories).toList();
-    if (profile?.phone != null && profile!.phone!.isNotEmpty) {
-      _phone.text = digitsFromPhone(profile.phone!);
-    }
     setState(() {
-      _categories = cats;
-      _categoryId = cats.isNotEmpty ? cats.first.id : null;
-      _ready = true;
+      _ready = false;
+      _loadError = null;
     });
+    try {
+      final groups = await ref.read(repoProvider).fetchCategoryTree();
+      final profile = await ref.read(repoProvider).fetchProfile();
+      if (!mounted) return;
+      final cats = groups.expand((g) => g.categories).toList();
+      if (profile?.phone != null && profile!.phone!.isNotEmpty) {
+        _phone.text = digitsFromPhone(profile.phone!);
+      }
+      setState(() {
+        _categories = cats;
+        _categoryId = cats.isNotEmpty ? cats.first.id : null;
+        _ready = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = friendlyError(e);
+        _ready = true;
+      });
+    }
   }
 
   @override
@@ -68,7 +82,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
       context.go('/business/coverage');
     } catch (e) {
       if (!mounted) return;
-      showAppSnack(context, e.toString().replaceFirst('Exception: ', ''));
+      showAppErrorSnack(context, e);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -81,10 +95,29 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
       body: SafeArea(
         child: !_ready
             ? const Center(child: CircularProgressIndicator(color: AppColors.blueDeep))
-            : Column(
+            : _loadError != null
+                ? Column(
+                    children: [
+                      ScreenTopBar(
+                        title: 'Set up your business',
+                        showBack: true,
+                        onBack: () => context.pop(),
+                      ),
+                      Expanded(
+                        child: EmptyState(
+                          icon: Icons.cloud_off_outlined,
+                          title: 'Could not load setup',
+                          message: _loadError!,
+                          iconColor: AppColors.rose,
+                          iconBackground: AppColors.roseSoft,
+                          action: PrimaryButton(label: 'Try again', onPressed: _boot),
+                        ),
+                      ),
+                    ],
+                  )
+                : Column(
                 children: [
                   ScreenTopBar(
-                    eyebrow: 'List your business',
                     title: 'Set up your business',
                     showBack: true,
                     onBack: () => context.pop(),

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers.dart';
 import '../../services/postal.dart';
+import '../../utils/errors.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 
@@ -20,6 +21,7 @@ class _BusinessCoverageScreenState extends ConsumerState<BusinessCoverageScreen>
   List<Map<String, dynamic>> _rows = [];
   bool _ready = false;
   bool _saving = false;
+  String? _loadError;
   final _newPin = TextEditingController();
   String? _editingPin;
   bool _entire = true;
@@ -42,23 +44,41 @@ class _BusinessCoverageScreenState extends ConsumerState<BusinessCoverageScreen>
   }
 
   Future<void> _boot() async {
-    final biz = await ref.read(repoProvider).fetchMyBusiness();
-    if (!mounted) return;
-    if (biz == null) {
-      setState(() => _ready = true);
-      return;
+    setState(() {
+      _ready = false;
+      _loadError = null;
+    });
+    try {
+      final biz = await ref.read(repoProvider).fetchMyBusiness();
+      if (!mounted) return;
+      if (biz == null) {
+        setState(() => _ready = true);
+        return;
+      }
+      _businessId = biz.id;
+      await _reload();
+      if (mounted) setState(() => _ready = true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = friendlyError(e);
+        _ready = true;
+      });
     }
-    _businessId = biz.id;
-    await _reload();
-    if (mounted) setState(() => _ready = true);
   }
 
   Future<void> _reload() async {
     final id = _businessId;
     if (id == null) return;
-    final rows = await ref.read(repoProvider).fetchBusinessCoverage(id);
-    if (!mounted) return;
-    setState(() => _rows = rows);
+    try {
+      final rows = await ref.read(repoProvider).fetchBusinessCoverage(id);
+      if (!mounted) return;
+      setState(() => _rows = rows);
+    } catch (e) {
+      if (!mounted) return;
+      showAppErrorSnack(context, e);
+      rethrow;
+    }
   }
 
   Map<String, List<Map<String, dynamic>>> get _grouped {
@@ -95,35 +115,40 @@ class _BusinessCoverageScreenState extends ConsumerState<BusinessCoverageScreen>
       _selectedAreas.clear();
       _localities = [];
     });
-    final list = await fetchLocalitiesForPincode(pincode);
-    if (!mounted) return;
-    setState(() => _localities = list);
-    if (existing != null && !_entire) {
-      for (final row in existing) {
-        final loc = row['localities'];
-        final name = loc is Map ? loc['name'] as String? : null;
-        if (name == null) continue;
-        _selectedLocalities.add(name);
-        if (row['area_id'] == null) {
-          _entireLocality[name] = true;
-        } else {
-          _entireLocality[name] = _entireLocality[name] ?? false;
-          _selectedAreas.putIfAbsent(name, () => {}).add(row['area_id'] as String);
-        }
-      }
-      for (final name in _selectedLocalities) {
-        PostalLocality? loc;
-        for (final l in list) {
-          if (l.name == name) {
-            loc = l;
-            break;
+    try {
+      final list = await fetchLocalitiesForPincode(pincode);
+      if (!mounted) return;
+      setState(() => _localities = list);
+      if (existing != null && !_entire) {
+        for (final row in existing) {
+          final loc = row['localities'];
+          final name = loc is Map ? loc['name'] as String? : null;
+          if (name == null) continue;
+          _selectedLocalities.add(name);
+          if (row['area_id'] == null) {
+            _entireLocality[name] = true;
+          } else {
+            _entireLocality[name] = _entireLocality[name] ?? false;
+            _selectedAreas.putIfAbsent(name, () => {}).add(row['area_id'] as String);
           }
         }
-        if (loc?.id != null) {
-          _areas[name] = await fetchAreasForLocality(loc!.id!);
+        for (final name in _selectedLocalities) {
+          PostalLocality? loc;
+          for (final l in list) {
+            if (l.name == name) {
+              loc = l;
+              break;
+            }
+          }
+          if (loc?.id != null) {
+            _areas[name] = await fetchAreasForLocality(loc!.id!);
+          }
         }
+        if (mounted) setState(() {});
       }
-      if (mounted) setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      showAppErrorSnack(context, e);
     }
   }
 
@@ -147,9 +172,14 @@ class _BusinessCoverageScreenState extends ConsumerState<BusinessCoverageScreen>
       }
     }
     if (loc?.id == null) return;
-    final areas = await fetchAreasForLocality(loc!.id!);
-    if (!mounted) return;
-    setState(() => _areas[name] = areas);
+    try {
+      final areas = await fetchAreasForLocality(loc!.id!);
+      if (!mounted) return;
+      setState(() => _areas[name] = areas);
+    } catch (e) {
+      if (!mounted) return;
+      showAppErrorSnack(context, e);
+    }
   }
 
   Future<void> _save() async {
@@ -182,7 +212,7 @@ class _BusinessCoverageScreenState extends ConsumerState<BusinessCoverageScreen>
       showAppSnack(context, 'Service area saved');
     } catch (e) {
       if (!mounted) return;
-      showAppSnack(context, e.toString().replaceFirst('Exception: ', ''));
+      showAppErrorSnack(context, e);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -196,13 +226,35 @@ class _BusinessCoverageScreenState extends ConsumerState<BusinessCoverageScreen>
         body: Center(child: CircularProgressIndicator(color: AppColors.blueDeep)),
       );
     }
+    if (_loadError != null) {
+      return Scaffold(
+        backgroundColor: AppColors.bgApp,
+        body: SafeArea(
+          child: Column(
+            children: [
+              ScreenTopBar(title: 'Service areas', showBack: true, onBack: () => context.pop()),
+              Expanded(
+                child: EmptyState(
+                  icon: Icons.cloud_off_outlined,
+                  title: 'Could not load service areas',
+                  message: _loadError!,
+                  iconColor: AppColors.rose,
+                  iconBackground: AppColors.roseSoft,
+                  action: PrimaryButton(label: 'Try again', onPressed: _boot),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     if (_businessId == null) {
       return Scaffold(
         backgroundColor: AppColors.bgApp,
         body: SafeArea(
           child: Column(
             children: [
-              ScreenTopBar(eyebrow: 'Business', title: 'Service areas', showBack: true, onBack: () => context.pop()),
+              ScreenTopBar(title: 'Service areas', showBack: true, onBack: () => context.pop()),
               const Padding(
                 padding: EdgeInsets.all(20),
                 child: Text('Create a business profile first.', style: TextStyle(color: AppColors.inkSoft)),
@@ -219,7 +271,7 @@ class _BusinessCoverageScreenState extends ConsumerState<BusinessCoverageScreen>
       body: SafeArea(
         child: Column(
           children: [
-            ScreenTopBar(eyebrow: 'Business', title: 'Service areas', showBack: true, onBack: () => context.pop()),
+            ScreenTopBar(title: 'Service areas', showBack: true, onBack: () => context.pop()),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
@@ -230,7 +282,14 @@ class _BusinessCoverageScreenState extends ConsumerState<BusinessCoverageScreen>
                   ),
                   const SizedBox(height: 16),
                   if (grouped.isEmpty)
-                    const Text('No service areas yet. Add a pincode below.', style: TextStyle(color: AppColors.inkSoft))
+                    const EmptyState(
+                      icon: Icons.map_outlined,
+                      title: 'No service areas yet',
+                      message: 'Add a pincode below to tell customers where you work.',
+                      iconColor: AppColors.teal,
+                      iconBackground: AppColors.tealSoft,
+                      padding: EdgeInsets.symmetric(vertical: 20, horizontal: 8),
+                    )
                   else
                     for (final entry in grouped.entries)
                       SoftCard(
@@ -254,11 +313,16 @@ class _BusinessCoverageScreenState extends ConsumerState<BusinessCoverageScreen>
                             ),
                             TextButton(
                               onPressed: () async {
-                                await ref.read(repoProvider).removePincodeCoverage(
-                                      businessId: _businessId!,
-                                      pincode: entry.key,
-                                    );
-                                await _reload();
+                                try {
+                                  await ref.read(repoProvider).removePincodeCoverage(
+                                        businessId: _businessId!,
+                                        pincode: entry.key,
+                                      );
+                                  await _reload();
+                                } catch (e) {
+                                  if (!context.mounted) return;
+                                  showAppErrorSnack(context, e);
+                                }
                               },
                               child: const Text('Remove', style: TextStyle(color: AppColors.rose)),
                             ),

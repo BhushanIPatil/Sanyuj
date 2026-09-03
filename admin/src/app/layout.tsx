@@ -20,6 +20,10 @@ export const metadata: Metadata = {
     template: "%s · Sanyuj Admin",
   },
   description: "Admin console for Sanyuj",
+  icons: {
+    icon: [{ url: "/favicon.png", sizes: "any", type: "image/png" }],
+    shortcut: [{ url: "/favicon.png", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -80,6 +80,10 @@ bool isCategoryImageUrl(String? value) {
       .hasMatch(value.trim());
 }
 
+String formatDateTime(DateTime dt) {
+  return DateFormat('d MMM yyyy · h:mm a').format(dt.toLocal());
+}
+
 String formatAdDate(DateTime? dt) {
   if (dt == null) return 'Not set';
   return DateFormat('d MMM yyyy').format(dt.toLocal());

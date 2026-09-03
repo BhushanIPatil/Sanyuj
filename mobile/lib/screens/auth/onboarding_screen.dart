@@ -5,10 +5,12 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/errors.dart';
 import '../../widgets/common.dart';
 import '../../widgets/locality_picker.dart';
 import '../../widgets/area_picker.dart';
 import '../../services/postal.dart';
+import '../../services/location.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -27,7 +29,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String? _areaName;
   bool _areaRequired = false;
   bool _loading = false;
+  bool _locating = false;
   String? _error;
+  String? _locationNote;
+  double? _lat;
+  double? _lng;
 
   @override
   void dispose() {
@@ -35,6 +41,61 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     _pincode.dispose();
     _address.dispose();
     super.dispose();
+  }
+
+  Future<void> _detectLocation({bool refresh = false}) async {
+    if (_locating) return;
+    final hadAddress = _address.text.trim().isNotEmpty;
+    setState(() {
+      _locating = true;
+      _error = null;
+      _locationNote = refresh && hadAddress ? 'Updating address…' : 'Detecting your location…';
+    });
+    try {
+      final loc = await LocationService.instance.fetchCurrentLocation(forceRefresh: refresh);
+      if (!mounted) return;
+      if (loc == null || loc.address.isEmpty) {
+        setState(() {
+          _locating = false;
+          if (hadAddress) {
+            _locationNote = 'Couldn’t refresh — keeping the address we already have.';
+          } else {
+            _locationNote = 'Could not detect location. Enter your address and pincode.';
+          }
+        });
+        return;
+      }
+      setState(() {
+        _address.text = loc.address;
+        _lat = loc.lat;
+        _lng = loc.lng;
+        _locating = false;
+        if (loc.pincode != null) {
+          final pinChanged = _pincode.text.trim() != loc.pincode;
+          _pincode.text = loc.pincode!;
+          if (pinChanged) {
+            _locality = null;
+            _areaId = null;
+            _areaName = null;
+          }
+          _locationNote = 'Location detected — confirm or edit if needed.';
+        } else {
+          _locationNote = 'Address found, but no pincode detected. Enter your 6-digit pincode.';
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _locating = false;
+        if (hadAddress) {
+          _error = null;
+          _locationNote = 'Couldn’t refresh — keeping the address we already have.';
+        } else {
+          _locationNote = '';
+          _error = friendlyError(e);
+        }
+      });
+    }
   }
 
   Future<void> _finish() async {
@@ -55,12 +116,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         'area_id': _areaId,
         'area': _areaName,
         'address': _address.text.trim(),
+        if (_lat != null) 'lat': _lat,
+        if (_lng != null) 'lng': _lng,
         'onboarding_complete': true,
       });
       if (!mounted) return;
       context.go('/home');
     } catch (e) {
-      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      setState(() => _error = friendlyError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -115,7 +178,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     const Spacer(),
                     PrimaryButton(
                       label: 'Continue',
-                      onPressed: _name.text.trim().isEmpty ? null : () => setState(() => _step = 2),
+                      onPressed: _name.text.trim().isEmpty
+                          ? null
+                          : () {
+                              setState(() => _step = 2);
+                              _detectLocation();
+                            },
                     ),
                   ] else ...[
                     Expanded(
@@ -164,7 +232,29 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             onAvailabilityChange: (has) => setState(() => _areaRequired = has),
                           ),
                           const SizedBox(height: 12),
-                          const FieldLabel('Address / Landmark'),
+                          Row(
+                            children: [
+                              const Expanded(child: FieldLabel('Address / Landmark')),
+                              IconButton(
+                                tooltip: 'Fetch latest address',
+                                onPressed: _locating ? null : () => _detectLocation(refresh: true),
+                                icon: _locating
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.blueDeep),
+                                      )
+                                    : const Icon(Icons.refresh_rounded, color: AppColors.blueDeep),
+                              ),
+                            ],
+                          ),
+                          if ((_locationNote ?? '').isNotEmpty) ...[
+                            Text(
+                              _locationNote!,
+                              style: const TextStyle(fontSize: 12, color: AppColors.inkSoft, height: 1.4),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
                           TextField(
                             controller: _address,
                             maxLines: 3,

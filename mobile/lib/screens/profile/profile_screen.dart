@@ -12,6 +12,7 @@ import '../../services/auth_api.dart';
 import '../../services/guest.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
+import '../../widgets/change_password_dialog.dart';
 import '../../widgets/common.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -48,36 +49,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      showAppSnack(context, e.toString());
+      showAppErrorAlert(context, e, actionLabel: 'Retry', onAction: _load);
+    }
+  }
+
+  Future<void> _openUrl(String url) async {
+    try {
+      final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!ok && mounted) showAppErrorSnack(context, 'Could not open link');
+    } catch (e) {
+      if (!mounted) return;
+      showAppErrorSnack(context, e);
     }
   }
 
   Future<void> _logout() async {
-    await GuestSession.instance.enter();
-    await Supabase.instance.client.auth.signOut();
-    if (!mounted) return;
-    context.go('/home');
+    final ok = await showLogoutConfirmDialog(context);
+    if (ok != true || !mounted) return;
+    try {
+      await GuestSession.instance.enter();
+      await Supabase.instance.client.auth.signOut();
+      if (!mounted) return;
+      context.go('/home');
+    } catch (e) {
+      if (!mounted) return;
+      showAppErrorSnack(context, e);
+    }
+  }
+
+  Future<void> _changePassword() async {
+    final email = _profile?.email?.trim();
+    if (email == null || email.isEmpty) {
+      showAppSnack(context, 'No email on this account');
+      return;
+    }
+    final ok = await showChangePasswordDialog(context, email: email);
+    if (ok == true && mounted) {
+      showAppSnack(context, 'Password updated');
+    }
   }
 
   Future<void> _deleteAccount() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusMd)),
-        title: Text('Delete account?', style: GoogleFonts.nunito(fontWeight: FontWeight.w700)),
-        content: const Text(
+    final ok = await showDeleteConfirmDialog(
+      context,
+      title: 'Delete account?',
+      message:
           'This permanently deactivates your Sanyuj account and associated jobs/business data. '
-          'You can restore later by registering again with the same number.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.rose),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+          'You can restore later by registering again with the same email.',
     );
     if (ok != true) return;
 
@@ -92,20 +110,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       context.go('/home');
     } catch (e) {
       if (!mounted) return;
-      showAppSnack(context, e.toString().replaceFirst('Exception: ', ''));
+      showAppErrorSnack(context, e);
       setState(() => _deleting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(authStateProvider, (previous, next) {
+      next.whenData((_) {
+        if (mounted) _load();
+      });
+    });
+
     if (_loading) return const Center(child: CircularProgressIndicator(color: AppColors.blueDeep));
-    final isGuest = ref.read(repoProvider).userId == null;
+    final isGuest = ref.watch(repoProvider).userId == null;
     if (isGuest) {
       return ListView(
         padding: const EdgeInsets.only(bottom: 32),
         children: [
-          const ScreenTopBar(eyebrow: 'Account', title: 'Profile'),
+          const ScreenTopBar(title: 'Profile'),
           GuestPrompt(
             title: "You're browsing as a guest",
             body: 'Log in with your email to post jobs, save your location, and list a business.',
@@ -120,7 +144,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return ListView(
       padding: const EdgeInsets.only(bottom: 32),
       children: [
-        const ScreenTopBar(eyebrow: 'Account', title: 'Profile'),
+        const ScreenTopBar(title: 'Profile'),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
           child: Column(
@@ -131,6 +155,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.blueDeep,
                   borderRadius: BorderRadius.circular(26),
+                  border: Border.all(color: Colors.white, width: 3),
                   boxShadow: [
                     BoxShadow(
                       color: const Color(0xFF1F8E7B).withValues(alpha: 0.28),
@@ -148,48 +173,73 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 12),
               Text(p?.fullName ?? 'Your name', style: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.w700)),
-              const SizedBox(height: 3),
-              if (p?.email != null && p!.email!.isNotEmpty)
-                Text(
-                  p!.email!,
-                  style: const TextStyle(fontSize: 12, color: AppColors.inkSoft, fontWeight: FontWeight.w500),
-                ),
-              if (p?.phone != null && p!.phone!.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(
-                  displayPhone(p!.phone!),
-                  style: monoStyle(fontSize: 12, color: AppColors.inkFaint, fontWeight: FontWeight.w500),
-                ),
-              ],
-            ],
-          ),
-        ),
-        SoftCard(
-          margin: const EdgeInsets.fromLTRB(20, 0, 20, 18),
-          padding: const EdgeInsets.all(14),
-          onTap: () => context.push('/profile/edit'),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: 10),
+              SoftCard(
+                padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+                onTap: () => context.push('/profile/edit'),
+                child: Row(
                   children: [
-                    const Text('SAVED LOCATION', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.inkSoft, letterSpacing: 0.4)),
-                    const SizedBox(height: 3),
-                    Text(
-                      location.isEmpty ? '—' : location,
-                      style: monoStyle(fontSize: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (p?.email != null && p!.email!.isNotEmpty)
+                            Row(
+                              children: [
+                                const Icon(Icons.email_outlined, size: 16, color: AppColors.inkSoft),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    p.email!,
+                                    style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft, fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          if (p?.phone != null && p!.phone!.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(Icons.phone_outlined, size: 16, color: AppColors.inkSoft),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    displayPhone(p.phone!),
+                                    style: monoStyle(fontSize: 12.5, color: AppColors.inkSoft, fontWeight: FontWeight.w500),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          if (location.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.location_on_outlined, size: 16, color: AppColors.inkSoft),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    location,
+                                    style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft, fontWeight: FontWeight.w500, height: 1.35),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: AppColors.blueSoft,
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: const Text('Edit', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.blueDeep)),
                     ),
                   ],
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(
-                  color: AppColors.blueSoft,
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: const Text('Edit', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.blueDeep)),
               ),
             ],
           ),
@@ -356,27 +406,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           child: Column(
             children: [
               _MenuItem(
-                icon: Icons.calendar_today_outlined,
-                label: 'My Jobs',
-                onTap: () => context.go('/my-jobs'),
+                icon: Icons.policy_outlined,
+                iconColor: AppColors.indigo,
+                label: 'Sanyuj Policies',
+                onTap: () => _openUrl(AppConfig.policiesUrl),
               ),
               const Divider(height: 1, color: AppColors.line),
               _MenuItem(
-                icon: Icons.help_outline_rounded,
+                icon: Icons.support_agent_rounded,
+                iconColor: AppColors.greenDeep,
                 label: 'Help & Support',
-                onTap: () => launchUrl(Uri.parse('mailto:${AppConfig.supportEmail}')),
-              ),
-              const Divider(height: 1, color: AppColors.line),
-              _MenuItem(
-                icon: Icons.privacy_tip_outlined,
-                label: 'Privacy Policy',
-                onTap: () => launchUrl(Uri.parse(AppConfig.privacyUrl)),
-              ),
-              const Divider(height: 1, color: AppColors.line),
-              _MenuItem(
-                icon: Icons.description_outlined,
-                label: 'Terms of Service',
-                onTap: () => launchUrl(Uri.parse(AppConfig.termsUrl)),
+                onTap: () => _openUrl(AppConfig.helpUrl),
               ),
               const Divider(height: 1, color: AppColors.line),
               _MenuItem(
@@ -388,22 +428,56 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: OutlinedButton(
-            onPressed: _deleting ? null : _deleteAccount,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.rose,
-              side: const BorderSide(color: AppColors.rose, width: 1.5),
-              minimumSize: const Size.fromHeight(48),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusMd)),
-            ),
-            child: _deleting
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.rose))
-                : Text('Delete account', style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 14)),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
+          child: Text(
+            'ACCOUNT SETTINGS',
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.inkSoft, letterSpacing: 0.4),
           ),
         ),
-        const SizedBox(height: 8),
+        SoftCard(
+          margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          padding: EdgeInsets.zero,
+          child: _MenuItem(
+            icon: Icons.lock_outline_rounded,
+            iconColor: AppColors.blueDeep,
+            label: 'Change password',
+            onTap: _changePassword,
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
+          child: Text(
+            'DANGER ZONE',
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: AppColors.rose, letterSpacing: 0.4),
+          ),
+        ),
+        SoftCard(
+          margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Delete your account and associated data from Sanyuj.',
+                style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft, height: 1.4),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: _deleting ? null : _deleteAccount,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.rose,
+                  side: const BorderSide(color: AppColors.rose, width: 1.5),
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusMd)),
+                ),
+                child: _deleting
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.rose))
+                    : Text('Delete account', style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 14)),
+              ),
+            ],
+          ),
+        ),
         const Padding(
           padding: EdgeInsets.symmetric(horizontal: 28),
           child: Text(
@@ -447,15 +521,18 @@ class _MenuItem extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.danger = false,
+    this.iconColor,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool danger;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
+    final color = danger ? AppColors.rose : (iconColor ?? AppColors.ink);
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -466,7 +543,7 @@ class _MenuItem extends StatelessWidget {
               width: 34,
               height: 34,
               decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(11)),
-              child: Icon(icon, size: 16, color: danger ? AppColors.rose : AppColors.ink),
+              child: Icon(icon, size: 16, color: color),
             ),
             const SizedBox(width: 12),
             Expanded(

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../utils/errors.dart';
 import '../services/postal.dart';
 import '../theme/app_theme.dart';
-import 'common.dart';
+import 'searchable_select.dart';
 
 class AreaPicker extends StatefulWidget {
   const AreaPicker({
@@ -27,6 +28,7 @@ class AreaPicker extends StatefulWidget {
 class _AreaPickerState extends State<AreaPicker> {
   List<AreaOption> _areas = [];
   bool _loading = false;
+  String? _error;
 
   @override
   void initState() {
@@ -45,12 +47,18 @@ class _AreaPickerState extends State<AreaPicker> {
   Future<void> _load() async {
     final locality = widget.locality?.trim() ?? '';
     if (widget.pincode.length != 6 || locality.isEmpty) {
-      setState(() => _areas = []);
+      setState(() {
+        _areas = [];
+        _error = null;
+      });
       widget.onAvailabilityChange?.call(false);
       if (widget.value != null) widget.onChanged(null, null);
       return;
     }
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final localityId = await resolveLocalityId(widget.pincode, locality);
       final list = localityId == null ? <AreaOption>[] : await fetchAreasForLocality(localityId);
@@ -63,11 +71,12 @@ class _AreaPickerState extends State<AreaPicker> {
       if (widget.value != null && !list.any((a) => a.id == widget.value)) {
         widget.onChanged(null, null);
       }
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _areas = [];
         _loading = false;
+        _error = friendlyError(e);
       });
       widget.onAvailabilityChange?.call(false);
     }
@@ -83,31 +92,34 @@ class _AreaPickerState extends State<AreaPicker> {
         child: Text('Loading areas…', style: TextStyle(fontSize: 12, color: AppColors.inkSoft)),
       );
     }
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(_error!, style: const TextStyle(fontSize: 12, color: AppColors.rose)),
+      );
+    }
     if (_areas.isEmpty) return const SizedBox.shrink();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 12),
-        const FieldLabel('Area / colony'),
-        DropdownButtonFormField<String>(
-          value: widget.value != null && _areas.any((a) => a.id == widget.value) ? widget.value : null,
-          decoration: const InputDecoration(hintText: 'Select your area / colony'),
-          items: [
-            for (final a in _areas) DropdownMenuItem(value: a.id, child: Text(a.name, overflow: TextOverflow.ellipsis)),
-          ],
-          onChanged: (id) {
-            AreaOption? match;
-            for (final a in _areas) {
-              if (a.id == id) {
-                match = a;
-                break;
-              }
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: SearchableSelect<String>(
+        label: 'Area / colony',
+        hint: 'Select your area / colony',
+        value: widget.value != null && _areas.any((a) => a.id == widget.value) ? widget.value : null,
+        options: [
+          for (final a in _areas) SearchableSelectOption(value: a.id, label: a.name),
+        ],
+        onChanged: (id) {
+          AreaOption? match;
+          for (final a in _areas) {
+            if (a.id == id) {
+              match = a;
+              break;
             }
-            widget.onChanged(id, match?.name);
-          },
-        ),
-      ],
+          }
+          widget.onChanged(id, match?.name);
+        },
+      ),
     );
   }
 }

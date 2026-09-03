@@ -371,7 +371,7 @@ export default function JobDetailPage() {
                 onClick={() => void confirmCloseWithProvider()}
                 className="flex-1 rounded-[12px] bg-ink py-2.5 text-xs font-bold text-white disabled:opacity-60"
               >
-                {savingStatus ? "Saving…" : "Confirm close"}
+                {savingStatus ? "Saving…" : "Confirm"}
               </button>
             </div>
           </div>

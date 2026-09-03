@@ -4,4 +4,7 @@
     <color name="splash_gradient_start">#10549C</color>
     <color name="splash_gradient_mid">#0E8094</color>
     <color name="splash_gradient_end">#12966C</color>
+    <!-- White plate for launcher icon. -->
+    <color name="app_icon_background">#FFFFFF</color>
+    <color name="splash_white">#FFFFFF</color>
 </resources>

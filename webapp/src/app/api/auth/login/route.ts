@@ -41,6 +41,16 @@ export async function POST(req: Request) {
       password,
     });
     if (signErr || !sessionData.session || !sessionData.user) {
+      const msg = signErr?.message ?? "";
+      if (/not confirmed|email not confirmed/i.test(msg)) {
+        return NextResponse.json(
+          {
+            confirmation_required: true,
+            error: "Confirm your email first. Open the link we sent, then log in.",
+          },
+          { status: 403 },
+        );
+      }
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
 

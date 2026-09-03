@@ -43,6 +43,13 @@ class AppConfig {
     defaultValue: 'support@sanyuj.app',
   );
 
+  /// Keep in sync with `version:` in pubspec.yaml (name part before `+`).
+  static const appVersion = '1.0.0';
+
+  /// Placeholder destinations (not live yet).
+  static const policiesUrl = 'https://sanyuj.app/policies';
+  static const helpUrl = 'https://sanyuj.app/help';
+
   static bool get isConfigured =>
       supabaseUrl.isNotEmpty &&
       !supabaseUrl.contains('YOUR_PROJECT') &&
