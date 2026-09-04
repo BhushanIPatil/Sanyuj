@@ -6,6 +6,7 @@ import 'app_router.dart';
 import 'config/app_config.dart';
 import 'services/app_version_api.dart';
 import 'services/guest.dart';
+import 'services/push_notifications.dart';
 import 'theme/app_theme.dart';
 import 'widgets/update_app_dialog.dart';
 
@@ -17,6 +18,9 @@ Future<void> main() async {
     url: AppConfig.supabaseUrl,
     publishableKey: AppConfig.supabaseAnonKey,
   );
+
+  // FCM — fails open if Firebase config files are missing.
+  await PushNotifications.init();
 
   final initialRoute = await resolveInitialRoute();
 

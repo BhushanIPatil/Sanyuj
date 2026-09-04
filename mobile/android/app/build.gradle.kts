@@ -45,3 +45,8 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+// Apply only when Firebase config is present (download from Firebase Console).
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}

@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { createAdminClient, createAnonAuthClient } from "@/lib/auth/admin";
 import { isAccountRestorable, isAccountUsable } from "@/lib/auth/account";
 import { normalizeEmail } from "@/lib/auth/email";
+import {
+  emailSubject,
+  ipSubject,
+  rejectIfRateLimited,
+  subjects,
+  type RateLimitAction,
+} from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -17,6 +24,10 @@ function emailRedirectTo(req: Request, bodyRedirect?: string) {
   return `${origin.replace(/\/$/, "")}/auth/login`;
 }
 
+function rateLimitActionForPurpose(purpose: OtpPurpose): RateLimitAction {
+  return purpose === "reset" ? "forgot_password" : "send_otp";
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -30,6 +41,12 @@ export async function POST(req: Request) {
     if (!["signup", "restore", "reset"].includes(purpose)) {
       return NextResponse.json({ error: "Invalid OTP purpose" }, { status: 400 });
     }
+
+    const limited = await rejectIfRateLimited(
+      rateLimitActionForPurpose(purpose),
+      subjects(emailSubject(email), ipSubject(req)),
+    );
+    if (limited) return limited;
 
     const admin = createAdminClient();
     const anon = createAnonAuthClient();

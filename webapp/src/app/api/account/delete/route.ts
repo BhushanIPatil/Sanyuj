@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/auth/admin";
 import { softDeleteUserData } from "@/lib/auth/account";
+import {
+  ipSubject,
+  rejectIfRateLimited,
+  subjects,
+  userSubject,
+} from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -18,6 +24,12 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Not signed in" }, { status: 401 });
       }
       userId = data.user.id;
+
+      const limited = await rejectIfRateLimited(
+        "delete_account",
+        subjects(userSubject(userId), ipSubject(req)),
+      );
+      if (limited) return limited;
     } else {
       const supabase = await createClient();
       const {
@@ -27,6 +39,13 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Not signed in" }, { status: 401 });
       }
       userId = user.id;
+
+      const limited = await rejectIfRateLimited(
+        "delete_account",
+        subjects(userSubject(userId), ipSubject(req)),
+      );
+      if (limited) return limited;
+
       await supabase.auth.signOut();
     }
 

@@ -10,6 +10,7 @@ import '../../config/app_config.dart';
 import '../../models/models.dart';
 import '../../services/auth_api.dart';
 import '../../services/guest.dart';
+import '../../services/push_notifications.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
 import '../../widgets/change_password_dialog.dart';
@@ -67,6 +68,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final ok = await showLogoutConfirmDialog(context);
     if (ok != true || !mounted) return;
     try {
+      await PushNotifications.deactivateCurrentDevice();
       await GuestSession.instance.enter();
       await Supabase.instance.client.auth.signOut();
       if (!mounted) return;
@@ -103,6 +105,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     try {
       final token = Supabase.instance.client.auth.currentSession?.accessToken;
       if (token == null) throw Exception('Not signed in');
+      await PushNotifications.deactivateCurrentDevice();
       await AuthApi().deleteAccount(token);
       await Supabase.instance.client.auth.signOut();
       await GuestSession.instance.enter();

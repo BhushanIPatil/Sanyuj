@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/app_config.dart';
 import 'guest.dart';
+import 'push_notifications.dart';
 
 class AuthSessionResult {
   AuthSessionResult({
@@ -41,6 +42,7 @@ class AuthApiException implements Exception {
     this.restoreAvailable = false,
     this.otpRequired = false,
     this.email,
+    this.retryAfter,
   });
 
   final String message;
@@ -48,6 +50,9 @@ class AuthApiException implements Exception {
   final bool restoreAvailable;
   final bool otpRequired;
   final String? email;
+  final int? retryAfter;
+
+  bool get isRateLimited => statusCode == 429;
 
   @override
   String toString() => message;
@@ -59,6 +64,21 @@ class AuthApi {
   final http.Client _client;
 
   String get _redirectTo => '${Uri.parse(AppConfig.privacyUrl).origin}/auth/login';
+
+  Never _throwApiError(
+    Map<String, dynamic> data,
+    int statusCode, {
+    String fallback = 'Request failed',
+  }) {
+    throw AuthApiException(
+      data['error'] as String? ?? fallback,
+      statusCode: statusCode,
+      retryAfter: (data['retryAfter'] as num?)?.toInt(),
+      restoreAvailable: data['restore_available'] == true,
+      otpRequired: data['otp_required'] == true || data['confirmation_required'] == true,
+      email: data['email'] as String?,
+    );
+  }
 
   Future<AuthSessionResult> login({required String email, required String password}) =>
       _auth('/api/auth/login', email: email, password: password);
@@ -82,10 +102,7 @@ class AuthApi {
       );
     }
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw AuthApiException(
-        data['error'] as String? ?? 'Authentication failed',
-        statusCode: res.statusCode,
-      );
+      _throwApiError(data, res.statusCode, fallback: 'Authentication failed');
     }
     if (data['otp_sent'] == true || data['confirmation_sent'] == true) {
       return AuthRegisterResult(
@@ -109,10 +126,7 @@ class AuthApi {
     );
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw AuthApiException(
-        data['error'] as String? ?? 'Could not start restore',
-        statusCode: res.statusCode,
-      );
+      _throwApiError(data, res.statusCode, fallback: 'Could not start restore');
     }
     if (data['otp_sent'] == true) {
       return AuthRegisterResult(
@@ -143,10 +157,7 @@ class AuthApi {
       );
     }
     if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw AuthApiException(
-        data['error'] as String? ?? 'Could not send code',
-        statusCode: res.statusCode,
-      );
+      _throwApiError(data, res.statusCode, fallback: 'Could not send code');
     }
   }
 
@@ -263,7 +274,7 @@ class AuthApi {
     );
     if (res.statusCode < 200 || res.statusCode >= 300) {
       final data = jsonDecode(res.body) as Map<String, dynamic>;
-      throw AuthApiException(data['error'] as String? ?? 'Could not delete account');
+      _throwApiError(data, res.statusCode, fallback: 'Could not delete account');
     }
   }
 }
@@ -271,4 +282,5 @@ class AuthApi {
 Future<void> applyAuthSession(AuthSessionResult session) async {
   await GuestSession.instance.clear();
   await Supabase.instance.client.auth.setSession(session.refreshToken);
+  await PushNotifications.syncTokenToServer();
 }

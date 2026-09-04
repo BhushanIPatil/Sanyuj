@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient, createAnonAuthClient } from "@/lib/auth/admin";
 import { isAccountRestorable } from "@/lib/auth/account";
 import { normalizeEmail } from "@/lib/auth/email";
+import { emailSubject, ipSubject, rejectIfRateLimited, subjects } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -33,6 +34,12 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
+
+    const limited = await rejectIfRateLimited(
+      "restore",
+      subjects(emailSubject(email), ipSubject(req)),
+    );
+    if (limited) return limited;
 
     const admin = createAdminClient();
     const { data: existing } = await admin

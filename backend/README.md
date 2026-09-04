@@ -75,6 +75,7 @@ Optional Edge Functions in `supabase/functions/` are legacy phone-OTP helpers an
 - `job_interests` — provider responses
 - `live_sessions` — “Go Live” check-ins
 - `otp_codes` — short-lived OTP (service role only)
+- `api_rate_limits` — fixed-window counters for register / OTP email / restore / delete-account (service role + RPC only)
 
 ## Storage
 

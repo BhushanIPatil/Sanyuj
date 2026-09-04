@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 const ALLOWED_ORIGINS = new Set([
   "http://localhost:3000",
   "http://127.0.0.1:3000",
+  // Admin console (local)
+  "http://localhost:3001",
+  "http://127.0.0.1:3001",
   // Flutter web debug ports
   "http://localhost:5000",
   "http://127.0.0.1:5000",
@@ -10,9 +13,19 @@ const ALLOWED_ORIGINS = new Set([
   "http://127.0.0.1:8080",
 ]);
 
+function extraAllowedOrigins() {
+  const raw = process.env.CORS_ALLOWED_ORIGINS?.trim();
+  if (!raw) return [] as string[];
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 function isDevLocalOrigin(origin: string | null) {
   if (!origin) return false;
   if (ALLOWED_ORIGINS.has(origin)) return true;
+  if (extraAllowedOrigins().includes(origin)) return true;
   // Flutter web often uses a random localhost port
   return /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
 }
@@ -23,7 +36,7 @@ export function corsHeaders(req: Request): HeadersInit {
   const allow = isDevLocalOrigin(origin) ? origin! : "";
   return {
     ...(allow ? { "Access-Control-Allow-Origin": allow } : {}),
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",

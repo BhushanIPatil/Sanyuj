@@ -35,6 +35,13 @@ export async function softDeleteUserData(admin: SupabaseClient, userId: string) 
   const { error: pErr } = await admin.from("profiles").update(ACCOUNT_DELETED).eq("id", userId);
   throwIfError(pErr);
 
+  const { error: tokenErr } = await admin
+    .from("device_tokens")
+    .update({ is_active: false, last_active_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .eq("is_active", true);
+  throwIfError(tokenErr);
+
   const { error: bErr } = await admin.from("businesses").update(ACCOUNT_DELETED).eq("owner_id", userId);
   throwIfError(bErr);
 

@@ -12,3 +12,7 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Firebase Android config (download from Firebase Console; do not commit secrets).
+google-services.json
+app/google-services.json
