@@ -322,3 +322,30 @@ class AdBanner {
 const adBannerHeight = 188.0;
 const adBannerRadius = 12.0;
 const adBannerAspectRatio = 2.4;
+
+class AppVersionInfo {
+  AppVersionInfo({
+    required this.id,
+    required this.platform,
+    required this.latestVersion,
+    required this.minimumVersion,
+    required this.downloadUrl,
+    this.releaseNotes,
+  });
+
+  final String id;
+  final String platform;
+  final String latestVersion;
+  final String minimumVersion;
+  final String downloadUrl;
+  final String? releaseNotes;
+
+  factory AppVersionInfo.fromJson(Map<String, dynamic> json) => AppVersionInfo(
+        id: json['id'] as String,
+        platform: json['platform'] as String? ?? '',
+        latestVersion: json['latest_version'] as String? ?? '',
+        minimumVersion: json['minimum_version'] as String? ?? '',
+        downloadUrl: json['download_url'] as String? ?? '',
+        releaseNotes: json['release_notes'] as String?,
+      );
+}

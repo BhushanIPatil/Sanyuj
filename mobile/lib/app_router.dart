@@ -43,8 +43,12 @@ Future<String> resolveInitialRoute() async {
   return '/home';
 }
 
-GoRouter createRouter({String initialLocation = '/home'}) {
+GoRouter createRouter({
+  String initialLocation = '/home',
+  GlobalKey<NavigatorState>? navigatorKey,
+}) {
   return GoRouter(
+    navigatorKey: navigatorKey,
     initialLocation: initialLocation,
     refreshListenable: _AuthRefresh(),
     redirect: (context, state) {

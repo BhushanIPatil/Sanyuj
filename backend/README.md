@@ -18,16 +18,36 @@ npx supabase functions deploy verify-otp
 
 Or paste `supabase/migrations/*.sql` into the SQL Editor in the dashboard (in order).
 
-## Auth / OTP
+## Auth / OTP (email)
 
-The **webapp** ships working OTP API routes (`/api/auth/send-otp`, `/api/auth/verify-otp`) that use the service role key on Vercel. That is the primary path for launch.
+Primary path: **webapp** API routes
 
-Optional Edge Functions in `supabase/functions/` mirror the same flow if you prefer OTP on Supabase:
+- `POST /api/auth/register` — create account (sends signup OTP email)
+- `POST /api/auth/restore` — deleted-account restore (sends OTP)
+- `POST /api/auth/send-otp` — resend / forgot-password OTP (`purpose`: `signup` | `restore` | `reset`)
+- `POST /api/auth/verify-otp` — verify 6-digit code
+- `POST /api/auth/set-password` — set password after reset OTP
 
-```bash
-npx supabase functions deploy send-otp
-npx supabase functions deploy verify-otp
+### Supabase email templates (required for codes)
+
+In **Authentication → Email Templates**, include `{{ .Token }}` in:
+
+1. **Confirm signup** — account creation OTP  
+2. **Magic Link** — restore-account OTP  
+3. **Reset password** — forgot-password OTP  
+
+Example body:
+
+```html
+<h2>Your verification code</h2>
+<p>Enter this code in the app:</p>
+<p style="font-size:24px;letter-spacing:4px"><strong>{{ .Token }}</strong></p>
+<p>If you don’t see this email, check Spam / Junk.</p>
 ```
+
+Also add your webapp URL to **Authentication → URL Configuration → Redirect URLs**.
+
+Optional Edge Functions in `supabase/functions/` are legacy phone-OTP helpers and are not used by the current email flow.
 
 ### Secrets (set yourself — never commit)
 

@@ -46,7 +46,9 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             confirmation_required: true,
-            error: "Confirm your email first. Open the link we sent, then log in.",
+            otp_required: true,
+            email,
+            error: "Verify your email with the 6-digit code we sent, then log in.",
           },
           { status: 403 },
         );

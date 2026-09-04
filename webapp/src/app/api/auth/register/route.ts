@@ -112,8 +112,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       ok: true,
+      otp_sent: true,
       confirmation_sent: true,
       email,
+      purpose: "signup",
     });
   } catch (e) {
     console.error(e);

@@ -14,6 +14,7 @@ import {
   Users,
   X,
   MapPinned,
+  Smartphone,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -28,6 +29,7 @@ export const ADMIN_NAV = [
   { href: "/ads", label: "Ads", icon: Megaphone, match: "/ads" },
   { href: "/categories", label: "Categories", icon: FolderTree, match: "/categories" },
   { href: "/areas", label: "Areas", icon: MapPinned, match: "/areas" },
+  { href: "/app-versions", label: "App versions", icon: Smartphone, match: "/app-versions" },
 ] as const;
 
 function isActive(pathname: string, match: string, exact?: boolean) {
