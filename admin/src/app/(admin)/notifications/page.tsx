@@ -285,10 +285,13 @@ export default function NotificationsPage() {
                 <span className="mb-1 block text-xs font-bold text-ink-soft">Image URL (optional)</span>
                 <input
                   className="input-box py-3 text-sm"
-                  placeholder="https://…"
+                  placeholder="https://… (public HTTPS, under 1MB)"
                   value={form.image}
                   onChange={(e) => setForm((f) => ({ ...f, image: e.target.value }))}
                 />
+                <span className="mt-1 block text-[11px] text-ink-faint">
+                  Must be a direct HTTPS image link (JPG/PNG). Hotlink-protected URLs will not show.
+                </span>
               </label>
             </div>
             <div className="mt-6 flex gap-3">

@@ -14,9 +14,21 @@ const INVALID_TOKEN_CODES = new Set([
   "messaging/invalid-argument",
 ]);
 
+function normalizeImageUrl(raw: string | null | undefined): string | undefined {
+  const url = raw?.trim();
+  if (!url) return undefined;
+  // FCM only downloads HTTPS images (< ~1MB) for rich notifications.
+  if (!/^https:\/\//i.test(url)) return undefined;
+  return url;
+}
+
 /**
  * Low-level: send a push to an explicit list of FCM tokens.
  * Safe to call from admin broadcast or future job/interest/deal hooks.
+ *
+ * Android: data-only + high priority so Flutter can download `image` and show
+ * a BigPicture notification (OEM battery savers often block FCM's own fetch).
+ * iOS: APNs alert + mutable-content + fcmOptions.imageUrl.
  */
 export async function sendPushToTokens(
   adminDb: SupabaseClient,
@@ -33,37 +45,54 @@ export async function sendPushToTokens(
   let failureCount = 0;
   const invalidTokens: string[] = [];
 
-  const notification: { title: string; body: string; imageUrl?: string } = {
+  const imageUrl = normalizeImageUrl(message.image ?? undefined);
+
+  const data: Record<string, string> = {
+    ...(message.data ?? {}),
     title: message.title,
     body: message.body,
   };
-  if (message.image?.trim()) {
-    notification.imageUrl = message.image.trim();
-  }
+  if (imageUrl) data.image = imageUrl;
 
   for (let i = 0; i < unique.length; i += FCM_BATCH_SIZE) {
     const batch = unique.slice(i, i + FCM_BATCH_SIZE);
     const response = await messaging.sendEachForMulticast({
       tokens: batch,
-      notification,
-      data: message.data,
+      data,
+      // No top-level `notification` — keeps Android in data-message mode so our
+      // Flutter handler can render the image. iOS uses `apns.payload.aps.alert`.
       android: {
         priority: "high",
-        notification: {
-          channelId: "sanyuj_default",
-          ...(message.image?.trim() ? { imageUrl: message.image.trim() } : {}),
-        },
+        // Data-only on Android so Flutter downloads `image` and shows BigPicture.
+        // (System-tray FCM image fetch is often blocked by OEM battery savers.)
       },
       apns: {
+        headers: {
+          "apns-priority": "10",
+          ...(imageUrl ? { "mutable-content": "1" } : {}),
+        },
         payload: {
           aps: {
+            alert: {
+              title: message.title,
+              body: message.body,
+            },
             sound: "default",
+            mutableContent: Boolean(imageUrl),
           },
         },
-        fcmOptions: message.image?.trim()
-          ? { imageUrl: message.image.trim() }
-          : undefined,
+        fcmOptions: imageUrl ? { imageUrl } : undefined,
       },
+      webpush: imageUrl
+        ? {
+            headers: { image: imageUrl },
+            notification: {
+              title: message.title,
+              body: message.body,
+              image: imageUrl,
+            },
+          }
+        : undefined,
     });
 
     successCount += response.successCount;
