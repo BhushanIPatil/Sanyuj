@@ -23,6 +23,10 @@ final FlutterLocalNotificationsPlugin _localNotifications =
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
+    // FCM already posted the system tray item when a `notification` payload is present.
+    // Showing another local notification here would duplicate it.
+    if (message.notification != null) return;
+
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp();
     }
@@ -52,8 +56,6 @@ class PushNotifications {
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp();
       }
-      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-
       await ensureLocalNotificationsInitialized();
 
       final messaging = FirebaseMessaging.instance;

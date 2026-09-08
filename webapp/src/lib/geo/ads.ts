@@ -29,10 +29,11 @@ export async function recordAdClick(adId: string) {
   }
 }
 
-/** Home carousel: ~148px tall — use images around 2.4:1 (e.g. 1200×500 px). */
-export const AD_BANNER_HEIGHT = 148;
+/** Home carousel: ~220px tall — use images that fit fully (object-contain). */
+export const AD_BANNER_HEIGHT = 220;
 export const AD_BANNER_RADIUS = 12;
 export const AD_BANNER_ASPECT = "2.4 / 1";
+export const AD_CAROUSEL_MS = 1500;
 
 export type AdDetail = {
   id: string;

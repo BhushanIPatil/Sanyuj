@@ -9,8 +9,10 @@ import { updateCurrentAddress } from "@/lib/geo/location";
 import { useToast } from "@/components/Toast";
 import { JobsFeedPageSkeleton } from "@/components/ui/Skeleton";
 import { GuestCta } from "@/components/GuestCta";
+import { EmptyState } from "@/components/EmptyState";
 import { locationLabel } from "@/lib/geo/display";
 import { businessCoversPincode, fetchJobsCoveredByBusiness } from "@/lib/geo/coverage";
+import { Briefcase, CheckCircle2 } from "lucide-react";
 
 type CatRef = { id: string; name: string; slug: string } | null;
 
@@ -430,8 +432,8 @@ export default function JobsFeedPage() {
           ←
         </Link>
         <div>
-          <p className="eyebrow">Business · {business.name}</p>
           <h1 className="font-display text-lg font-bold">Job Feed</h1>
+          <p className="mt-0.5 text-xs font-semibold text-ink-soft">{business.name}</p>
         </div>
       </header>
 
@@ -613,9 +615,15 @@ export default function JobsFeedPage() {
               );
             })}
             {!openShown.length ? (
-              <p className="py-6 text-center text-sm text-ink-soft sm:col-span-2 xl:col-span-3">
-                No open jobs in your category nearby yet.
-              </p>
+              <div className="sm:col-span-2 xl:col-span-3">
+                <EmptyState
+                  icon={Briefcase}
+                  title="No open jobs nearby"
+                  message="No open jobs in your category nearby yet. Check back soon or widen your service areas."
+                  actionLabel="Manage service areas"
+                  actionHref="/app/business/coverage"
+                />
+              </div>
             ) : null}
           </div>
         </>
@@ -681,9 +689,13 @@ export default function JobsFeedPage() {
               );
             })}
             {!closedDealsShown.length ? (
-              <p className="py-6 text-center text-sm text-ink-soft sm:col-span-2 xl:col-span-3">
-                No closed deals yet. When a customer finalizes with you, it shows up here.
-              </p>
+              <div className="sm:col-span-2 xl:col-span-3">
+                <EmptyState
+                  icon={CheckCircle2}
+                  title="No closed deals yet"
+                  message="When a customer finalizes with you, the deal will show up here."
+                />
+              </div>
             ) : null}
           </div>
         </>

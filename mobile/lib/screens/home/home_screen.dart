@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -30,6 +32,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<AdBanner> _ads = [];
   bool _loading = true;
   int _adIndex = 0;
+  final _adController = PageController();
+  Timer? _adTimer;
   String? _guestAddress;
   bool _guestAddressLoading = false;
 
@@ -37,6 +41,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _adTimer?.cancel();
+    _adController.dispose();
+    super.dispose();
+  }
+
+  void _scheduleNextAd() {
+    _adTimer?.cancel();
+    if (_ads.length < 2) return;
+    _adTimer = Timer(const Duration(milliseconds: 1500), () {
+      if (!mounted || _ads.length < 2) return;
+      _adController.animateToPage(
+        (_adIndex + 1) % _ads.length,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    });
   }
 
   Future<void> _loadGuestAddress() async {
@@ -84,8 +108,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _recent = recent.take(2).toList();
         _live = live;
         _ads = ads;
+        _adIndex = 0;
         _loading = false;
       });
+      if (_adController.hasClients) {
+        _adController.jumpToPage(0);
+      }
+      _scheduleNextAd();
       if (repo.userId == null) {
         _loadGuestAddress();
       }
@@ -218,8 +247,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     switch (action) {
                       case _HomeMenuAction.profile:
                         context.go('/profile');
-                      case _HomeMenuAction.policies:
-                        _openUrl(AppConfig.policiesUrl);
+                      case _HomeMenuAction.terms:
+                        _openUrl(AppConfig.termsUrl);
+                      case _HomeMenuAction.privacy:
+                        _openUrl(AppConfig.privacyUrl);
                       case _HomeMenuAction.help:
                         _openUrl(AppConfig.helpUrl);
                     }
@@ -236,12 +267,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                     ),
                     PopupMenuItem(
-                      value: _HomeMenuAction.policies,
+                      value: _HomeMenuAction.terms,
                       child: Row(
                         children: [
-                          Icon(Icons.policy_outlined, size: 18, color: AppColors.indigo),
+                          Icon(Icons.description_outlined, size: 18, color: AppColors.indigo),
                           const SizedBox(width: 10),
-                          const Text('Sanyuj Policies', style: TextStyle(fontWeight: FontWeight.w600)),
+                          const Text('Terms of Use', style: TextStyle(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _HomeMenuAction.privacy,
+                      child: Row(
+                        children: [
+                          Icon(Icons.privacy_tip_outlined, size: 18, color: AppColors.teal),
+                          const SizedBox(width: 10),
+                          const Text('Privacy Policy', style: TextStyle(fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
@@ -288,67 +329,79 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: SizedBox(
                 height: adBannerHeight,
-                child: PageView.builder(
-                  itemCount: _ads.length,
-                  onPageChanged: (i) => setState(() => _adIndex = i),
-                  itemBuilder: (_, i) {
-                    final ad = _ads[i];
-                    final imageUrl = ad.imageUrl?.trim();
-                    return GestureDetector(
-                      onTap: () => _showAd(ad),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(adBannerRadius),
-                        child: ColoredBox(
-                          color: AppColors.surface,
-                          child: imageUrl != null && imageUrl.isNotEmpty
-                              ? Image.network(
-                                  imageUrl,
-                                  fit: BoxFit.contain,
-                                  width: double.infinity,
-                                  height: double.infinity,
-                                  alignment: Alignment.center,
-                                  errorBuilder: (_, _, _) => _AdFallback(ad: ad),
-                                  loadingBuilder: (context, child, progress) {
-                                    if (progress == null) return child;
-                                    return Container(
-                                      color: AppColors.surface,
-                                      child: const Center(
-                                        child: SizedBox(
-                                          width: 22,
-                                          height: 22,
-                                          child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.blueDeep),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                )
-                              : _AdFallback(ad: ad),
-                        ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(adBannerRadius),
+                  child: Stack(
+                    children: [
+                      PageView.builder(
+                        controller: _adController,
+                        itemCount: _ads.length,
+                        onPageChanged: (i) {
+                          setState(() => _adIndex = i);
+                          _scheduleNextAd();
+                        },
+                        itemBuilder: (_, i) {
+                          final ad = _ads[i];
+                          final imageUrl = ad.imageUrl?.trim();
+                          return GestureDetector(
+                            onTap: () => _showAd(ad),
+                            child: ColoredBox(
+                              color: AppColors.surface,
+                              child: imageUrl != null && imageUrl.isNotEmpty
+                                  ? Image.network(
+                                      imageUrl,
+                                      fit: BoxFit.contain,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      alignment: Alignment.center,
+                                      errorBuilder: (_, _, _) => _AdFallback(ad: ad),
+                                      loadingBuilder: (context, child, progress) {
+                                        if (progress == null) return child;
+                                        return Container(
+                                          color: AppColors.surface,
+                                          child: const Center(
+                                            child: SizedBox(
+                                              width: 22,
+                                              height: 22,
+                                              child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.blueDeep),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    )
+                                  : _AdFallback(ad: ad),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
+                      if (_ads.length > 1)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: IgnorePointer(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.ink.withValues(alpha: 0.7),
+                                borderRadius: BorderRadius.circular(100),
+                              ),
+                              child: Text(
+                                '${_adIndex + 1}/${_ads.length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
-            if (_ads.length > 1) ...[
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  for (var i = 0; i < _ads.length; i++)
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: i == _adIndex ? 18 : 6,
-                      height: 6,
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      decoration: BoxDecoration(
-                        color: i == _adIndex ? AppColors.blueDeep : AppColors.line,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                ],
-              ),
-            ],
           ],
 
           Padding(
@@ -695,5 +748,5 @@ class _AdFallback extends StatelessWidget {
   }
 }
 
-enum _HomeMenuAction { profile, policies, help }
+enum _HomeMenuAction { profile, terms, privacy, help }
 

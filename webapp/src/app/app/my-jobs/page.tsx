@@ -13,7 +13,9 @@ import {
 } from "@/lib/jobs/status";
 import { MyJobsPageSkeleton } from "@/components/ui/Skeleton";
 import { GuestCta } from "@/components/GuestCta";
+import { EmptyState } from "@/components/EmptyState";
 import { locationLabel } from "@/lib/geo/display";
+import { Briefcase } from "lucide-react";
 
 type Job = {
   id: string;
@@ -97,8 +99,7 @@ export default function MyJobsPage() {
     return (
       <div className="page-pad max-w-lg">
         <header>
-          <p className="eyebrow">Requests you&apos;ve posted</p>
-          <h1 className="mt-1 font-display text-[19px] font-bold">My Jobs</h1>
+          <h1 className="font-display text-[19px] font-bold">My Jobs</h1>
         </header>
         <div className="mt-6">
           <GuestCta
@@ -114,8 +115,7 @@ export default function MyJobsPage() {
   return (
     <div className="page-pad">
       <header>
-        <p className="eyebrow">Requests you&apos;ve posted</p>
-        <h1 className="mt-1 font-display text-[19px] font-bold">My Jobs</h1>
+        <h1 className="font-display text-[19px] font-bold">My Jobs</h1>
       </header>
 
       <div className="mt-4 flex rounded-full bg-surface p-1">
@@ -215,12 +215,13 @@ export default function MyJobsPage() {
       </div>
 
       {!shown.length ? (
-        <div className="mt-4 rounded-[18px] border border-dashed border-line bg-surface p-6 text-center">
-          <p className="text-sm text-ink-soft">No {jobStatusLabel(tab).toLowerCase()} jobs yet.</p>
-          <Link href="/app/post-job" className="mt-3 inline-block text-sm font-bold text-blue-deep">
-            Post a Job
-          </Link>
-        </div>
+        <EmptyState
+          icon={Briefcase}
+          title={`No ${jobStatusLabel(tab).toLowerCase()} jobs yet`}
+          message="Post a request and nearby providers can respond with offers."
+          actionLabel="Post a Job"
+          actionHref="/app/post-job"
+        />
       ) : null}
     </div>
   );

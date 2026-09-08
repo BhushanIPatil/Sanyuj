@@ -171,8 +171,8 @@ export default function EditProfilePage() {
   }
 
   return (
-    <div className="page-pad max-w-2xl">
-      <header className="mb-4 flex items-center gap-3">
+    <div className="page-pad">
+      <header className="mb-5 flex items-center gap-3">
         <Link
           href="/app/profile"
           className="flex h-10 w-10 items-center justify-center rounded-[13px] border border-line bg-white shadow-card"
@@ -180,147 +180,164 @@ export default function EditProfilePage() {
           ←
         </Link>
         <div>
-          <p className="eyebrow">Account</p>
           <h1 className="font-display text-lg font-bold">Edit profile</h1>
         </div>
       </header>
 
-      <label className="mb-2 block text-xs font-bold">Full name</label>
-      <input
-        className="input-box"
-        placeholder="Priya Deshmukh"
-        value={fullName}
-        onChange={(e) => setFullName(e.target.value)}
-        autoComplete="name"
-      />
+      <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+        <section className="rounded-[22px] border border-line bg-white p-5 shadow-card">
+          <p className="text-[10.5px] font-bold uppercase tracking-wide text-ink-soft">
+            Account details
+          </p>
 
-      <label className="mb-2 mt-5 block text-xs font-bold">Email</label>
-      <input
-        className="input-box text-ink-soft"
-        type="email"
-        value={email}
-        disabled
-        readOnly
-      />
-      <p className="mt-1.5 text-[11px] text-ink-faint">Email is used to sign in and can’t be changed here.</p>
+          <label className="mb-2 mt-4 block text-xs font-bold">Full name</label>
+          <input
+            className="input-box"
+            placeholder="Priya Deshmukh"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            autoComplete="name"
+          />
 
-      <label className="mb-2 mt-5 block text-xs font-bold">
-        Mobile number{hasBusiness ? <span className="text-rose"> *</span> : null}
-      </label>
-      <div className="flex overflow-hidden rounded-[18px] border-[1.5px] border-line bg-white focus-within:border-blue-deep">
-        <span className="border-r border-line px-3 py-3.5 font-mono text-sm font-bold text-ink-soft">
-          +91
-        </span>
-        <input
-          className="flex-1 px-3 py-3.5 font-mono text-[15px] font-semibold outline-none"
-          inputMode="numeric"
-          placeholder="98230 12345"
-          value={phoneDigits}
-          onChange={(e) => setPhoneDigits(e.target.value.replace(/[^\d\s]/g, "").slice(0, 12))}
-          autoComplete="tel"
-          required={hasBusiness}
-        />
-      </div>
-      <p className="mt-1.5 text-[11px] text-ink-faint">
-        {hasBusiness
-          ? "Required for your business listing so customers can call you."
-          : "Optional for customers. Required when you list a business."}
-      </p>
+          <label className="mb-2 mt-5 block text-xs font-bold">Email</label>
+          <input
+            className="input-box text-ink-soft"
+            type="email"
+            value={email}
+            disabled
+            readOnly
+          />
+          <p className="mt-1.5 text-[11px] text-ink-faint">
+            Email is used to sign in and can’t be changed here.
+          </p>
 
-      <div className="mt-6 border-t border-line pt-5">
-        <p className="text-xs font-bold uppercase tracking-wide text-ink-soft">Location</p>
-        <p className="mt-1 text-[12.5px] leading-relaxed text-ink-soft">
-          Used to show nearby providers and match jobs in your area.
-        </p>
-
-        <button
-          type="button"
-          className="mt-4 w-full rounded-[16px] border border-line bg-blue-soft px-3.5 py-3 text-sm font-bold text-blue-deep disabled:opacity-60"
-          disabled={locating}
-          onClick={() => void fetchLocation()}
-        >
-          {locating ? "Detecting location…" : "Use my current location"}
-        </button>
-
-        {locationNote ? (
-          <div className="mt-3 rounded-[14px] bg-green-soft px-3.5 py-3 text-xs font-bold text-green-deep">
-            {locationNote}
-          </div>
-        ) : null}
-
-        <label className="mb-2 mt-4 block text-xs font-bold">Pincode</label>
-        <input
-          className="input-box font-mono text-base font-bold tracking-wide"
-          inputMode="numeric"
-          maxLength={6}
-          placeholder="425001"
-          value={pincode}
-          onChange={(e) => {
-            setPincode(e.target.value.replace(/\D/g, "").slice(0, 6));
-            setLocality("");
-            setAreaId("");
-            setAreaName("");
-          }}
-        />
-
-        <label className="mb-2 mt-4 block text-xs font-bold">Locality</label>
-        <LocalityPicker
-          pincode={pincode}
-          value={locality}
-          onChange={(next) => {
-            setLocality(next);
-            setAreaId("");
-            setAreaName("");
-          }}
-        />
-
-        {locality ? (
-          <>
-            <label className="mb-2 mt-4 block text-xs font-bold">Area / colony</label>
-            <AreaPicker
-              pincode={pincode}
-              locality={locality}
-              value={areaId}
-              onChange={(id, name) => {
-                setAreaId(id);
-                setAreaName(name);
-              }}
-              onAvailabilityChange={setAreaRequired}
+          <label className="mb-2 mt-5 block text-xs font-bold">
+            Mobile number{hasBusiness ? <span className="text-rose"> *</span> : null}
+          </label>
+          <div className="flex overflow-hidden rounded-[18px] border-[1.5px] border-line bg-white focus-within:border-blue-deep">
+            <span className="border-r border-line px-3 py-3.5 font-mono text-sm font-bold text-ink-soft">
+              +91
+            </span>
+            <input
+              className="flex-1 px-3 py-3.5 font-mono text-[15px] font-semibold outline-none"
+              inputMode="numeric"
+              placeholder="98230 12345"
+              value={phoneDigits}
+              onChange={(e) => setPhoneDigits(e.target.value.replace(/[^\d\s]/g, "").slice(0, 12))}
+              autoComplete="tel"
+              required={hasBusiness}
             />
-            {!areaRequired ? (
-              <p className="mt-1.5 text-[11px] text-ink-soft">
-                Areas for this locality will appear once they are added.
-              </p>
-            ) : null}
-          </>
-        ) : null}
+          </div>
+          <p className="mt-1.5 text-[11px] text-ink-faint">
+            {hasBusiness
+              ? "Required for your business listing so customers can call you."
+              : "Optional for customers. Required when you list a business."}
+          </p>
+        </section>
 
-        <label className="mb-2 mt-4 block text-xs font-bold">Address</label>
-        <textarea
-          className="input-box min-h-[110px] resize-y"
-          placeholder="House / street, landmark"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-        />
+        <section className="rounded-[22px] border border-line bg-white p-5 shadow-card">
+          <p className="text-[10.5px] font-bold uppercase tracking-wide text-ink-soft">Location</p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-ink-soft">
+            Used to show nearby providers and match jobs in your area.
+          </p>
+
+          <button
+            type="button"
+            className="mt-4 w-full rounded-[16px] border border-line bg-blue-soft px-3.5 py-3 text-sm font-bold text-blue-deep disabled:opacity-60"
+            disabled={locating}
+            onClick={() => void fetchLocation()}
+          >
+            {locating ? "Detecting location…" : "Use my current location"}
+          </button>
+
+          {locationNote ? (
+            <div className="mt-3 rounded-[14px] bg-green-soft px-3.5 py-3 text-xs font-bold text-green-deep">
+              {locationNote}
+            </div>
+          ) : null}
+
+          <label className="mb-2 mt-4 block text-xs font-bold">Pincode</label>
+          <input
+            className="input-box font-mono text-base font-bold tracking-wide"
+            inputMode="numeric"
+            maxLength={6}
+            placeholder="425001"
+            value={pincode}
+            onChange={(e) => {
+              setPincode(e.target.value.replace(/\D/g, "").slice(0, 6));
+              setLocality("");
+              setAreaId("");
+              setAreaName("");
+            }}
+          />
+
+          <label className="mb-2 mt-4 block text-xs font-bold">Locality</label>
+          <LocalityPicker
+            pincode={pincode}
+            value={locality}
+            onChange={(next) => {
+              setLocality(next);
+              setAreaId("");
+              setAreaName("");
+            }}
+          />
+
+          {locality ? (
+            <>
+              <label className="mb-2 mt-4 block text-xs font-bold">Area / colony</label>
+              <AreaPicker
+                pincode={pincode}
+                locality={locality}
+                value={areaId}
+                onChange={(id, name) => {
+                  setAreaId(id);
+                  setAreaName(name);
+                }}
+                onAvailabilityChange={setAreaRequired}
+              />
+              {!areaRequired ? (
+                <p className="mt-1.5 text-[11px] text-ink-soft">
+                  Areas for this locality will appear once they are added.
+                </p>
+              ) : null}
+            </>
+          ) : null}
+
+          <label className="mb-2 mt-4 block text-xs font-bold">Address</label>
+          <textarea
+            className="input-box min-h-[110px] resize-y"
+            placeholder="House / street, landmark"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+          />
+        </section>
       </div>
 
       {error ? <p className="mt-4 text-sm font-semibold text-rose">{error}</p> : null}
 
-      <button
-        className="btn-primary mt-6"
-        disabled={
-          loading ||
-          locating ||
-          !fullName.trim() ||
-          pincode.length !== 6 ||
-          !locality.trim() ||
-          (areaRequired && !areaId) ||
-          !address.trim()
-        }
-        onClick={() => void save()}
-      >
-        {loading ? "Saving…" : "Save changes"}
-      </button>
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <button
+          className="btn-primary sm:w-auto sm:min-w-[200px]"
+          disabled={
+            loading ||
+            locating ||
+            !fullName.trim() ||
+            pincode.length !== 6 ||
+            !locality.trim() ||
+            (areaRequired && !areaId) ||
+            !address.trim()
+          }
+          onClick={() => void save()}
+        >
+          {loading ? "Saving…" : "Save changes"}
+        </button>
+        <Link
+          href="/app/profile"
+          className="rounded-[18px] border-[1.5px] border-line bg-white px-5 py-3.5 text-center text-sm font-bold text-ink shadow-card sm:w-auto"
+        >
+          Cancel
+        </Link>
+      </div>
     </div>
   );
 }

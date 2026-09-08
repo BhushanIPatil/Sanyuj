@@ -83,22 +83,29 @@ export default function PostJobPage() {
       const title =
         description.trim().split(/[.!\n]/)[0].slice(0, 80) || `${catName} request`;
 
-      const { error } = await supabase.from("jobs").insert({
-        customer_id: user.id,
-        category_id: categoryId,
-        title,
-        description: description.trim(),
-        budget_min: Number(budgetMin) || null,
-        budget_max: Number(budgetMax) || null,
-        urgency,
-        pincode,
-        locality: locality.trim(),
-        area_id: areaId || null,
-        area: areaName || null,
-        is_active: true,
-        is_deleted: false,
+      const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          categoryId,
+          title,
+          description: description.trim(),
+          budgetMin: Number(budgetMin) || null,
+          budgetMax: Number(budgetMax) || null,
+          urgency,
+          pincode,
+          locality: locality.trim(),
+          areaId: areaId || null,
+          area: areaName || null,
+        }),
       });
-      if (error) throw error;
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        code?: string;
+      };
+      if (!res.ok) {
+        throw new Error(data.error ?? "Could not post job");
+      }
       showToast("Job posted — nearby providers notified");
       router.push("/app/my-jobs");
     } catch (err) {
@@ -119,7 +126,6 @@ export default function PostJobPage() {
             ←
           </button>
           <div>
-            <p className="eyebrow">New request</p>
             <h1 className="font-display text-lg font-bold">Post a Job</h1>
           </div>
         </header>
@@ -142,7 +148,6 @@ export default function PostJobPage() {
           ←
         </button>
         <div>
-          <p className="eyebrow">New request</p>
           <h1 className="font-display text-lg font-bold">Post a Job</h1>
         </div>
       </header>

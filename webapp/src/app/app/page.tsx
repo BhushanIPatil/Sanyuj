@@ -13,12 +13,12 @@ import {
 } from "@/lib/categories";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { HomeAds } from "@/components/HomeAds";
+import { EmptyState } from "@/components/EmptyState";
 import { HomePageSkeleton } from "@/components/ui/Skeleton";
 import { displayPhone } from "@/lib/auth/phone";
 import { loginUrl } from "@/lib/auth/guest";
-import { Bell, RefreshCw } from "lucide-react";
+import { Briefcase, Radio, RefreshCw, Store } from "lucide-react";
 import { jobStatusLabel } from "@/lib/jobs/status";
-import { locationLabel } from "@/lib/geo/display";
 import { fetchCoveringBusinessIds } from "@/lib/geo/coverage";
 
 type Profile = {
@@ -254,41 +254,11 @@ export default function HomePage() {
   }, []);
 
   const isGuest = !userId;
-  const firstName = isGuest ? "there" : (profile?.full_name?.split(" ")[0] ?? "there");
-  const displayAddress = isGuest
-    ? "Browsing as guest"
-    : locationLabel({
-        area: profile?.area,
-        locality: profile?.locality,
-        pincode: profile?.pincode,
-        address: profile?.address,
-      });
 
   if (loading) return <HomePageSkeleton />;
 
   return (
     <div className="page-pad">
-      <header className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[16px] bg-indigo-soft font-display text-sm font-extrabold text-indigo">
-            {initials(profile?.full_name ?? null)}
-          </div>
-          <div>
-            <p className="font-display text-lg font-bold sm:text-xl">Hi, {firstName}</p>
-            <p className="line-clamp-2 max-w-[14rem] text-sm leading-snug text-ink-soft sm:max-w-xs">
-              {displayAddress ?? "Set your location"}
-            </p>
-          </div>
-        </div>
-        <button
-          className="relative flex h-10 w-10 items-center justify-center rounded-[14px] border border-line bg-white shadow-card"
-          onClick={() => showToast("No new notifications")}
-        >
-          <Bell size={17} />
-          <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-rose" />
-        </button>
-      </header>
-
       <HomeAds pincode={profile?.pincode} localityId={profile?.locality_id} areaId={profile?.area_id} />
 
       <div className="mt-8 flex items-start justify-between gap-3">
@@ -328,8 +298,14 @@ export default function HomePage() {
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {live.length === 0 ? (
-          <div className="rounded-[18px] border border-dashed border-line bg-surface p-5 text-center text-sm text-ink-soft sm:col-span-2 lg:col-span-3 xl:col-span-4">
-            No one is live nearby right now. Post a job or check Explore.
+          <div className="sm:col-span-2 lg:col-span-3 xl:col-span-4">
+            <EmptyState
+              icon={Radio}
+              title="No one is live nearby"
+              message="Providers who check in as working will appear here. Post a job or browse Explore."
+              actionLabel={isGuest ? "Log in to post a job" : "Post a Job"}
+              actionHref={isGuest ? loginUrl("/app/post-job") : "/app/post-job"}
+            />
           </div>
         ) : (
           live.map((row) => {
@@ -422,28 +398,21 @@ export default function HomePage() {
         )}
       </div>
 
-      <Link
-        href="/app/explore"
-        className="mt-6 flex items-center gap-2.5 rounded-[18px] border border-line bg-surface px-4 py-3.5 text-sm text-ink-faint transition hover:border-blue-deep hover:text-ink"
-      >
-        Search &quot;electrician&quot;, &quot;AC repair&quot;…
-      </Link>
-
       <div className="mt-8 flex items-baseline justify-between">
         <h2 className="font-display text-lg font-bold">Categories</h2>
         <Link href="/app/explore" className="text-sm font-bold text-blue-deep">
           See all
         </Link>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mt-4 grid grid-cols-3 gap-x-2 gap-y-4 sm:grid-cols-4 lg:grid-cols-6">
         {categories.map((c) => (
           <Link
             key={c.id}
             href={`/app/explore?category=${c.slug}`}
-            className="flex flex-col items-center gap-2 rounded-[18px] border border-line bg-white px-3 py-4 shadow-card transition hover:border-blue-deep"
+            className="flex flex-col items-center gap-2 px-1 py-1 transition hover:opacity-80"
           >
             <CategoryIcon value={c.emoji} alt={c.name} />
-            <span className="text-center text-sm font-bold leading-tight">{c.name}</span>
+            <span className="text-center text-[12px] font-bold leading-tight sm:text-sm">{c.name}</span>
           </Link>
         ))}
       </div>
@@ -465,7 +434,13 @@ export default function HomePage() {
           <h2 className="font-display text-lg font-bold">Nearby providers</h2>
           <div className="mt-4 space-y-3">
             {nearby.length === 0 ? (
-              <p className="text-sm text-ink-soft">No providers in this area yet.</p>
+              <EmptyState
+                icon={Store}
+                title="No providers nearby"
+                message="No providers in this area yet. Try Explore or post a job so businesses can find you."
+                actionLabel="Explore providers"
+                actionHref="/app/explore"
+              />
             ) : (
               nearby.map((b) => (
                 <div
@@ -497,16 +472,17 @@ export default function HomePage() {
           <h2 className="font-display text-lg font-bold">Recent activity</h2>
           <div className="mt-4 space-y-2.5">
             {recent.length === 0 ? (
-              isGuest ? (
-                <p className="text-sm text-ink-soft">
-                  Log in to post jobs and track them here.{" "}
-                  <Link href={loginUrl("/app/post-job")} className="font-bold text-blue-deep">
-                    Log in
-                  </Link>
-                </p>
-              ) : (
-                <p className="text-sm text-ink-soft">Your posted jobs will show up here.</p>
-              )
+              <EmptyState
+                icon={Briefcase}
+                title={isGuest ? "Track your jobs here" : "No jobs yet"}
+                message={
+                  isGuest
+                    ? "Log in to post jobs and track them here."
+                    : "Your posted jobs will show up here."
+                }
+                actionLabel={isGuest ? "Log in" : "Post a Job"}
+                actionHref={isGuest ? loginUrl("/app/post-job") : "/app/post-job"}
+              />
             ) : (
               recent.map((j) => (
                 <Link

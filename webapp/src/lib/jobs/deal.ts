@@ -1,6 +1,28 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { visible } from "@/lib/db/visible";
 
+async function assertBusinessMatchesJobCategory(
+  supabase: SupabaseClient,
+  jobId: string,
+  businessId: string,
+): Promise<void> {
+  const { data: job, error: jobErr } = await visible(
+    supabase.from("jobs").select("category_id"),
+  )
+    .eq("id", jobId)
+    .single();
+  if (jobErr) throw jobErr;
+  const { data: biz, error: bizErr } = await visible(
+    supabase.from("businesses").select("category_id"),
+  )
+    .eq("id", businessId)
+    .single();
+  if (bizErr) throw bizErr;
+  if (job?.category_id && biz?.category_id && job.category_id !== biz.category_id) {
+    throw new Error("Provider must be in the same category as the job");
+  }
+}
+
 export type FinalizeDealOptions = {
   /** When set, both budget_min and budget_max are saved to this final amount. */
   finalAmount?: number | null;
@@ -32,6 +54,9 @@ export async function finalizeJobDeal(
       .single();
     if (lookupErr) throw lookupErr;
     businessId = interest?.business_id ?? null;
+    if (businessId) {
+      await assertBusinessMatchesJobCategory(supabase, jobId, businessId);
+    }
   }
 
   const jobUpdate: {

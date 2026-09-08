@@ -1,16 +1,27 @@
 "use client";
 
-import { Plus, Pencil, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Banknote,
+  Megaphone,
+  MousePointerClick,
+  Pencil,
+  Plus,
+  Radio,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatMoney } from "@/lib/format";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { DataTable } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/Badge";
 import { ImageOrEmoji, ImagePreview } from "@/components/ui/ImageOrEmoji";
-import { AdsPageSkeleton } from "@/components/ui/Skeleton";
+import { TablePageSkeleton } from "@/components/ui/Skeleton";
+import { FilterBar, FilterField, FilterInput, FilterSelect } from "@/components/ui/FilterBar";
+import { StatCard } from "@/components/ui/StatCard";
 import { AdCoverageEditor } from "@/components/AdCoverageEditor";
 import {
   fetchAdCoverage,
@@ -19,15 +30,23 @@ import {
   summarizeAdPin,
   type AdPinDraft,
 } from "@/lib/geo/adCoverage";
+import {
+  AdDetailPanel,
+  adRunState,
+  adRunStateBadge,
+  adRunStateLabel,
+  paymentBadge,
+  type AdPaymentStatus,
+  type AdRow,
+} from "./AdDetailPanel";
 
-type Ad = {
-  id: string;
+type AdForm = {
   brand_name: string;
   title: string;
-  body: string | null;
-  cta_label: string | null;
-  cta_url: string | null;
-  image_url: string | null;
+  body: string;
+  cta_label: string;
+  cta_url: string;
+  image_url: string;
   background: string;
   sort_order: number;
   is_active: boolean;
@@ -36,15 +55,18 @@ type Ad = {
   ends_at: string | null;
   offer_starts_at: string | null;
   offer_ends_at: string | null;
-  created_at: string;
+  price: string;
+  payment_status: AdPaymentStatus;
 };
 
-type AdClickStats = {
-  totalClicks: number;
-  uniqueUsers: number;
+const EMPTY_FILTERS = {
+  search: "",
+  status: "all",
+  payment: "all",
+  coverage: "all",
 };
 
-const EMPTY_AD: Omit<Ad, "id" | "created_at"> = {
+const EMPTY_AD: AdForm = {
   brand_name: "",
   title: "",
   body: "",
@@ -59,6 +81,8 @@ const EMPTY_AD: Omit<Ad, "id" | "created_at"> = {
   ends_at: null,
   offer_starts_at: null,
   offer_ends_at: null,
+  price: "",
+  payment_status: "unpaid",
 };
 
 function toDatetimeLocal(iso: string | null) {
@@ -68,30 +92,68 @@ function toDatetimeLocal(iso: string | null) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function formFromAd(ad: AdRow): AdForm {
+  return {
+    brand_name: ad.brand_name,
+    title: ad.title,
+    body: ad.body ?? "",
+    cta_label: ad.cta_label ?? "",
+    cta_url: ad.cta_url ?? "",
+    image_url: ad.image_url ?? "",
+    background: ad.background,
+    sort_order: ad.sort_order,
+    is_active: ad.is_active,
+    is_deleted: ad.is_deleted,
+    starts_at: ad.starts_at,
+    ends_at: ad.ends_at,
+    offer_starts_at: ad.offer_starts_at,
+    offer_ends_at: ad.offer_ends_at,
+    price: ad.price != null ? String(ad.price) : "",
+    payment_status: ad.payment_status,
+  };
+}
+
+function parsePrice(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n);
+}
+
 export default function AdsPage() {
   const { showToast } = useToast();
   const { confirm } = useConfirm();
-  const [rows, setRows] = useState<Ad[]>([]);
+  const [rows, setRows] = useState<AdRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<Ad | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("all");
+  const [payment, setPayment] = useState("all");
+  const [coverage, setCoverage] = useState("all");
+  const [selected, setSelected] = useState<AdRow | null>(null);
+  const [editing, setEditing] = useState<AdRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState(EMPTY_AD);
   const [nationwide, setNationwide] = useState(true);
   const [pins, setPins] = useState<AdPinDraft[]>([]);
-  const [coverageByAd, setCoverageByAd] = useState<Record<string, string>>({});
-  const [clickStatsByAd, setClickStatsByAd] = useState<Record<string, AdClickStats>>({});
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const { data } = await supabase
-      .from("ads")
-      .select("*")
-      .order("sort_order", { ascending: true });
-    const list = (data as Ad[]) ?? [];
+    const { data, error } = await supabase.from("ads").select("*").order("sort_order", { ascending: true });
+    if (error) {
+      showToast(error.message);
+      setLoading(false);
+      return;
+    }
+
+    const list = (data as Array<Omit<AdRow, "coverage" | "totalClicks" | "uniqueUsers">>) ?? [];
     const ids = list.map((a) => a.id);
     const labels: Record<string, string> = {};
+    const stats: Record<string, { totalClicks: number; uniqueUsers: number }> = {};
+
     if (ids.length) {
       const { data: asa } = await supabase
         .from("ad_service_areas")
@@ -132,11 +194,7 @@ export default function AdsPage() {
         );
         labels[ad.id] = drafts.map((p) => `${p.pincode} (${summarizeAdPin(p)})`).join(" · ");
       }
-    }
-    setCoverageByAd(labels);
 
-    const stats: Record<string, AdClickStats> = {};
-    if (ids.length) {
       const { data: clickRows } = await supabase
         .from("ad_user_clicks")
         .select("ad_id, count, user_id")
@@ -148,15 +206,83 @@ export default function AdsPage() {
         stats[row.ad_id] = cur;
       }
     }
-    setClickStatsByAd(stats);
 
-    setRows(list);
+    const mapped: AdRow[] = list.map((ad) => ({
+      ...ad,
+      price: typeof ad.price === "number" ? ad.price : null,
+      payment_status: ad.payment_status === "paid" ? "paid" : "unpaid",
+      coverage: labels[ad.id] || "Everywhere",
+      totalClicks: stats[ad.id]?.totalClicks ?? 0,
+      uniqueUsers: stats[ad.id]?.uniqueUsers ?? 0,
+    }));
+
+    setRows(mapped);
+    setSelected((cur) => (cur ? (mapped.find((r) => r.id === cur.id) ?? null) : null));
     setLoading(false);
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  const activeFilterCount = [
+    search.trim() ? 1 : 0,
+    status !== "all" ? 1 : 0,
+    payment !== "all" ? 1 : 0,
+    coverage !== "all" ? 1 : 0,
+  ].reduce((a, b) => a + b, 0);
+
+  const clearFilters = () => {
+    setSearch(EMPTY_FILTERS.search);
+    setStatus(EMPTY_FILTERS.status);
+    setPayment(EMPTY_FILTERS.payment);
+    setCoverage(EMPTY_FILTERS.coverage);
+  };
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return rows.filter((r) => {
+      const run = adRunState(r);
+      if (status !== "all" && run !== status) return false;
+      if (payment !== "all" && r.payment_status !== payment) return false;
+      if (coverage === "everywhere" && r.coverage !== "Everywhere") return false;
+      if (coverage === "targeted" && r.coverage === "Everywhere") return false;
+      if (q) {
+        const hay = `${r.brand_name} ${r.title} ${r.body ?? ""} ${r.cta_label ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [rows, search, status, payment, coverage]);
+
+  const pageStats = useMemo(() => {
+    const total = rows.length;
+    const deleted = rows.filter((r) => r.is_deleted).length;
+    const live = rows.filter((r) => adRunState(r) === "live").length;
+    const scheduled = rows.filter((r) => adRunState(r) === "scheduled").length;
+    const ended = rows.filter((r) => adRunState(r) === "ended").length;
+    const clicks = rows.reduce((sum, r) => sum + r.totalClicks, 0);
+    const unique = rows.reduce((sum, r) => sum + r.uniqueUsers, 0);
+    const paid = rows.filter((r) => r.payment_status === "paid" && !r.is_deleted);
+    const unpaid = rows.filter((r) => r.payment_status === "unpaid" && !r.is_deleted);
+    const paidAmount = paid.reduce((sum, r) => sum + (r.price ?? 0), 0);
+    const unpaidAmount = unpaid.reduce((sum, r) => sum + (r.price ?? 0), 0);
+    return {
+      total,
+      deleted,
+      live,
+      scheduled,
+      ended,
+      clicks,
+      unique,
+      paidCount: paid.length,
+      unpaidCount: unpaid.length,
+      paidAmount,
+      unpaidAmount,
+    };
+  }, [rows]);
+
+  const closePanel = useCallback(() => setSelected(null), []);
 
   const openCreate = () => {
     setEditing(null);
@@ -166,25 +292,10 @@ export default function AdsPage() {
     setCreating(true);
   };
 
-  const openEdit = async (ad: Ad) => {
+  const openEdit = async (ad: AdRow) => {
     setCreating(false);
     setEditing(ad);
-    setForm({
-      brand_name: ad.brand_name,
-      title: ad.title,
-      body: ad.body ?? "",
-      cta_label: ad.cta_label ?? "",
-      cta_url: ad.cta_url ?? "",
-      image_url: ad.image_url ?? "",
-      background: ad.background,
-      sort_order: ad.sort_order,
-      is_active: ad.is_active,
-      is_deleted: ad.is_deleted,
-      starts_at: ad.starts_at,
-      ends_at: ad.ends_at,
-      offer_starts_at: ad.offer_starts_at,
-      offer_ends_at: ad.offer_ends_at,
-    });
+    setForm(formFromAd(ad));
     const supabase = createClient();
     const rowsForAd = await fetchAdCoverage(supabase, ad.id);
     const drafts = groupAdCoverage(rowsForAd);
@@ -200,6 +311,10 @@ export default function AdsPage() {
   const save = async () => {
     if (!form.brand_name.trim() || !form.title.trim()) {
       showToast("Brand name and title are required");
+      return;
+    }
+    if (form.price.trim() && parsePrice(form.price) == null) {
+      showToast("Enter a valid price of 0 or more");
       return;
     }
     if (!nationwide && pins.length === 0) {
@@ -223,6 +338,8 @@ export default function AdsPage() {
       ends_at: form.ends_at || null,
       offer_starts_at: form.offer_starts_at || null,
       offer_ends_at: form.offer_ends_at || null,
+      price: parsePrice(form.price),
+      payment_status: form.payment_status,
     };
 
     try {
@@ -239,7 +356,7 @@ export default function AdsPage() {
       await saveAdCoverage(supabase, adId, nationwide, pins);
       showToast(editing ? "Ad updated" : "Ad created");
       closeModal();
-      void load();
+      await load();
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Could not save ad");
     } finally {
@@ -247,7 +364,7 @@ export default function AdsPage() {
     }
   };
 
-  const remove = async (ad: Ad) => {
+  const remove = async (ad: AdRow) => {
     const ok = await confirm({
       title: "Delete ad?",
       message: `This will permanently remove "${ad.title}". This action cannot be undone.`,
@@ -258,47 +375,139 @@ export default function AdsPage() {
 
     const supabase = createClient();
     const { error } = await supabase.from("ads").delete().eq("id", ad.id);
-    if (error) showToast(error.message);
-    else {
-      showToast("Ad deleted");
-      void load();
+    if (error) {
+      showToast(error.message);
+      return;
     }
+    showToast("Ad deleted");
+    setSelected(null);
+    await load();
   };
 
   const modalOpen = creating || !!editing;
 
-  if (loading) return <AdsPageSkeleton />;
+  if (loading) return <TablePageSkeleton />;
 
   return (
     <div className="page-pad">
       <PageHeader
-        eyebrow="Marketing"
-        title="Ads"
-        description="Manage home page banners and where they show: everywhere, or by pincode / locality / area."
+        title="Ads management"
         action={
-          <button type="button" onClick={openCreate} className="btn-secondary inline-flex w-auto items-center gap-2">
-            <Plus size={16} />
-            New ad
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={openCreate} className="btn-secondary inline-flex w-auto items-center gap-2 py-2.5">
+              <Plus size={16} />
+              New ad
+            </button>
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((v) => !v)}
+              className="btn-secondary inline-flex w-auto items-center gap-2 py-2.5"
+              aria-expanded={filtersOpen}
+            >
+              <SlidersHorizontal size={16} />
+              Filters
+              {activeFilterCount > 0 ? (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-soft px-1.5 text-[11px] font-bold text-blue-deep">
+                  {activeFilterCount}
+                </span>
+              ) : null}
+            </button>
+          </div>
         }
       />
 
+      {filtersOpen ? (
+        <div className="mt-4">
+          <FilterBar>
+            <FilterField label="Search" className="min-w-[200px] flex-[2]">
+              <FilterInput value={search} onChange={setSearch} placeholder="Brand, title, or body" />
+            </FilterField>
+            <FilterField label="Status">
+              <FilterSelect value={status} onChange={setStatus}>
+                <option value="all">All</option>
+                <option value="live">Live</option>
+                <option value="scheduled">Scheduled</option>
+                <option value="ended">Ended</option>
+                <option value="inactive">Inactive</option>
+                <option value="deleted">Deleted</option>
+              </FilterSelect>
+            </FilterField>
+            <FilterField label="Payment">
+              <FilterSelect value={payment} onChange={setPayment}>
+                <option value="all">All</option>
+                <option value="paid">Paid</option>
+                <option value="unpaid">Unpaid</option>
+              </FilterSelect>
+            </FilterField>
+            <FilterField label="Coverage">
+              <FilterSelect value={coverage} onChange={setCoverage}>
+                <option value="all">All</option>
+                <option value="everywhere">Everywhere</option>
+                <option value="targeted">Targeted</option>
+              </FilterSelect>
+            </FilterField>
+            {activeFilterCount > 0 ? (
+              <div className="flex items-end">
+                <button type="button" onClick={clearFilters} className="h-[46px] text-sm font-bold text-blue-deep hover:underline">
+                  Clear
+                </button>
+              </div>
+            ) : null}
+          </FilterBar>
+        </div>
+      ) : null}
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Total ads"
+          value={pageStats.total}
+          hint={`${pageStats.deleted} deleted`}
+          icon={Megaphone}
+          tone="blue"
+        />
+        <StatCard
+          label="Live now"
+          value={pageStats.live}
+          hint={`${pageStats.scheduled} scheduled · ${pageStats.ended} ended`}
+          icon={Radio}
+          tone="green"
+        />
+        <StatCard
+          label="Clicks"
+          value={pageStats.clicks.toLocaleString()}
+          hint={`${pageStats.unique.toLocaleString()} unique users`}
+          icon={MousePointerClick}
+          tone="indigo"
+        />
+        <StatCard
+          label="Paid"
+          value={formatMoney(pageStats.paidAmount)}
+          hint={`${pageStats.paidCount} paid · ${formatMoney(pageStats.unpaidAmount)} unpaid`}
+          icon={Banknote}
+          tone="teal"
+        />
+      </div>
+
       <div className="mt-4">
         <DataTable
-          rows={rows}
-          emptyMessage="No ads yet. Create your first campaign."
+          rows={filtered}
+          selectedId={selected?.id}
+          emptyMessage="No ads match your filters."
+          onRowClick={setSelected}
+          defaultSortKey="order"
+          defaultSortDir="asc"
           columns={[
             {
               key: "image",
               header: "Image",
               className: "w-16",
-              render: (row) => (
-                <ImageOrEmoji value={row.image_url} alt={row.brand_name} size={40} />
-              ),
+              sortable: false,
+              render: (row) => <ImageOrEmoji value={row.image_url} alt={row.brand_name} size={40} />,
             },
             {
-              key: "brand",
-              header: "Brand",
+              key: "campaign",
+              header: "Campaign",
+              sortValue: (row) => row.brand_name,
               render: (row) => (
                 <div>
                   <p className="font-semibold">{row.brand_name}</p>
@@ -307,48 +516,57 @@ export default function AdsPage() {
               ),
             },
             {
-              key: "order",
-              header: "Order",
-              render: (row) => <span>{row.sort_order}</span>,
+              key: "price",
+              header: "Price",
+              sortValue: (row) => row.price ?? -1,
+              render: (row) => <span className="font-semibold">{formatMoney(row.price)}</span>,
             },
             {
-              key: "coverage",
-              header: "Coverage",
+              key: "payment",
+              header: "Payment",
+              sortValue: (row) => row.payment_status,
               render: (row) => (
-                <span className="text-xs text-ink-soft">{coverageByAd[row.id] || "Everywhere"}</span>
+                <Badge className={paymentBadge(row.payment_status)}>
+                  {row.payment_status === "paid" ? "Paid" : "Unpaid"}
+                </Badge>
               ),
             },
             {
               key: "status",
               header: "Status",
-              render: (row) => (
-                <Badge
-                  className={
-                    row.is_active && !row.is_deleted
-                      ? "bg-green-soft text-green-deep"
-                      : "bg-surface text-ink-soft"
-                  }
-                >
-                  {row.is_deleted ? "Deleted" : row.is_active ? "Active" : "Inactive"}
-                </Badge>
-              ),
+              sortValue: (row) => adRunState(row),
+              render: (row) => {
+                const run = adRunState(row);
+                return <Badge className={adRunStateBadge(run)}>{adRunStateLabel(run)}</Badge>;
+              },
             },
             {
               key: "clicks",
               header: "Clicks",
-              render: (row) => {
-                const s = clickStatsByAd[row.id];
-                if (!s) return <span className="text-xs text-ink-faint">0</span>;
-                return (
-                  <span className="text-xs text-ink-soft">
-                    {s.totalClicks} total · {s.uniqueUsers} user{s.uniqueUsers === 1 ? "" : "s"}
-                  </span>
-                );
-              },
+              sortValue: (row) => row.totalClicks,
+              render: (row) => (
+                <div>
+                  <p className="font-semibold">{row.totalClicks.toLocaleString()}</p>
+                  <p className="text-xs text-ink-soft">
+                    {row.uniqueUsers.toLocaleString()} user{row.uniqueUsers === 1 ? "" : "s"}
+                  </p>
+                </div>
+              ),
+            },
+            {
+              key: "coverage",
+              header: "Coverage",
+              sortValue: (row) => row.coverage,
+              render: (row) => (
+                <span className="line-clamp-2 max-w-[220px] text-xs text-ink-soft" title={row.coverage}>
+                  {row.coverage}
+                </span>
+              ),
             },
             {
               key: "schedule",
               header: "Schedule",
+              sortValue: (row) => row.starts_at || "",
               render: (row) => (
                 <span className="text-xs text-ink-soft">
                   {row.starts_at ? formatDateTime(row.starts_at) : "Anytime"}
@@ -358,24 +576,30 @@ export default function AdsPage() {
               ),
             },
             {
+              key: "order",
+              header: "Order",
+              sortValue: (row) => row.sort_order,
+              render: (row) => <span>{row.sort_order}</span>,
+            },
+            {
               key: "actions",
-              header: "",
+              header: "Actions",
               className: "w-24",
               render: (row) => (
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
                   <button
                     type="button"
+                    title="Edit"
                     onClick={() => void openEdit(row)}
-                    className="cursor-pointer rounded-[10px] border border-line p-2 hover:bg-surface"
-                    aria-label="Edit"
+                    className="rounded-[10px] border border-line p-2 hover:bg-surface"
                   >
                     <Pencil size={14} />
                   </button>
                   <button
                     type="button"
+                    title="Delete"
                     onClick={() => void remove(row)}
-                    className="cursor-pointer rounded-[10px] border border-line p-2 text-rose hover:bg-rose-soft"
-                    aria-label="Delete"
+                    className="rounded-[10px] border border-line p-2 text-rose hover:bg-rose-soft"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -386,16 +610,22 @@ export default function AdsPage() {
         />
       </div>
 
+      {selected ? (
+        <AdDetailPanel
+          key={selected.id}
+          ad={selected}
+          onClose={closePanel}
+          onEdit={() => void openEdit(selected)}
+          onDelete={() => void remove(selected)}
+        />
+      ) : null}
+
       {modalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
+        <div className="fixed inset-0 z-[55] flex items-center justify-center bg-ink/40 p-4">
           <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[24px] border border-line bg-white shadow-pop">
             <div className="border-b border-line px-6 py-5">
-              <h2 className="font-display text-xl font-bold">
-                {editing ? "Edit ad" : "New ad"}
-              </h2>
-              <p className="mt-1 text-sm text-ink-soft">
-                Fill in the campaign details and preview how it will look.
-              </p>
+              <h2 className="font-display text-xl font-bold">{editing ? "Edit ad" : "New ad"}</h2>
+              <p className="mt-1 text-sm text-ink-soft">Fill in the campaign details and preview how it will look.</p>
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-5">
@@ -413,7 +643,7 @@ export default function AdsPage() {
                       <span className="mb-1 block text-xs font-bold text-ink-soft">{label}</span>
                       <input
                         className="input-box py-3 text-sm"
-                        value={String(form[key as keyof typeof form] ?? "")}
+                        value={String(form[key as keyof AdForm] ?? "")}
                         onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
                       />
                     </label>
@@ -432,6 +662,33 @@ export default function AdsPage() {
                     </p>
                     <ImagePreview src={form.image_url} alt={form.brand_name} className="mt-3" height={180} />
                   </label>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-bold text-ink-soft">Price (₹)</span>
+                      <input
+                        type="number"
+                        min={0}
+                        className="input-box py-3 text-sm"
+                        value={form.price}
+                        onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                        placeholder="Optional"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-1 block text-xs font-bold text-ink-soft">Payment</span>
+                      <select
+                        className="input-box py-3 text-sm"
+                        value={form.payment_status}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, payment_status: e.target.value as AdPaymentStatus }))
+                        }
+                      >
+                        <option value="unpaid">Unpaid</option>
+                        <option value="paid">Paid</option>
+                      </select>
+                    </label>
+                  </div>
 
                   <label className="block">
                     <span className="mb-1 block text-xs font-bold text-ink-soft">Sort order</span>
@@ -526,15 +783,9 @@ export default function AdsPage() {
                       <ImagePreview src={form.image_url} alt={form.brand_name} height={200} className="rounded-none border-0" />
                     ) : null}
                     <div className="p-6 text-white">
-                      <p className="text-xs font-bold uppercase tracking-wide opacity-80">
-                        {form.brand_name || "Brand name"}
-                      </p>
-                      <h3 className="mt-2 font-display text-2xl font-extrabold">
-                        {form.title || "Ad title"}
-                      </h3>
-                      {form.body ? (
-                        <p className="mt-2 text-sm leading-relaxed opacity-90">{form.body}</p>
-                      ) : null}
+                      <p className="text-xs font-bold uppercase tracking-wide opacity-80">{form.brand_name || "Brand name"}</p>
+                      <h3 className="mt-2 font-display text-2xl font-extrabold">{form.title || "Ad title"}</h3>
+                      {form.body ? <p className="mt-2 text-sm leading-relaxed opacity-90">{form.body}</p> : null}
                       {form.cta_label ? (
                         <span className="mt-4 inline-flex rounded-full bg-white/20 px-4 py-2 text-sm font-bold backdrop-blur">
                           {form.cta_label}
@@ -560,12 +811,7 @@ export default function AdsPage() {
               <button type="button" className="btn-secondary flex-1" onClick={closeModal}>
                 Cancel
               </button>
-              <button
-                type="button"
-                className="btn-primary flex-1"
-                disabled={saving}
-                onClick={() => void save()}
-              >
+              <button type="button" className="btn-primary flex-1" disabled={saving} onClick={() => void save()}>
                 {saving ? "Saving…" : "Save"}
               </button>
             </div>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ProviderScene, SeekerScene, ValueLoop } from "@/components/LandingScenes";
 import { SanyujBrand } from "@/components/SanyujLogo";
 
 export default function LandingPage() {
@@ -10,155 +11,143 @@ export default function LandingPage() {
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
     onScroll();
-    window.addEventListener("scroll", onScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-hidden">
       <header
-        className={`sticky top-0 z-40 transition-all ${
-          scrolled ? "bg-white/90 backdrop-blur border-b border-line shadow-card" : "bg-transparent"
+        className={`sticky top-0 z-40 transition-all duration-300 ${
+          scrolled ? "border-b border-line bg-white/90 shadow-card backdrop-blur" : "bg-transparent"
         }`}
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
-          <SanyujBrand href="/" size={56} priority />
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
+          <SanyujBrand href="/" size={52} priority />
           <Link
             href="/auth/login"
             className="rounded-full grad-hero px-5 py-2.5 text-sm font-bold text-white shadow-card"
           >
-            Sign up / Log in
+            Get started
           </Link>
         </div>
       </header>
 
       <main>
-        <section className="relative overflow-hidden">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(46,134,214,0.18),transparent_50%),radial-gradient(ellipse_at_bottom_left,rgba(31,174,122,0.16),transparent_45%)]" />
-          <div className="relative mx-auto grid max-w-6xl gap-10 px-5 pb-16 pt-10 lg:grid-cols-2 lg:items-center lg:pb-24 lg:pt-16">
-            <div>
-              <p className="eyebrow text-green-deep">Hyperlocal · India</p>
-              <h1 className="mt-3 font-display text-4xl font-extrabold leading-[1.1] tracking-tight text-ink sm:text-5xl lg:text-[3.4rem]">
+        {/* Hero — brand + one thought + living scene */}
+        <section className="relative">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(46,134,214,0.22),transparent),radial-gradient(ellipse_70%_50%_at_90%_40%,rgba(31,174,122,0.16),transparent),radial-gradient(ellipse_60%_40%_at_10%_80%,rgba(14,165,165,0.12),transparent)]"
+          />
+          <div className="relative mx-auto grid max-w-5xl gap-12 px-5 pb-20 pt-10 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-16 lg:pb-28 lg:pt-16">
+            <div className="land-fade-up text-center lg:text-left">
+              <h1 className="font-display text-5xl font-black tracking-tight text-ink sm:text-6xl lg:text-[4.25rem]">
                 Sanyuj
               </h1>
-              <p className="mt-4 max-w-md text-base leading-relaxed text-ink-soft sm:text-lg">
-                Find trusted local help near your pincode — or list your business for free and get
-                job requests from neighbours.
+              <p className="mx-auto mt-4 max-w-sm font-display text-lg font-semibold leading-snug text-ink-soft sm:text-xl lg:mx-0">
+                Local help. Right when you need it.
               </p>
-              <div className="mt-8">
+              <div className="mt-8 flex justify-center lg:justify-start">
                 <Link
                   href="/auth/login"
-                  className="inline-flex rounded-full grad-hero px-7 py-3.5 text-sm font-bold text-white shadow-pop"
+                  className="inline-flex rounded-full grad-hero px-8 py-3.5 text-sm font-bold text-white shadow-pop transition-transform hover:-translate-y-0.5"
                 >
-                  Sign up / Log in
+                  Open Sanyuj
                 </Link>
               </div>
-              <p className="mt-5 text-xs text-ink-faint">
-                Browse free · Post a job after you log in · One account for customers &amp; providers
-              </p>
             </div>
 
-            <div className="relative mx-auto w-full max-w-[380px]">
-              <div className="rounded-[36px] bg-[#0f1720] p-3 shadow-pop">
-                <div className="overflow-hidden rounded-[28px] bg-white">
-                  <div className="flex items-center justify-between px-5 py-3 font-mono text-xs font-semibold">
-                    <span>9:41</span>
-                    <span className="text-ink-faint">Sanyuj</span>
-                  </div>
-                  <div className="grad-hero mx-4 mb-4 rounded-[22px] p-5 text-white">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-white/75">
-                      Near you now
-                    </p>
-                    <p className="mt-2 font-display text-lg font-bold leading-snug">
-                      Plumbers &amp; electricians live in your pincode
-                    </p>
-                    <div className="mt-4 inline-flex rounded-full bg-white px-3 py-1.5 text-xs font-bold text-blue-deep">
-                      Call in one tap
-                    </div>
-                  </div>
-                  <div className="space-y-2.5 px-4 pb-6">
-                    {[
-                      ["RP", "Ramesh Patil", "Plumber · 0.6 km"],
-                      ["SC", "Suresh C.", "Electrician · 0.9 km"],
-                      ["OK", "Om Karpe", "Carpenter · 1.1 km"],
-                    ].map(([av, name, meta]) => (
-                      <div
-                        key={name}
-                        className="flex items-center gap-3 rounded-[16px] border border-line bg-white p-3 shadow-card"
-                      >
-                        <div className="flex h-11 w-11 items-center justify-center rounded-[14px] bg-blue-soft font-display text-sm font-bold text-blue-deep">
-                          {av}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-bold">{name}</p>
-                          <p className="text-xs text-ink-soft">{meta}</p>
-                        </div>
-                        <span className="rounded-full bg-green-soft px-2 py-1 text-[10px] font-bold text-green-deep">
-                          LIVE
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+            <div className="land-fade-up" style={{ animationDelay: "0.15s" }}>
+              <SeekerScene />
             </div>
           </div>
         </section>
 
-        <section id="how" className="border-t border-line/80 bg-white/70 py-16">
-          <div className="mx-auto max-w-6xl px-5">
-            <h2 className="font-display text-2xl font-bold text-ink sm:text-3xl">How Sanyuj works</h2>
-            <p className="mt-2 max-w-xl text-ink-soft">
-              Built for Indian neighbourhoods — match by pincode and address, then call directly.
+        {/* Product value — three beats, almost no copy */}
+        <section className="border-y border-line/70 bg-white/55 py-16 sm:py-20">
+          <div className="mx-auto max-w-5xl px-5 text-center">
+            <h2 className="font-display text-2xl font-extrabold text-ink sm:text-3xl">
+              Need someone now?
+            </h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-ink-soft sm:text-base">
+              Post once. See who&apos;s interested. Call who&apos;s live nearby.
             </p>
-            <div className="mt-10 grid gap-5 md:grid-cols-3">
-              {[
-                {
-                  t: "Post what you need",
-                  d: "Describe the job, set a budget and urgency. Nearby providers see it instantly.",
-                },
-                {
-                  t: "Providers send interest",
-                  d: "Local businesses respond with interest. You see who is nearby and ready.",
-                },
-                {
-                  t: "Call & close",
-                  d: "Call the right person, get the work done, and close the job — simple.",
-                },
-              ].map((item, i) => (
-                <div key={item.t} className="rounded-[22px] border border-line bg-white p-6 shadow-card">
-                  <div className="font-mono text-sm font-bold text-blue-deep">0{i + 1}</div>
-                  <h3 className="mt-3 font-display text-lg font-bold">{item.t}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-ink-soft">{item.d}</p>
-                </div>
-              ))}
+            <div className="mt-10">
+              <ValueLoop />
             </div>
           </div>
         </section>
 
-        <section className="py-16">
-          <div className="mx-auto max-w-6xl px-5">
-            <div className="overflow-hidden rounded-[28px] grad-hero p-8 text-white shadow-pop sm:p-12">
-              <h2 className="font-display text-2xl font-bold sm:text-3xl">Have a skill or a shop?</h2>
-              <p className="mt-3 max-w-lg text-white/90">
-                List your business free on Sanyuj, open the job feed, and Go Live when you are
-                working in an area.
+        {/* Provider story */}
+        <section className="relative py-16 sm:py-24">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,rgba(31,174,122,0.14),transparent_55%)]"
+          />
+          <div className="relative mx-auto grid max-w-5xl gap-12 px-5 lg:grid-cols-[1fr_1.05fr] lg:items-center lg:gap-16">
+            <div className="order-2 lg:order-1">
+              <ProviderScene />
+            </div>
+            <div className="order-1 text-center lg:order-2 lg:text-left">
+              <h2 className="font-display text-2xl font-extrabold text-ink sm:text-3xl">
+                Have a skill?
+              </h2>
+              <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-ink-soft sm:text-base lg:mx-0">
+                Free listing. Nearby jobs. Market yourself to your neighbourhood.
               </p>
               <Link
                 href="/auth/login"
-                className="mt-6 inline-flex rounded-full bg-white px-6 py-3 text-sm font-bold text-blue-deep"
+                className="mt-7 inline-flex rounded-full border border-line bg-white px-6 py-3 text-sm font-bold text-ink shadow-card transition-transform hover:-translate-y-0.5"
               >
-                Create free account
+                List for free
               </Link>
             </div>
+          </div>
+        </section>
+
+        {/* Close */}
+        <section className="px-5 pb-20 pt-4">
+          <div className="relative mx-auto max-w-5xl overflow-hidden rounded-[32px] grad-hero px-6 py-12 text-center text-white shadow-pop sm:px-12 sm:py-16">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/10 blur-2xl"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -bottom-24 -left-10 h-64 w-64 rounded-full bg-black/10 blur-2xl"
+            />
+            <p className="relative font-display text-2xl font-extrabold sm:text-3xl">
+              Your neighbourhood, connected.
+            </p>
+            <p className="relative mx-auto mt-3 max-w-md text-sm text-white/85 sm:text-base">
+              Find help. Get found. One account.
+            </p>
+            <Link
+              href="/auth/login"
+              className="relative mt-8 inline-flex rounded-full bg-white px-8 py-3.5 text-sm font-bold text-blue-deep shadow-card transition-transform hover:-translate-y-0.5"
+            >
+              Get started
+            </Link>
           </div>
         </section>
       </main>
 
       <footer className="border-t border-line bg-white/80 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-5 text-sm text-ink-soft sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto flex max-w-5xl flex-col gap-4 px-5 text-sm text-ink-soft sm:flex-row sm:items-center sm:justify-between">
           <span className="font-display font-bold text-ink">Sanyuj</span>
-          <span>© {new Date().getFullYear()} Sanyuj. Trusted local connections.</span>
+          <nav className="flex flex-wrap gap-x-4 gap-y-2 font-semibold">
+            <Link href="/terms" className="hover:text-blue-deep">
+              Terms of Use
+            </Link>
+            <Link href="/privacy" className="hover:text-blue-deep">
+              Privacy Policy
+            </Link>
+            <Link href="/help" className="hover:text-blue-deep">
+              Help &amp; Support
+            </Link>
+          </nav>
+          <span>© {new Date().getFullYear()} Sanyuj</span>
         </div>
       </footer>
     </div>

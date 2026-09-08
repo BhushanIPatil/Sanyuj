@@ -106,7 +106,6 @@ export default function BusinessSetupPage() {
           ←
         </Link>
         <div>
-          <p className="eyebrow">List your business</p>
           <h1 className="font-display text-lg font-bold">Set up your business</h1>
         </div>
       </header>

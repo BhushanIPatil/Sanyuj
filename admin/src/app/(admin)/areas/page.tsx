@@ -141,11 +141,7 @@ export default function AreasPage() {
 
   return (
     <div className="page-pad">
-      <PageHeader
-        eyebrow="Location"
-        title="Areas"
-        description="Add colonies, landmarks, and societies under localities that users have saved."
-      />
+      <PageHeader title="Areas" />
 
       <div className="mt-6">
         <FilterBar>
@@ -181,10 +177,13 @@ export default function AreasPage() {
           <DataTable
             rows={filteredLocalities}
             emptyMessage="No saved localities yet. They appear when a user saves a locality on their profile."
+            defaultSortKey="name"
+            defaultSortDir="asc"
             columns={[
               {
                 key: "name",
                 header: "Locality",
+                sortValue: (r) => r.name,
                 render: (r) => (
                   <button
                     type="button"
@@ -195,10 +194,11 @@ export default function AreasPage() {
                   </button>
                 ),
               },
-              { key: "pincode", header: "Pincode", render: (r) => <span className="font-mono text-xs">{r.pincode}</span> },
+              { key: "pincode", header: "Pincode", sortValue: (r) => r.pincode, render: (r) => <span className="font-mono text-xs">{r.pincode}</span> },
               {
                 key: "areas",
                 header: "Areas",
+                sortValue: (r) => areas.filter((a) => a.locality_id === r.id && !a.is_deleted).length,
                 render: (r) => (
                   <span className="text-ink-soft">
                     {areas.filter((a) => a.locality_id === r.id && !a.is_deleted).length}
@@ -208,6 +208,7 @@ export default function AreasPage() {
               {
                 key: "users",
                 header: "Users",
+                sortValue: (r) => profileCounts[r.id] ?? 0,
                 render: (r) => <span className="text-ink-soft">{profileCounts[r.id] ?? 0}</span>,
               },
             ]}
@@ -239,11 +240,14 @@ export default function AreasPage() {
             <DataTable
               rows={selectedAreas}
               emptyMessage="No areas yet. Add colonies, landmarks, or societies."
+              defaultSortKey="name"
+              defaultSortDir="asc"
               columns={[
-                { key: "name", header: "Name", render: (r) => <span className="font-semibold">{r.name}</span> },
+                { key: "name", header: "Name", sortValue: (r) => r.name, render: (r) => <span className="font-semibold">{r.name}</span> },
                 {
                   key: "status",
                   header: "Status",
+                  sortValue: (r) => (r.is_active ? 0 : 1),
                   render: (r) => (
                     <Badge className={r.is_active ? "bg-green-soft text-green-deep" : "bg-surface text-ink-soft"}>
                       {r.is_active ? "Active" : "Inactive"}

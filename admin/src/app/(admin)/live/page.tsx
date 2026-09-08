@@ -73,11 +73,7 @@ export default function LivePage() {
 
   return (
     <div className="page-pad">
-      <PageHeader
-        eyebrow="Go Live"
-        title="Live sessions"
-        description="Providers currently or recently live, filterable by pincode and locality."
-      />
+      <PageHeader title="Live sessions" />
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="Matching sessions" value={rows.length} icon={Radio} tone="teal" />
@@ -106,10 +102,13 @@ export default function LivePage() {
         <DataTable
           rows={rows}
           emptyMessage="No live sessions match your filters."
+          defaultSortKey="started"
+          defaultSortDir="desc"
           columns={[
             {
               key: "provider",
               header: "Provider",
+              sortValue: (row) => row.businesses?.name || row.businesses?.profiles?.full_name || "",
               render: (row) => (
                 <div>
                   <p className="font-semibold">{row.businesses?.name ?? "—"}</p>
@@ -122,11 +121,13 @@ export default function LivePage() {
             {
               key: "pincode",
               header: "Pincode",
+              sortValue: (row) => row.pincode,
               render: (row) => <span>{row.pincode}</span>,
             },
             {
               key: "locality",
               header: "Locality",
+              sortValue: (row) => row.businesses?.profiles?.locality ?? "",
               render: (row) => (
                 <span className="text-ink-soft">
                   {row.businesses?.profiles?.locality ?? "—"}
@@ -136,6 +137,7 @@ export default function LivePage() {
             {
               key: "status",
               header: "Status",
+              sortValue: (row) => (row.is_active && !row.is_deleted ? 0 : 1),
               render: (row) => (
                 <Badge
                   className={
@@ -151,6 +153,7 @@ export default function LivePage() {
             {
               key: "started",
               header: "Started",
+              sortValue: (row) => row.started_at,
               render: (row) => (
                 <span className="text-ink-soft">{formatDateTime(row.started_at)}</span>
               ),
@@ -158,6 +161,7 @@ export default function LivePage() {
             {
               key: "ends",
               header: "Ends",
+              sortValue: (row) => row.ends_at,
               render: (row) => (
                 <span className="text-ink-soft">{formatDateTime(row.ends_at)}</span>
               ),

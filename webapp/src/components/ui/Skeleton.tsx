@@ -84,18 +84,7 @@ export function SkeletonJobCard() {
 export function HomePageSkeleton() {
   return (
     <div className="page-pad" aria-busy="true" aria-label="Loading home">
-      <header className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <SkeletonAvatar />
-          <div className="space-y-2">
-            <SkeletonLine width="7rem" className="h-4" />
-            <SkeletonLine width="11rem" className="h-2.5" />
-          </div>
-        </div>
-        <Skeleton className="h-10 w-10 rounded-[14px]" />
-      </header>
-
-      <Skeleton className="mt-6 h-[148px] w-full rounded-[24px]" />
+      <Skeleton className="h-[220px] w-full rounded-[12px]" />
 
       <div className="mt-8 flex items-start justify-between gap-3">
         <div className="space-y-2">
@@ -115,8 +104,6 @@ export function HomePageSkeleton() {
           </SkeletonCard>
         ))}
       </div>
-
-      <Skeleton className="mt-6 h-12 w-full rounded-[18px]" />
 
       <div className="mt-8 flex items-baseline justify-between">
         <SkeletonLine width="6rem" className="h-4" />
@@ -156,10 +143,15 @@ export function HomePageSkeleton() {
 export function ExplorePageSkeleton() {
   return (
     <div className="page-pad" aria-busy="true" aria-label="Loading explore">
-      <header className="mb-6 space-y-2">
-        <SkeletonLine width="4rem" className="h-2.5" />
-        <SkeletonLine width="14rem" className="h-7" />
-        <SkeletonLine width="18rem" className="h-3" />
+      <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-2">
+          <SkeletonLine width="11rem" className="h-5" />
+          <SkeletonLine width="16rem" className="h-3" />
+        </div>
+        <div className="space-y-2 sm:text-right">
+          <SkeletonLine width="10rem" className="h-3.5 sm:ml-auto" />
+          <Skeleton className="h-9 w-28 rounded-full sm:ml-auto" />
+        </div>
       </header>
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row">
@@ -172,7 +164,7 @@ export function ExplorePageSkeleton() {
 
       <div className="mb-6 flex gap-2 overflow-hidden">
         {Array.from({ length: 5 }).map((_, i) => (
-          <Skeleton key={i} className="h-9 w-20 shrink-0 rounded-full" />
+          <Skeleton key={i} className="h-9 w-24 shrink-0 rounded-full" />
         ))}
       </div>
 
@@ -376,7 +368,7 @@ export function CategoryPickerSkeleton({ flat = false }: { flat?: boolean }) {
 export function AdBannerSkeleton() {
   return (
     <div aria-busy="true" aria-label="Loading ads">
-      <Skeleton className="h-[148px] w-full rounded-[24px]" />
+      <Skeleton className="h-[220px] w-full rounded-[12px]" />
     </div>
   );
 }

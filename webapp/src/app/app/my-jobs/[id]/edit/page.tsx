@@ -150,7 +150,6 @@ export default function EditJobPage() {
           ←
         </Link>
         <div>
-          <p className="eyebrow">Update request</p>
           <h1 className="font-display text-lg font-bold">Edit job</h1>
         </div>
       </header>

@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { visible } from "@/lib/db/visible";
 import { MyInterestsPageSkeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/EmptyState";
+import { Inbox } from "lucide-react";
 
 type Row = {
   id: string;
@@ -82,7 +84,6 @@ export default function MyInterestsPage() {
           ←
         </Link>
         <div>
-          <p className="eyebrow">Jobs you&apos;ve responded to</p>
           <h1 className="font-display text-lg font-bold">My Interests</h1>
         </div>
       </header>
@@ -154,7 +155,13 @@ export default function MyInterestsPage() {
           );
         })}
         {!shown.length ? (
-          <p className="py-8 text-center text-sm text-ink-soft">Nothing here yet.</p>
+          <EmptyState
+            icon={Inbox}
+            title="Nothing here yet"
+            message="When you respond to nearby jobs, your interests will show up here."
+            actionLabel="Open Job Feed"
+            actionHref="/app/jobs-feed"
+          />
         ) : null}
       </div>
     </div>

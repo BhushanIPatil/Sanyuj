@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { visible } from "@/lib/db/visible";
 import { useToast } from "@/components/Toast";
 import { EditProfileSkeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/EmptyState";
 import { fetchAreasForLocality } from "@/lib/geo/areas";
 import {
   fetchBusinessCoverage,
@@ -15,6 +16,7 @@ import {
 } from "@/lib/geo/coverage";
 import type { PostalLocality } from "@/lib/geo/postal";
 import type { AreaOption } from "@/lib/geo/areas";
+import { MapPinned } from "lucide-react";
 
 type PinGroup = {
   pincode: string;
@@ -211,8 +213,7 @@ export default function BusinessCoveragePage() {
   if (!businessId) {
     return (
       <div className="page-pad max-w-2xl">
-        <p className="eyebrow">Business</p>
-        <h1 className="font-display text-lg font-bold">Service areas</h1>
+        <p className="font-display text-lg font-bold">Service areas</p>
         <p className="mt-3 text-sm text-ink-soft">Create a business profile first.</p>
         <Link href="/app/business/setup" className="btn-primary mt-4 inline-flex w-auto px-5">
           Set up business
@@ -231,7 +232,6 @@ export default function BusinessCoveragePage() {
           ←
         </Link>
         <div>
-          <p className="eyebrow">Business</p>
           <h1 className="font-display text-lg font-bold">Service areas</h1>
         </div>
       </header>
@@ -242,9 +242,11 @@ export default function BusinessCoveragePage() {
 
       <div className="space-y-3">
         {groups.length === 0 ? (
-          <p className="rounded-[16px] border border-dashed border-line p-4 text-sm text-ink-soft">
-            No service areas yet. Add a pincode below.
-          </p>
+          <EmptyState
+            icon={MapPinned}
+            title="No service areas yet"
+            message="Add a pincode below so nearby customers can find your business."
+          />
         ) : (
           groups.map((g) => (
             <div key={g.pincode} className="rounded-[18px] border border-line bg-white p-4 shadow-card">

@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthApiException;
 
 import '../services/auth_api.dart';
+import '../services/jobs_api.dart';
 
 /// Returns a short, user-facing message for any thrown error.
 String friendlyError(Object error) {
+  if (error is JobsApiException) return error.message;
   if (error is AuthApiException) return error.message;
   if (error is AuthException) return error.message;
   if (error is TimeoutException) {

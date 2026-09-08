@@ -151,9 +151,7 @@ export default function AppVersionsPage() {
   return (
     <div className="page-pad">
       <PageHeader
-        eyebrow="Mobile"
         title="App versions"
-        description="Set minimum (force update) and latest versions per store. Only one active row per platform is served to the app."
         action={
           <button type="button" onClick={openCreate} className="btn-secondary inline-flex w-auto items-center gap-2">
             <Plus size={16} />
@@ -166,10 +164,13 @@ export default function AppVersionsPage() {
         <DataTable
           rows={rows}
           emptyMessage="No version rows yet."
+          defaultSortKey="updated"
+          defaultSortDir="desc"
           columns={[
             {
               key: "platform",
               header: "Platform",
+              sortValue: (r) => r.platform,
               render: (r) => (
                 <span className="inline-flex items-center gap-2 font-semibold capitalize">
                   <Smartphone size={14} className="text-ink-faint" />
@@ -180,16 +181,19 @@ export default function AppVersionsPage() {
             {
               key: "latest",
               header: "Latest",
+              sortValue: (r) => r.latest_version,
               render: (r) => <span className="font-mono text-sm">{r.latest_version}</span>,
             },
             {
               key: "minimum",
               header: "Minimum",
+              sortValue: (r) => r.minimum_version,
               render: (r) => <span className="font-mono text-sm">{r.minimum_version}</span>,
             },
             {
               key: "url",
               header: "Store URL",
+              sortValue: (r) => r.download_url || "",
               render: (r) =>
                 r.download_url ? (
                   <a
@@ -207,6 +211,7 @@ export default function AppVersionsPage() {
             {
               key: "status",
               header: "Status",
+              sortValue: (r) => (r.is_active ? 0 : 1),
               render: (r) => (
                 <Badge className={r.is_active ? "bg-green-soft text-green-deep" : "bg-surface text-ink-soft"}>
                   {r.is_active ? "Active" : "Inactive"}
@@ -216,6 +221,7 @@ export default function AppVersionsPage() {
             {
               key: "updated",
               header: "Updated",
+              sortValue: (r) => r.updated_at,
               render: (r) => <span className="text-xs text-ink-soft">{formatDateTime(r.updated_at)}</span>,
             },
             {

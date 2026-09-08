@@ -25,6 +25,11 @@ export function formatBudget(min: number | null, max: number | null) {
   return `Up to ₹${max!.toLocaleString()}`;
 }
 
+export function formatMoney(amount: number | null | undefined) {
+  if (amount == null || !Number.isFinite(amount)) return "—";
+  return `₹${Math.round(amount).toLocaleString()}`;
+}
+
 export function locationLabel(pincode: string | null, locality: string | null, area?: string | null) {
   const place = [area, locality].filter((v) => v?.trim()).join(", ");
   if (place && pincode) return `${place}, ${pincode}`;

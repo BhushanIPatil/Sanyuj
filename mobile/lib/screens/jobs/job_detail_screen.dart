@@ -118,13 +118,25 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
     return null;
   }
 
+  List<JobInterest> get _dealInterests {
+    final catId = _job?.category?.id;
+    if (catId == null || catId.isEmpty) return _interests;
+    return _interests.where((e) => e.categoryId == catId).toList();
+  }
+
+  bool _matchesJobCategory(JobInterest interest) {
+    final catId = _job?.category?.id;
+    if (catId == null || catId.isEmpty) return true;
+    return interest.categoryId == catId;
+  }
+
   JobInterest? _selectedInterest() {
     final job = _job;
     if (job == null) return null;
-    for (final i in _interests) {
+    for (final i in _dealInterests) {
       if (job.closedWithBusinessId != null && i.businessId == job.closedWithBusinessId) return i;
     }
-    for (final i in _interests) {
+    for (final i in _dealInterests) {
       if (i.status == 'selected') return i;
     }
     return null;
@@ -166,6 +178,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
   void _openDealFinal(JobInterest interest) {
     final job = _job;
     if (job == null || job.status != 'open' || _savingStatus) return;
+    if (!_matchesJobCategory(interest)) return;
     setState(() {
       _closeInterestId = interest.id;
       _finalAmount.text = _defaultFinalAmount(interest);
@@ -183,9 +196,10 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
     }
     setState(() => _savingStatus = true);
     try {
+      final selectedId = _dealInterests.any((e) => e.id == _closeInterestId) ? _closeInterestId : null;
       await ref.read(repoProvider).finalizeJobDeal(
             jobId: job.id,
-            selectedInterestId: _closeInterestId,
+            selectedInterestId: selectedId,
             finalAmount: amount,
           );
       if (!mounted) return;
@@ -194,7 +208,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
       if (!mounted) return;
       showAppSnack(
         context,
-        _closeInterestId != null ? 'Deal closed with selected provider' : 'Job closed without a provider',
+        selectedId != null ? 'Deal closed with selected provider' : 'Job closed without a provider',
       );
       if (mounted) context.pop('closed');
     } catch (e) {
@@ -380,16 +394,25 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                                               'Closed with which provider?',
                                               style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
                                             ),
+                                            if ((job.category?.name ?? '').isNotEmpty) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Only ${job.category!.name} providers can be assigned.',
+                                                style: const TextStyle(fontSize: 11, color: AppColors.inkSoft),
+                                              ),
+                                            ],
                                             const SizedBox(height: 8),
                                             DropdownButtonFormField<String?>(
-                                              value: _closeInterestId,
+                                              value: _dealInterests.any((e) => e.id == _closeInterestId)
+                                                  ? _closeInterestId
+                                                  : null,
                                               decoration: const InputDecoration(hintText: 'Select provider'),
                                               items: [
                                                 const DropdownMenuItem<String?>(
                                                   value: null,
                                                   child: Text('None / closed without provider'),
                                                 ),
-                                                for (final i in _interests.where((e) => e.businessName != null))
+                                                for (final i in _dealInterests.where((e) => e.businessName != null))
                                                   DropdownMenuItem<String?>(
                                                     value: i.id,
                                                     child: Text(
@@ -501,6 +524,7 @@ class _JobDetailScreenState extends ConsumerState<JobDetailScreen> {
                                     _InterestCard(
                                       interest: i,
                                       job: job,
+                                      canAssignDeal: _matchesJobCategory(i),
                                       onCall: () => _call(i.ownerPhone, i.ownerName ?? i.businessName!),
                                       onDealFinal: () => _openDealFinal(i),
                                     ),
@@ -641,12 +665,14 @@ class _InterestCard extends StatelessWidget {
   const _InterestCard({
     required this.interest,
     required this.job,
+    required this.canAssignDeal,
     required this.onCall,
     required this.onDealFinal,
   });
 
   final JobInterest interest;
   final Job job;
+  final bool canAssignDeal;
   final VoidCallback onCall;
   final VoidCallback onDealFinal;
 
@@ -787,7 +813,7 @@ class _InterestCard extends StatelessWidget {
               ],
             ),
           ],
-          if (job.status == 'open' && interest.status == 'waiting') ...[
+          if (job.status == 'open' && interest.status == 'waiting' && canAssignDeal) ...[
             const SizedBox(height: 4),
             SizedBox(
               width: double.infinity,

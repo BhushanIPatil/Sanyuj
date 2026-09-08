@@ -258,6 +258,7 @@ class JobInterest {
     this.businessName,
     this.businessRating,
     this.categoryName,
+    this.categoryId,
     this.ownerId,
     this.ownerName,
     this.ownerPhone,
@@ -270,6 +271,7 @@ class JobInterest {
   final String? businessName;
   final double? businessRating;
   final String? categoryName;
+  final String? categoryId;
   final String? ownerId;
   final String? ownerName;
   final String? ownerPhone;

@@ -220,11 +220,7 @@ export default function CategoriesPage() {
 
   return (
     <div className="page-pad">
-      <PageHeader
-        eyebrow="Catalog"
-        title="Categories"
-        description="Manage super category groups and subcategories shown in the app."
-      />
+      <PageHeader title="Categories" />
 
       <section className="mt-8">
         <div className="mb-3 flex items-center justify-between">
@@ -237,13 +233,16 @@ export default function CategoriesPage() {
         <DataTable
           rows={groups}
           emptyMessage="No category groups."
+          defaultSortKey="order"
+          defaultSortDir="asc"
           columns={[
-            { key: "name", header: "Name", render: (r) => <span className="font-semibold">{r.name}</span> },
-            { key: "slug", header: "Slug", render: (r) => <span className="font-mono text-xs">{r.slug}</span> },
-            { key: "order", header: "Order", render: (r) => <span>{r.sort_order}</span> },
+            { key: "name", header: "Name", sortValue: (r) => r.name, render: (r) => <span className="font-semibold">{r.name}</span> },
+            { key: "slug", header: "Slug", sortValue: (r) => r.slug, render: (r) => <span className="font-mono text-xs">{r.slug}</span> },
+            { key: "order", header: "Order", sortValue: (r) => r.sort_order, render: (r) => <span>{r.sort_order}</span> },
             {
               key: "status",
               header: "Status",
+              sortValue: (r) => (r.is_deleted ? 2 : r.is_active ? 0 : 1),
               render: (r) => (
                 <Badge className={r.is_active && !r.is_deleted ? "bg-green-soft text-green-deep" : "bg-surface text-ink-soft"}>
                   {r.is_deleted ? "Deleted" : r.is_active ? "Active" : "Inactive"}
@@ -280,24 +279,29 @@ export default function CategoriesPage() {
         <DataTable
           rows={categories}
           emptyMessage="No categories."
+          defaultSortKey="order"
+          defaultSortDir="asc"
           columns={[
             {
               key: "icon",
               header: "Icon",
               className: "w-16",
+              sortable: false,
               render: (r) => <ImageOrEmoji value={r.emoji} alt={r.name} size={36} />,
             },
             {
               key: "name",
               header: "Name",
+              sortValue: (r) => r.name,
               render: (r) => <span className="font-semibold">{r.name}</span>,
             },
-            { key: "group", header: "Group", render: (r) => <span>{r.category_groups?.name ?? "—"}</span> },
-            { key: "slug", header: "Slug", render: (r) => <span className="font-mono text-xs">{r.slug}</span> },
-            { key: "order", header: "Order", render: (r) => <span>{r.sort_order}</span> },
+            { key: "group", header: "Group", sortValue: (r) => r.category_groups?.name ?? "", render: (r) => <span>{r.category_groups?.name ?? "—"}</span> },
+            { key: "slug", header: "Slug", sortValue: (r) => r.slug, render: (r) => <span className="font-mono text-xs">{r.slug}</span> },
+            { key: "order", header: "Order", sortValue: (r) => r.sort_order, render: (r) => <span>{r.sort_order}</span> },
             {
               key: "status",
               header: "Status",
+              sortValue: (r) => (r.is_deleted ? 2 : r.is_active ? 0 : 1),
               render: (r) => (
                 <Badge className={r.is_active && !r.is_deleted ? "bg-green-soft text-green-deep" : "bg-surface text-ink-soft"}>
                   {r.is_deleted ? "Deleted" : r.is_active ? "Active" : "Inactive"}

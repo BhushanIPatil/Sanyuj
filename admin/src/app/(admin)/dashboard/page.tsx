@@ -81,11 +81,7 @@ export default function DashboardPage() {
 
   return (
     <div className="page-pad">
-      <PageHeader
-        eyebrow="Overview"
-        title="Dashboard"
-        description="High-level metrics across users, providers, jobs, and live sessions."
-      />
+      <PageHeader title="Dashboard" />
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total users" value={stats.totalUsers} icon={Users} tone="blue" />

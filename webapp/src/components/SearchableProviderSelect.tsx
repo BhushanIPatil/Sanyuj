@@ -17,6 +17,7 @@ type Props = {
   noneValue: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  emptyMessage?: string;
 };
 
 export function SearchableProviderSelect({
@@ -25,6 +26,7 @@ export function SearchableProviderSelect({
   noneValue,
   onChange,
   disabled = false,
+  emptyMessage = "No providers match your search.",
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -142,7 +144,7 @@ export function SearchableProviderSelect({
             ))}
             {!filtered.length ? (
               <p className="border-t border-line px-3 py-3 text-center text-xs text-ink-soft">
-                No providers match your search.
+                {options.length === 0 ? emptyMessage : "No providers match your search."}
               </p>
             ) : null}
           </div>

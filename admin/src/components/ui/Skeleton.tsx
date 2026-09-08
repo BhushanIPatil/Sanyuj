@@ -28,10 +28,7 @@ export function SkeletonLine({
 export function TablePageSkeleton({ rows = 6 }: { rows?: number }) {
   return (
     <div className="page-pad" aria-busy="true">
-      <div className="space-y-2">
-        <SkeletonLine width="6rem" className="h-2.5" />
-        <SkeletonLine width="12rem" className="h-6" />
-      </div>
+      <SkeletonLine width="8rem" className="h-6" />
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-24 rounded-[18px]" />
@@ -50,10 +47,7 @@ export function TablePageSkeleton({ rows = 6 }: { rows?: number }) {
 export function DashboardSkeleton() {
   return (
     <div className="page-pad" aria-busy="true">
-      <div className="space-y-2">
-        <SkeletonLine width="6rem" className="h-2.5" />
-        <SkeletonLine width="10rem" className="h-6" />
-      </div>
+      <SkeletonLine width="8rem" className="h-6" />
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
           <Skeleton key={i} className="h-28 rounded-[18px]" />
@@ -79,10 +73,7 @@ export function FormSkeleton({ fields = 4 }: { fields?: number }) {
 export function CategoriesPageSkeleton() {
   return (
     <div className="page-pad" aria-busy="true">
-      <div className="space-y-2">
-        <SkeletonLine width="6rem" className="h-2.5" />
-        <SkeletonLine width="10rem" className="h-6" />
-      </div>
+      <SkeletonLine width="8rem" className="h-6" />
       <div className="mt-8 space-y-3">
         <SkeletonLine width="8rem" className="h-5" />
         <div className="space-y-2">
@@ -106,11 +97,8 @@ export function CategoriesPageSkeleton() {
 export function AdsPageSkeleton() {
   return (
     <div className="page-pad" aria-busy="true">
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-2">
-          <SkeletonLine width="6rem" className="h-2.5" />
-          <SkeletonLine width="5rem" className="h-6" />
-        </div>
+      <div className="flex items-center justify-between gap-4">
+        <SkeletonLine width="5rem" className="h-6" />
         <Skeleton className="h-11 w-28 rounded-[18px]" />
       </div>
       <div className="mt-6 space-y-2">

@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/models.dart';
+import 'jobs_api.dart';
 
 PostgrestFilterBuilder<T> visible<T>(PostgrestFilterBuilder<T> query) =>
     query.eq('is_active', true).eq('is_deleted', false);
@@ -136,23 +137,21 @@ class SanyujRepository {
     int? budgetMin,
     int? budgetMax,
   }) async {
-    final uid = userId;
-    if (uid == null) throw Exception('Not signed in');
-    await _db.from('jobs').insert({
-      'customer_id': uid,
-      'category_id': categoryId,
-      'title': title,
-      'description': description,
-      'budget_min': budgetMin,
-      'budget_max': budgetMax,
-      'urgency': urgency,
-      'pincode': pincode,
-      'locality': locality,
-      'area_id': areaId,
-      'area': area,
-      'is_active': true,
-      'is_deleted': false,
-    });
+    final session = _db.auth.currentSession;
+    if (session == null) throw Exception('Not signed in');
+    await JobsApi().createJob(
+      accessToken: session.accessToken,
+      categoryId: categoryId,
+      title: title,
+      description: description,
+      pincode: pincode,
+      locality: locality,
+      areaId: areaId,
+      area: area,
+      urgency: urgency,
+      budgetMin: budgetMin,
+      budgetMax: budgetMax,
+    );
   }
 
   Future<void> updateJob({
@@ -407,7 +406,11 @@ class SanyujRepository {
       final owner = ownerId != null ? owners[ownerId] : null;
       final cat = bMap?['categories'];
       String? categoryName;
-      if (cat is Map) categoryName = cat['name'] as String?;
+      String? categoryId;
+      if (cat is Map) {
+        categoryName = cat['name'] as String?;
+        categoryId = cat['id'] as String?;
+      }
 
       return JobInterest(
         id: row['id'] as String,
@@ -417,6 +420,7 @@ class SanyujRepository {
         businessName: bMap?['name'] as String?,
         businessRating: (bMap?['rating'] as num?)?.toDouble(),
         categoryName: categoryName,
+        categoryId: categoryId,
         ownerId: ownerId,
         ownerName: owner?['full_name'] as String?,
         ownerPhone: owner?['phone'] as String?,
@@ -435,6 +439,21 @@ class SanyujRepository {
         _db.from('job_interests').select('business_id'),
       ).eq('id', selectedInterestId).eq('job_id', jobId).maybeSingle();
       businessId = interest?['business_id'] as String?;
+      if (businessId != null) {
+        final job = await visible(
+          _db.from('jobs').select('category_id'),
+        ).eq('id', jobId).maybeSingle();
+        final biz = await visible(
+          _db.from('businesses').select('category_id'),
+        ).eq('id', businessId).maybeSingle();
+        final jobCategoryId = job?['category_id'] as String?;
+        final bizCategoryId = biz?['category_id'] as String?;
+        if (jobCategoryId != null &&
+            bizCategoryId != null &&
+            jobCategoryId != bizCategoryId) {
+          throw Exception('Provider must be in the same category as the job');
+        }
+      }
     }
 
     final jobUpdate = <String, dynamic>{

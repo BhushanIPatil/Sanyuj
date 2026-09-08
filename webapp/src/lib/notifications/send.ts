@@ -26,10 +26,14 @@ function normalizeImageUrl(raw: string | null | undefined): string | undefined {
  * Low-level: send a push to an explicit list of FCM tokens.
  * Safe to call from admin broadcast or future job/interest/deal hooks.
  *
- * Android: data-only + high priority so Flutter can download `image` and show
- * a BigPicture notification (OEM battery savers often block FCM's own fetch).
- * iOS: APNs alert + mutable-content + fcmOptions.imageUrl.
+ * Always include a `notification` payload so Android/iOS show a tray item even
+ * when the app is backgrounded or killed. Data-only messages are accepted by
+ * FCM (successCount > 0) but many OEM devices never deliver them to Flutter.
+ * `data` is kept so the in-app handler can render a rich image when the app
+ * is in the foreground.
  */
+export const ANDROID_NOTIFICATION_CHANNEL_ID = "sanyuj_default";
+
 export async function sendPushToTokens(
   adminDb: SupabaseClient,
   tokens: string[],
@@ -54,17 +58,25 @@ export async function sendPushToTokens(
   };
   if (imageUrl) data.image = imageUrl;
 
+  const notification = {
+    title: message.title,
+    body: message.body,
+    ...(imageUrl ? { imageUrl } : {}),
+  };
+
   for (let i = 0; i < unique.length; i += FCM_BATCH_SIZE) {
     const batch = unique.slice(i, i + FCM_BATCH_SIZE);
     const response = await messaging.sendEachForMulticast({
       tokens: batch,
+      notification,
       data,
-      // No top-level `notification` — keeps Android in data-message mode so our
-      // Flutter handler can render the image. iOS uses `apns.payload.aps.alert`.
       android: {
         priority: "high",
-        // Data-only on Android so Flutter downloads `image` and shows BigPicture.
-        // (System-tray FCM image fetch is often blocked by OEM battery savers.)
+        notification: {
+          channelId: ANDROID_NOTIFICATION_CHANNEL_ID,
+          sound: "default",
+          ...(imageUrl ? { imageUrl } : {}),
+        },
       },
       apns: {
         headers: {
@@ -83,16 +95,14 @@ export async function sendPushToTokens(
         },
         fcmOptions: imageUrl ? { imageUrl } : undefined,
       },
-      webpush: imageUrl
-        ? {
-            headers: { image: imageUrl },
-            notification: {
-              title: message.title,
-              body: message.body,
-              image: imageUrl,
-            },
-          }
-        : undefined,
+      webpush: {
+        ...(imageUrl ? { headers: { image: imageUrl } } : {}),
+        notification: {
+          title: message.title,
+          body: message.body,
+          ...(imageUrl ? { image: imageUrl } : {}),
+        },
+      },
     });
 
     successCount += response.successCount;
@@ -144,7 +154,7 @@ export async function sendStoredNotification(
 ): Promise<SendPushResult & { notificationId: string }> {
   const { data: row, error } = await adminDb
     .from("push_notifications")
-    .select("id, title, message_body, image, sent_datetime")
+    .select("id, title, message_body, image, sent_datetime, sent_by")
     .eq("id", notificationId)
     .maybeSingle();
 
@@ -164,9 +174,9 @@ export async function sendStoredNotification(
   const { error: updErr } = await adminDb
     .from("push_notifications")
     .update({
-      sent_datetime: new Date().toISOString(),
+      sent_datetime: result.successCount > 0 ? new Date().toISOString() : row.sent_datetime,
       sent_count: result.successCount,
-      sent_by: sentBy,
+      sent_by: result.successCount > 0 ? sentBy : row.sent_by,
     })
     .eq("id", notificationId);
 

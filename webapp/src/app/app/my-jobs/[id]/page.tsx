@@ -15,6 +15,8 @@ import {
   type JobStatus,
 } from "@/lib/jobs/status";
 import { JobDetailSkeleton } from "@/components/ui/Skeleton";
+import { EmptyState } from "@/components/EmptyState";
+import { Users } from "lucide-react";
 import {
   SearchableProviderSelect,
   type ProviderCloseOption,
@@ -149,9 +151,13 @@ export default function JobDetailPage() {
     if (!job || savingStatus) return;
 
     if (next === "closed") {
+      const jobCategoryId = job.categories?.id ?? null;
+      const assignable = interests.filter(
+        (i) => !jobCategoryId || i.businesses?.categories?.id === jobCategoryId,
+      );
       const winner =
-        interests.find((i) => i.businesses?.id === job.closed_with_business_id) ??
-        interests.find((i) => i.status === "selected");
+        assignable.find((i) => i.businesses?.id === job.closed_with_business_id) ??
+        assignable.find((i) => i.status === "selected");
       const interestId = winner?.id ?? NONE_PROVIDER;
       setCloseProvider(interestId);
       setFinalAmount(
@@ -159,7 +165,7 @@ export default function JobDetailPage() {
           job,
           interestId === NONE_PROVIDER
             ? null
-            : interests.find((i) => i.id === interestId)?.offered_amount,
+            : assignable.find((i) => i.id === interestId)?.offered_amount,
         ),
       );
       setShowClosePicker(true);
@@ -185,7 +191,15 @@ export default function JobDetailPage() {
   async function confirmCloseWithProvider() {
     if (!job || savingStatus) return;
 
-    const interestId = closeProvider === NONE_PROVIDER ? null : closeProvider;
+    const jobCategoryId = job.categories?.id ?? null;
+    const allowed =
+      closeProvider !== NONE_PROVIDER &&
+      interests.some(
+        (i) =>
+          i.id === closeProvider &&
+          (!jobCategoryId || i.businesses?.categories?.id === jobCategoryId),
+      );
+    const interestId = allowed ? closeProvider : null;
     const amount = Number(finalAmount);
     if (!finalAmount.trim() || !Number.isFinite(amount) || amount < 0) {
       showToast("Enter a valid final amount");
@@ -214,6 +228,8 @@ export default function JobDetailPage() {
   function openDealFinal(interestId: string) {
     if (!job || job.status !== "open" || savingStatus) return;
     const interest = interests.find((i) => i.id === interestId);
+    const jobCategoryId = job.categories?.id ?? null;
+    if (jobCategoryId && interest?.businesses?.categories?.id !== jobCategoryId) return;
     setCloseProvider(interestId);
     setFinalAmount(defaultFinalAmount(job, interest?.offered_amount));
     setFinalizingId(interestId);
@@ -226,7 +242,12 @@ export default function JobDetailPage() {
     interests.find((i) => i.businesses?.id === job.closed_with_business_id) ??
     interests.find((i) => i.status === "selected");
 
-  const closeOptions: ProviderCloseOption[] = interests
+  const jobCategoryId = job.categories?.id ?? null;
+  const dealInterests = interests.filter(
+    (i) => !jobCategoryId || i.businesses?.categories?.id === jobCategoryId,
+  );
+
+  const closeOptions: ProviderCloseOption[] = dealInterests
     .filter((i) => i.businesses)
     .map((i) => ({
       id: i.id,
@@ -246,8 +267,8 @@ export default function JobDetailPage() {
           ←
         </Link>
         <div className="min-w-0 flex-1">
-          <p className="eyebrow">Job · {jobStatusLabel(job.status)}</p>
           <h1 className="font-display text-[17px] font-bold">{job.title.slice(0, 40)}</h1>
+          <p className="mt-0.5 text-xs font-semibold text-ink-soft">{jobStatusLabel(job.status)}</p>
         </div>
         {job.status === "open" ? (
           <Link
@@ -260,7 +281,7 @@ export default function JobDetailPage() {
       </header>
 
       <div className="rounded-[26px] border border-line bg-white p-4.5 shadow-card">
-        <p className="eyebrow">
+        <p className="text-[10.5px] font-bold uppercase tracking-wide text-ink-soft">
           {categoryDisplayName(job.categories)} ·{" "}
           {locationLabel({ area: job.area, locality: job.locality, pincode: job.pincode })}
         </p>
@@ -317,12 +338,19 @@ export default function JobDetailPage() {
           <div className="mt-3 rounded-[14px] border border-dashed border-line bg-surface p-3">
             <p className="text-xs font-bold text-ink">Closed with which provider?</p>
             <p className="mt-1 text-[11px] text-ink-soft">
-              Search and pick who you finalized with, or none if you closed without one.
+              {job.categories?.name
+                ? `Only ${job.categories.name} providers can be assigned. Search and pick who you finalized with, or none if you closed without one.`
+                : "Search and pick who you finalized with, or none if you closed without one."}
             </p>
             <SearchableProviderSelect
               options={closeOptions}
-              value={closeProvider}
+              value={closeOptions.some((o) => o.id === closeProvider) ? closeProvider : NONE_PROVIDER}
               noneValue={NONE_PROVIDER}
+              emptyMessage={
+                job.categories?.name
+                  ? `No ${job.categories.name} providers have expressed interest yet.`
+                  : "No providers have expressed interest yet."
+              }
               onChange={(next) => {
                 setCloseProvider(next);
                 if (!job) return;
@@ -518,7 +546,9 @@ export default function JobDetailPage() {
                     </div>
                   </div>
                 ) : null}
-                {job.status === "open" && i.status === "waiting" ? (
+                {job.status === "open" &&
+                i.status === "waiting" &&
+                (!jobCategoryId || i.businesses?.categories?.id === jobCategoryId) ? (
                   <button
                     type="button"
                     disabled={!!finalizingId || savingStatus}
@@ -532,7 +562,11 @@ export default function JobDetailPage() {
             );
           })}
           {!interests.length ? (
-            <p className="text-sm text-ink-soft">No interest yet — providers nearby will see your post.</p>
+            <EmptyState
+              icon={Users}
+              title="No interest yet"
+              message="Providers nearby will see your post. Check back soon for offers."
+            />
           ) : null}
         </div>
       </div>

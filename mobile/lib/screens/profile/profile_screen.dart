@@ -409,10 +409,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           child: Column(
             children: [
               _MenuItem(
-                icon: Icons.policy_outlined,
+                icon: Icons.description_outlined,
                 iconColor: AppColors.indigo,
-                label: 'Sanyuj Policies',
-                onTap: () => _openUrl(AppConfig.policiesUrl),
+                label: 'Terms of Use',
+                onTap: () => _openUrl(AppConfig.termsUrl),
+              ),
+              const Divider(height: 1, color: AppColors.line),
+              _MenuItem(
+                icon: Icons.privacy_tip_outlined,
+                iconColor: AppColors.teal,
+                label: 'Privacy Policy',
+                onTap: () => _openUrl(AppConfig.privacyUrl),
               ),
               const Divider(height: 1, color: AppColors.line),
               _MenuItem(

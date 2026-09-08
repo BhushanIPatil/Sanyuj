@@ -18,6 +18,8 @@ import { ExplorePageSkeleton, SkeletonProviderRow } from "@/components/ui/Skelet
 import { displayPhone } from "@/lib/auth/phone";
 import { loginUrl } from "@/lib/auth/guest";
 import { fetchCoveringBusinessIds } from "@/lib/geo/coverage";
+import { EmptyState } from "@/components/EmptyState";
+import { Store } from "lucide-react";
 
 type OwnerProfile = {
   id: string;
@@ -156,12 +158,22 @@ function ExploreInner() {
 
   return (
     <div className="page-pad">
-      <header className="mb-6">
-        <p className="eyebrow">Discover</p>
-        <h1 className="mt-1 font-display text-2xl font-extrabold sm:text-3xl">Explore providers</h1>
-        <p className="mt-2 max-w-2xl text-sm text-ink-soft sm:text-base">
-          Browse trusted local businesses{pincode ? ` near ${pincode}` : " nearby"}.
-        </p>
+      <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+        <div className="min-w-0">
+          <h1 className="font-display text-[19px] font-bold">Explore providers</h1>
+          <p className="mt-1 text-sm text-ink-soft">
+            Browse trusted local businesses{pincode ? ` near ${pincode}` : " nearby"}.
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end sm:text-right">
+          <p className="font-display text-sm font-bold text-indigo">Not seeing the right fit?</p>
+          <Link
+            href={signedIn ? "/app/post-job" : loginUrl("/app/post-job")}
+            className="rounded-full bg-indigo px-4 py-2 text-sm font-bold text-white"
+          >
+            {signedIn ? "Post a Job" : "Log in to post a job"}
+          </Link>
+        </div>
       </header>
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row">
@@ -186,7 +198,7 @@ function ExploreInner() {
               className={`rounded-[14px] border px-4 py-3 text-sm font-bold ${
                 sort === id
                   ? "border-blue-deep bg-blue-deep text-white"
-                  : "border-line bg-white text-ink-soft"
+                  : "border-line bg-transparent text-ink-soft"
               }`}
               onClick={() => setSort(id)}
             >
@@ -201,25 +213,29 @@ function ExploreInner() {
           className={`shrink-0 rounded-full border px-4 py-2 text-sm font-bold ${
             !categorySlug
               ? "border-blue-deep bg-blue-deep text-white"
-              : "border-line bg-white text-ink-soft"
+              : "border-line bg-transparent text-ink-soft"
           }`}
           onClick={() => setCategorySlug("")}
         >
           All
         </button>
-        {chips.map((c) => (
-          <button
-            key={c.id}
-            className={`shrink-0 rounded-full border px-4 py-2 text-sm font-bold ${
-              categorySlug === c.slug
-                ? "border-blue-deep bg-blue-deep text-white"
-                : "border-line bg-white text-ink-soft"
-            }`}
-            onClick={() => setCategorySlug(c.slug)}
-          >
-            {c.name}
-          </button>
-        ))}
+        {chips.map((c) => {
+          const active = categorySlug === c.slug;
+          return (
+            <button
+              key={c.id}
+              className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-bold ${
+                active
+                  ? "border-blue-deep bg-blue-deep text-white"
+                  : "border-line bg-transparent text-ink-soft"
+              }`}
+              onClick={() => setCategorySlug(c.slug)}
+            >
+              <CategoryIcon value={c.emoji} alt="" size="chip" />
+              {c.name}
+            </button>
+          );
+        })}
       </div>
 
       {loading ? (
@@ -288,22 +304,16 @@ function ExploreInner() {
           </div>
 
           {!sorted.length ? (
-            <p className="py-10 text-center text-sm text-ink-soft">No providers in this area yet.</p>
+            <EmptyState
+              icon={Store}
+              title="No providers nearby"
+              message="No providers in this area yet. Try another category or post a job so businesses can find you."
+              actionLabel={signedIn ? "Post a Job" : "Log in to post a job"}
+              actionHref={signedIn ? "/app/post-job" : loginUrl("/app/post-job")}
+            />
           ) : null}
         </>
       )}
-
-      <div className="mt-8 flex flex-col items-start justify-between gap-4 rounded-[24px] bg-indigo-soft p-5 sm:flex-row sm:items-center">
-        <h3 className="font-display text-base font-bold text-indigo sm:text-lg">
-          Not seeing the right fit?
-        </h3>
-        <Link
-          href={signedIn ? "/app/post-job" : loginUrl("/app/post-job")}
-          className="rounded-full bg-indigo px-5 py-2.5 text-sm font-bold text-white"
-        >
-          {signedIn ? "Post a Job" : "Log in to post a job"}
-        </Link>
-      </div>
     </div>
   );
 }

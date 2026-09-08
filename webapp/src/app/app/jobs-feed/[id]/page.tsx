@@ -103,15 +103,15 @@ export default function ProviderJobDetailPage() {
           ←
         </Link>
         <div>
-          <p className="eyebrow">
-            Job request · {locationLabel({ area: job.area, locality: job.locality, pincode: job.pincode })}
-          </p>
           <h1 className="font-display text-[17px] font-bold">{job.title.slice(0, 36)}</h1>
+          <p className="mt-0.5 text-xs font-semibold text-ink-soft">
+            {locationLabel({ area: job.area, locality: job.locality, pincode: job.pincode })}
+          </p>
         </div>
       </header>
 
       <div className="rounded-[26px] border border-line bg-white p-4.5 shadow-card">
-        <p className="eyebrow">
+        <p className="text-[10.5px] font-bold uppercase tracking-wide text-ink-soft">
           {categoryDisplayName(job.categories)} ·{" "}
           {locationLabel({ area: job.area, locality: job.locality, pincode: job.pincode })}
         </p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -32,7 +33,9 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const [mode, setMode] = useState<Mode>(params.get("restore") === "1" ? "restore" : "login");
+  const [mode, setMode] = useState<Mode>(
+    params.get("restore") === "1" ? "restore" : params.get("forgot") === "1" ? "forgot" : "login",
+  );
   const [step, setStep] = useState<Step>("form");
   const [email, setEmail] = useState(() => (params.get("email") ?? "").trim());
   const [password, setPassword] = useState("");
@@ -614,7 +617,14 @@ function LoginForm() {
         ) : null}
 
         <p className="mt-4 text-center text-xs leading-relaxed text-ink-faint">
-          By continuing you agree to Sanyuj&apos;s Terms &amp; Privacy Policy
+          By continuing you agree to Sanyuj&apos;s{" "}
+          <Link href="/terms" className="font-semibold text-ink-soft underline-offset-2 hover:underline">
+            Terms of Use
+          </Link>{" "}
+          &amp;{" "}
+          <Link href="/privacy" className="font-semibold text-ink-soft underline-offset-2 hover:underline">
+            Privacy Policy
+          </Link>
         </p>
 
         {step === "form" && mode !== "forgot" ? (
