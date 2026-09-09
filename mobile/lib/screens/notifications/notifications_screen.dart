@@ -131,7 +131,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           FilterGroup(
             id: 'category',
             label: 'Category',
-            searchable: _categories.length > 8,
+            searchable: true,
             options: [
               for (final c in _categories) FilterOption(value: c.id, label: c.name, icon: c.emoji),
             ],

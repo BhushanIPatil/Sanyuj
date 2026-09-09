@@ -942,7 +942,14 @@ class _FilterSheetState extends State<_FilterSheet> {
               ),
               const Divider(height: 1, color: AppColors.line),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                // Extra bottom space so Apply sits above the shell's floating
+                // home button instead of touching it.
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  12,
+                  16,
+                  12 + (MediaQuery.sizeOf(context).width < 900 ? 28 : 0),
+                ),
                 child: Row(
                   children: [
                     Expanded(
