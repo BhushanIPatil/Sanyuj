@@ -84,6 +84,8 @@ export function HomeAds({
   const [loading, setLoading] = useState(true);
   const [detailAd, setDetailAd] = useState<AdDetail | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const looping = ads.length > 1;
+  const slides = looping ? [...ads, ads[0]] : ads;
 
   useEffect(() => {
     const load = async () => {
@@ -116,11 +118,29 @@ export function HomeAds({
     void load();
   }, [pincode, localityId, areaId]);
 
+  const pageWidth = () => scrollerRef.current?.clientWidth ?? 0;
+
+  const settleLoop = useCallback(() => {
+    const el = scrollerRef.current;
+    const width = pageWidth();
+    if (!el || !width || ads.length < 2) return;
+    const raw = Math.round(el.scrollLeft / width);
+    if (raw >= ads.length) {
+      el.scrollTo({ left: 0, behavior: "auto" });
+      setActive(0);
+      return;
+    }
+    setActive(raw);
+  }, [ads.length]);
+
   const onScroll = useCallback(() => {
     const el = scrollerRef.current;
-    if (!el || el.clientWidth === 0) return;
-    setActive(Math.round(el.scrollLeft / el.clientWidth));
-  }, []);
+    const width = pageWidth();
+    if (!el || !width) return;
+    const raw = Math.round(el.scrollLeft / width);
+    if (raw >= ads.length) return;
+    setActive(raw);
+  }, [ads.length]);
 
   const openAd = (ad: AdDetail) => {
     void recordAdClick(ad.id);
@@ -128,16 +148,31 @@ export function HomeAds({
   };
 
   useEffect(() => {
-    if (ads.length < 2) return;
+    if (!looping) return;
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.addEventListener("scrollend", settleLoop);
+    return () => el.removeEventListener("scrollend", settleLoop);
+  }, [looping, settleLoop]);
+
+  useEffect(() => {
+    if (!looping) return;
+    let wrapId: number | undefined;
     const id = window.setTimeout(() => {
       const el = scrollerRef.current;
-      if (!el || el.clientWidth === 0) return;
-      const current = Math.round(el.scrollLeft / el.clientWidth);
-      const next = (current + 1) % ads.length;
-      el.scrollTo({ left: next * el.clientWidth, behavior: "smooth" });
+      const width = pageWidth();
+      if (!el || !width) return;
+      const current = Math.round(el.scrollLeft / width);
+      el.scrollTo({ left: (current + 1) * width, behavior: "smooth" });
+      if (current + 1 >= ads.length) {
+        wrapId = window.setTimeout(settleLoop, 450);
+      }
     }, AD_CAROUSEL_MS);
-    return () => window.clearTimeout(id);
-  }, [ads.length, active]);
+    return () => {
+      window.clearTimeout(id);
+      if (wrapId !== undefined) window.clearTimeout(wrapId);
+    };
+  }, [looping, active, ads.length, settleLoop]);
 
   return (
     <section className="mt-6" aria-label="Brand collaborations">
@@ -173,8 +208,11 @@ export function HomeAds({
                   onScroll={onScroll}
                   className="no-scrollbar flex h-full snap-x snap-mandatory overflow-x-auto"
                 >
-                  {ads.map((ad) => (
-                    <div key={ad.id} className="h-full min-w-full shrink-0 snap-center">
+                  {slides.map((ad, i) => (
+                    <div
+                      key={i === ads.length ? `${ad.id}-loop` : ad.id}
+                      className="h-full min-w-full shrink-0 snap-center"
+                    >
                       <AdCard ad={ad} onOpen={openAd} />
                     </div>
                   ))}

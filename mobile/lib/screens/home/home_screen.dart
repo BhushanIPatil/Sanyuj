@@ -53,9 +53,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _adTimer?.cancel();
     if (_ads.length < 2) return;
     _adTimer = Timer(adCarouselInterval, () {
-      if (!mounted || _ads.length < 2) return;
+      if (!mounted || _ads.length < 2 || !_adController.hasClients) return;
       _adController.animateToPage(
-        (_adIndex + 1) % _ads.length,
+        _adIndex + 1,
         duration: const Duration(milliseconds: 350),
         curve: Curves.easeInOut,
       );
@@ -328,13 +328,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     children: [
                       PageView.builder(
                         controller: _adController,
-                        itemCount: _ads.length,
+                        itemCount: _ads.length > 1 ? _ads.length + 1 : _ads.length,
                         onPageChanged: (i) {
+                          if (i >= _ads.length) {
+                            setState(() => _adIndex = 0);
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (!mounted || !_adController.hasClients) return;
+                              _adController.jumpToPage(0);
+                              _scheduleNextAd();
+                            });
+                            return;
+                          }
                           setState(() => _adIndex = i);
                           _scheduleNextAd();
                         },
                         itemBuilder: (_, i) {
-                          final ad = _ads[i];
+                          final ad = _ads[i % _ads.length];
                           final imageUrl = ad.imageUrl?.trim();
                           return GestureDetector(
                             onTap: () => _showAd(ad),

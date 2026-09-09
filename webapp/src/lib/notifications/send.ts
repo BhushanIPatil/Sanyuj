@@ -50,18 +50,21 @@ export async function sendPushToTokens(
   const invalidTokens: string[] = [];
 
   const imageUrl = normalizeImageUrl(message.image ?? undefined);
+  // Unique per send so a resend of the same campaign is a new tray item
+  // (Android/web replace notifications that share the same `tag`).
+  const sendId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
   const data: Record<string, string> = {
     ...(message.data ?? {}),
     title: message.title,
     body: message.body,
+    send_id: sendId,
   };
   if (imageUrl) data.image = imageUrl;
 
   const notification = {
     title: message.title,
     body: message.body,
-    ...(imageUrl ? { imageUrl } : {}),
   };
 
   for (let i = 0; i < unique.length; i += FCM_BATCH_SIZE) {
@@ -72,10 +75,20 @@ export async function sendPushToTokens(
       data,
       android: {
         priority: "high",
+        // Do not set collapseKey — each send must be delivered independently.
         notification: {
           channelId: ANDROID_NOTIFICATION_CHANNEL_ID,
+          color: "#0E8094",
           sound: "default",
-          ...(imageUrl ? { imageUrl } : {}),
+          defaultSound: true,
+          visibility: "public",
+          priority: "high",
+          tag: sendId,
+          // Image stays in `data` only. Putting imageUrl on the Android
+          // notification payload can drop the whole tray item when the
+          // device fails to download it (common on OEM / CDN blocks).
+          // Icon comes from AndroidManifest default_notification_icon so
+          // older app builds without `ic_notification` still display.
         },
       },
       apns: {
@@ -100,6 +113,7 @@ export async function sendPushToTokens(
         notification: {
           title: message.title,
           body: message.body,
+          tag: sendId,
           ...(imageUrl ? { image: imageUrl } : {}),
         },
       },
@@ -111,6 +125,7 @@ export async function sendPushToTokens(
     response.responses.forEach((res, idx) => {
       if (res.success) return;
       const code = res.error?.code ?? "";
+      console.error("[push] FCM send failed", code, res.error?.message);
       if (INVALID_TOKEN_CODES.has(code)) {
         invalidTokens.push(batch[idx]!);
       }
@@ -145,7 +160,7 @@ export async function broadcastPush(
 
 /**
  * Load a `push_notifications` row, broadcast it, then stamp sent_* fields.
- * Used by the admin "Send" action today; event hooks can call broadcastPush / sendPushToUsers directly.
+ * Resends are allowed: `sent_datetime` is status metadata only and never blocks another send.
  */
 export async function sendStoredNotification(
   adminDb: SupabaseClient,

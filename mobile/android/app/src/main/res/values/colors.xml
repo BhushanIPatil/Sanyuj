@@ -7,4 +7,5 @@
     <!-- White plate for launcher icon. -->
     <color name="app_icon_background">#FFFFFF</color>
     <color name="splash_white">#FFFFFF</color>
+    <color name="notification_color">#0E8094</color>
 </resources>

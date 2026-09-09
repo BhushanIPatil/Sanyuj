@@ -16,6 +16,16 @@ import 'device_token_api.dart';
 const _channelId = 'sanyuj_default';
 const _channelName = 'Sanyuj';
 
+int _trayNotificationId(RemoteMessage message) {
+  final sendId = message.data['send_id'];
+  final raw = (sendId != null && sendId.isNotEmpty)
+      ? sendId.hashCode
+      : message.messageId?.hashCode ??
+          DateTime.now().millisecondsSinceEpoch;
+  final id = raw.abs() % 0x7fffffff;
+  return id == 0 ? 1 : id;
+}
+
 final FlutterLocalNotificationsPlugin _localNotifications =
     FlutterLocalNotificationsPlugin();
 
@@ -53,10 +63,13 @@ class PushNotifications {
     if (!(Platform.isAndroid || Platform.isIOS)) return;
 
     try {
+      // Channel must exist even if FCM later fails — otherwise the OS drops
+      // background pushes that target `sanyuj_default`.
+      await ensureLocalNotificationsInitialized();
+
       if (Firebase.apps.isEmpty) {
         await Firebase.initializeApp();
       }
-      await ensureLocalNotificationsInitialized();
 
       final messaging = FirebaseMessaging.instance;
       await messaging.requestPermission(alert: true, badge: true, sound: true);
@@ -70,19 +83,27 @@ class PushNotifications {
       }
 
       FirebaseMessaging.onMessage.listen((message) {
-        void show() => showRemoteMessage(message);
-        show();
+        showRemoteMessage(message).catchError((e) {
+          // ignore: avoid_print
+          print('[push] foreground show failed: $e');
+        });
       });
 
       _currentToken = await messaging.getToken();
       messaging.onTokenRefresh.listen((token) {
         _currentToken = token;
-        void sync() => syncTokenToServer();
-        sync();
+        syncTokenToServer();
       });
 
       _ready = true;
       await syncTokenToServer();
+      Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+        if (data.event == AuthChangeEvent.signedIn ||
+            data.event == AuthChangeEvent.tokenRefreshed ||
+            data.event == AuthChangeEvent.initialSession) {
+          syncTokenToServer();
+        }
+      });
     } catch (e) {
       // Missing google-services.json / APNs / etc. — fail open.
       // ignore: avoid_print
@@ -94,7 +115,7 @@ class PushNotifications {
   static Future<void> ensureLocalNotificationsInitialized() async {
     if (_localReady) return;
 
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidInit = AndroidInitializationSettings('@drawable/ic_notification');
     const iosInit = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -152,8 +173,9 @@ class PushNotifications {
       }
     }
 
-    final id = message.messageId?.hashCode ??
-        DateTime.now().millisecondsSinceEpoch.remainder(100000);
+    // Unique per delivery so a resend of the same campaign is a new tray item
+    // (Android replaces notifications that reuse the same local id).
+    final id = _trayNotificationId(message);
 
     await _localNotifications.show(
       id: id,
@@ -164,6 +186,7 @@ class PushNotifications {
           _channelId,
           _channelName,
           channelDescription: 'General Sanyuj notifications',
+          icon: '@drawable/ic_notification',
           importance: Importance.high,
           priority: Priority.high,
           styleInformation: androidStyle,
