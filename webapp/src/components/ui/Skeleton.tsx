@@ -184,7 +184,7 @@ export function ProfilePageSkeleton() {
       <Skeleton className="mt-4 h-40 w-full rounded-[26px]" />
 
       <SkeletonCard className="mt-4 space-y-0 overflow-hidden p-0">
-        {Array.from({ length: 5 }).map((_, i) => (
+        {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="border-b border-line px-4 py-4 last:border-0">
             <SkeletonLine width={`${50 + (i % 3) * 10}%`} className="h-3.5" />
           </div>

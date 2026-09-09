@@ -43,6 +43,12 @@ class AppConfig {
     defaultValue: 'https://sanyuj.vercel.app/help',
   );
 
+  /// Play Store listing. Update `PLAY_STORE_URL` in env/*.json when the listing is live.
+  static const playStoreUrl = String.fromEnvironment(
+    'PLAY_STORE_URL',
+    defaultValue: 'https://play.google.com/store/apps/details?id=app.sanyuj',
+  );
+
   static const supportEmail = String.fromEnvironment(
     'SUPPORT_EMAIL',
     defaultValue: 'support@sanyuj.app',

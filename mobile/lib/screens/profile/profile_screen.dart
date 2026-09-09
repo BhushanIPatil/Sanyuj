@@ -156,6 +156,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             body: 'Log in with your email to save your location and list a business.',
             onLogin: () => context.push('/login?next=/profile'),
           ),
+          SoftCard(
+            margin: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+            padding: EdgeInsets.zero,
+            child: _MenuItem(
+              icon: Icons.star_rounded,
+              iconColor: AppColors.amber,
+              label: 'Rate us on Google',
+              onTap: () => _openUrl(AppConfig.playStoreUrl),
+            ),
+          ),
         ],
       );
     }
@@ -427,6 +437,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 iconColor: AppColors.greenDeep,
                 label: 'Help & Support',
                 onTap: () => _openUrl(AppConfig.helpUrl),
+              ),
+              const Divider(height: 1, color: AppColors.line),
+              _MenuItem(
+                icon: Icons.star_rounded,
+                iconColor: AppColors.amber,
+                label: 'Rate us on Google',
+                onTap: () => _openUrl(AppConfig.playStoreUrl),
               ),
               const Divider(height: 1, color: AppColors.line),
               _MenuItem(

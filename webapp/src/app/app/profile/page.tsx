@@ -11,6 +11,7 @@ import {
   MapPin,
   Phone,
   ScrollText,
+  Star,
   Store,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -24,6 +25,7 @@ import { ProfilePageSkeleton } from "@/components/ui/Skeleton";
 import { GuestCta } from "@/components/GuestCta";
 import { locationLabel } from "@/lib/geo/display";
 import { BusinessAvatar } from "@/components/BusinessPhotoPicker";
+import { PLAY_STORE_URL } from "@/lib/store";
 
 type Profile = {
   full_name: string | null;
@@ -134,6 +136,9 @@ export default function ProfilePage() {
             body="Log in with your email to save your location and list a business."
             next="/app/profile"
           />
+          <div className="mt-4 overflow-hidden rounded-[18px] border border-line bg-white shadow-card">
+            <RateUsLink />
+          </div>
         </div>
       </div>
     );
@@ -295,6 +300,7 @@ export default function ProfilePage() {
               <span className="flex-1 text-[13px] font-semibold">Help &amp; Support</span>
               <span className="text-ink-faint">›</span>
             </Link>
+            <RateUsLink className="border-b border-line" />
             <button
               type="button"
               onClick={() => void logout()}
@@ -350,5 +356,22 @@ export default function ProfilePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function RateUsLink({ className = "" }: { className?: string }) {
+  return (
+    <a
+      href={PLAY_STORE_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`flex items-center gap-3 px-4 py-[15px] ${className}`}
+    >
+      <span className="flex h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-surface text-amber">
+        <Star size={16} />
+      </span>
+      <span className="flex-1 text-[13px] font-semibold">Rate us on Google</span>
+      <span className="text-ink-faint">›</span>
+    </a>
   );
 }

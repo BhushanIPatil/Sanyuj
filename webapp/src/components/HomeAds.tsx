@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Megaphone } from "lucide-react";
+import { ChevronDown, ChevronRight, Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { AdBannerSkeleton } from "@/components/ui/Skeleton";
 import { AdDetailSheet } from "@/components/AdDetailSheet";
@@ -55,11 +55,11 @@ function FeaturedCta() {
   return (
     <a
       href={ADS_CONTACT}
-      className="flex h-full flex-col items-center justify-center gap-3 px-3 py-4 text-center transition hover:opacity-80"
+      className="flex h-full items-center gap-3 px-2 py-4 text-left transition hover:opacity-80 sm:px-1"
       style={{ minHeight: AD_BANNER_HEIGHT }}
     >
-      <Megaphone size={28} className="text-blue-deep" strokeWidth={1.75} />
-      <div>
+      <Megaphone size={28} className="shrink-0 text-blue-deep" strokeWidth={1.75} />
+      <div className="min-w-0 flex-1">
         <p className="font-display text-sm font-extrabold leading-snug text-ink sm:text-[15px]">
           Want your business here?
         </p>
@@ -67,6 +67,8 @@ function FeaturedCta() {
           Reach neighbours nearby — get featured on Sanyuj.
         </p>
       </div>
+      <ChevronDown size={22} className="shrink-0 text-blue-deep sm:hidden" strokeWidth={2.25} />
+      <ChevronRight size={22} className="hidden shrink-0 text-blue-deep sm:block" strokeWidth={2.25} />
     </a>
   );
 }
@@ -171,14 +173,17 @@ export function HomeAds({
     <section className="mt-6" aria-label="Brand collaborations">
       {loading ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-10">
-          <div className="flex sm:col-span-3 sm:items-center sm:justify-center">
+          <div className="sm:col-span-3">
             <div
-              className="mx-auto w-full max-w-[160px] animate-pulse space-y-3 py-6"
+              className="flex w-full animate-pulse items-center gap-3 py-4"
               style={{ minHeight: AD_BANNER_HEIGHT }}
             >
-              <div className="mx-auto h-8 w-8 rounded-full bg-line" />
-              <div className="mx-auto h-3 w-28 rounded bg-line" />
-              <div className="mx-auto h-2.5 w-36 rounded bg-line" />
+              <div className="h-8 w-8 shrink-0 rounded-full bg-line" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="h-3 w-36 rounded bg-line" />
+                <div className="h-2.5 w-full max-w-[180px] rounded bg-line" />
+              </div>
+              <div className="h-5 w-5 shrink-0 rounded bg-line" />
             </div>
           </div>
           <div className="min-w-0 sm:col-span-7">
