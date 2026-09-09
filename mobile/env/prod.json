@@ -4,5 +4,6 @@
   "API_BASE_URL": "https://sanyuj.vercel.app",
   "PRIVACY_URL": "https://sanyuj.vercel.app/privacy",
   "TERMS_URL": "https://sanyuj.vercel.app/terms",
+  "HELP_URL": "https://sanyuj.vercel.app/help",
   "SUPPORT_EMAIL": "support@sanyuj.app"
 }

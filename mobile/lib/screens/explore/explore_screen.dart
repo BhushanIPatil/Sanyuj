@@ -1,15 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
-import '../../widgets/animated_search_hint.dart';
 import '../../widgets/common.dart';
+import '../../widgets/filters.dart';
+import '../../widgets/provider_detail_sheet.dart';
+
+const _sortOptions = [
+  SortOption(
+    value: 'name-asc',
+    label: 'Name: A to Z',
+    short: 'Name A–Z',
+    icon: Icons.sort_by_alpha_rounded,
+  ),
+  SortOption(
+    value: 'name-desc',
+    label: 'Name: Z to A',
+    short: 'Name Z–A',
+    icon: Icons.sort_rounded,
+  ),
+  SortOption(
+    value: 'newest',
+    label: 'Newest first',
+    short: 'Newest',
+    icon: Icons.fiber_new_rounded,
+  ),
+  SortOption(
+    value: 'oldest',
+    label: 'Oldest first',
+    short: 'Oldest',
+    icon: Icons.history_rounded,
+  ),
+];
+
+const _detailGroup = FilterGroup(
+  id: 'details',
+  label: 'Listing',
+  options: [
+    FilterOption(value: 'phone', label: 'Contact number shared'),
+    FilterOption(value: 'photo', label: 'Has a photo'),
+    FilterOption(value: 'address', label: 'Address shared'),
+  ],
+);
 
 class ExploreScreen extends ConsumerStatefulWidget {
   const ExploreScreen({super.key, this.initialCategoryId});
@@ -22,25 +58,28 @@ class ExploreScreen extends ConsumerStatefulWidget {
 
 class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   final _query = TextEditingController();
-  List<CategoryGroup> _groups = [];
+  List<Category> _categories = [];
   List<Business> _items = [];
-  String? _categoryId;
-  String? _pincode;
+  FilterState _filters = const FilterState();
+  GeoFilter _defaultGeo = GeoFilter.empty;
+  GeoFilter _appliedGeo = GeoFilter.empty;
+  String _sort = 'name-asc';
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _categoryId = widget.initialCategoryId;
-    _load();
+    _bootstrap();
   }
 
   @override
   void didUpdateWidget(covariant ExploreScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialCategoryId != widget.initialCategoryId) {
-      setState(() => _categoryId = widget.initialCategoryId);
-      _load();
+    final next = widget.initialCategoryId;
+    if (oldWidget.initialCategoryId != next && next != null) {
+      setState(() {
+        _filters = const FilterState().withGeo(_filters.geo).toggle('category', next);
+      });
     }
   }
 
@@ -50,30 +89,161 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _bootstrap() async {
     setState(() => _loading = true);
     try {
       final repo = ref.read(repoProvider);
       final profile = await repo.fetchProfile();
       final groups = await repo.fetchCategoryTree();
-      final items = await repo.fetchBusinesses(
-        categoryId: null,
-        pincode: profile?.pincode,
+      final geo = GeoFilter(
+        pincode: profile?.pincode ?? '',
+        locality: profile?.locality ?? '',
         localityId: profile?.localityId,
-        areaId: profile?.areaId,
+        areaId: profile?.areaId ?? '',
+        areaName: profile?.area ?? '',
       );
       if (!mounted) return;
+      final initial = widget.initialCategoryId;
       setState(() {
-        _pincode = profile?.pincode;
-        _groups = groups;
+        _categories = groups.expand((g) => g.categories).toList();
+        _defaultGeo = geo;
+        _filters = _filters.withGeo(geo);
+        if (initial != null && !_filters.isSelected('category', initial)) {
+          _filters = _filters.toggle('category', initial);
+        }
+      });
+      await _load(geo);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      showAppErrorAlert(context, e, actionLabel: 'Retry', onAction: _bootstrap);
+    }
+  }
+
+  Future<void> _load(GeoFilter geo) async {
+    setState(() => _loading = true);
+    try {
+      final items = await ref.read(repoProvider).fetchBusinesses(
+            pincode: geo.pincode.isEmpty ? null : geo.pincode,
+            localityId: geo.localityId,
+            areaId: geo.areaId.isEmpty ? null : geo.areaId,
+            excludeOwn: true,
+          );
+      if (!mounted) return;
+      setState(() {
         _items = items;
+        _appliedGeo = geo;
         _loading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      showAppErrorAlert(context, e, actionLabel: 'Retry', onAction: _load);
+      showAppErrorAlert(context, e, actionLabel: 'Retry', onAction: () => _load(geo));
     }
+  }
+
+  Future<void> _refresh() => _load(_filters.geo);
+
+  /// One flat category list, shared by the horizontal strip and the filter sheet.
+  List<FilterGroup> get _filterGroups => [
+        if (_categories.isNotEmpty)
+          FilterGroup(
+            id: 'category',
+            label: 'Category',
+            searchable: _categories.length > 8,
+            options: [
+              for (final c in _categories)
+                FilterOption(value: c.id, label: c.name, icon: c.emoji),
+            ],
+          ),
+        _detailGroup,
+      ];
+
+  List<Business> _results(FilterState state) {
+    final needle = _query.text.trim().toLowerCase();
+    final categoryIds = state.valuesOf('category');
+    final details = state.valuesOf('details');
+
+    final matched = _items.where((b) {
+      if (categoryIds.isNotEmpty && !categoryIds.contains(b.category?.id)) return false;
+      if (details.contains('phone') && (b.phone ?? '').trim().isEmpty) return false;
+      if (details.contains('photo') && (b.photoUrl ?? '').trim().isEmpty) return false;
+      if (details.contains('address') && (b.address ?? '').trim().isEmpty) return false;
+      if (needle.isEmpty) return true;
+      final hay =
+          '${b.name} ${b.category?.name ?? ''} ${b.providerName ?? ''} ${b.address ?? ''}'.toLowerCase();
+      return hay.contains(needle);
+    }).toList();
+
+    int byName(Business a, Business b) => a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    switch (_sort) {
+      case 'name-desc':
+        matched.sort((a, b) => byName(b, a));
+      case 'newest':
+      case 'oldest':
+        final oldestFirst = _sort == 'oldest';
+        matched.sort((a, b) {
+          final left = a.createdAt;
+          final right = b.createdAt;
+          if (left == null && right == null) return byName(a, b);
+          if (left == null) return 1;
+          if (right == null) return -1;
+          return oldestFirst ? left.compareTo(right) : right.compareTo(left);
+        });
+      default:
+        matched.sort(byName);
+    }
+    return matched;
+  }
+
+  Future<void> _openFilters() async {
+    final result = await showFilterSheet(
+      context,
+      groups: _filterGroups,
+      value: _filters,
+      defaultGeo: _defaultGeo,
+      resultNoun: 'providers',
+      previewCount: (state) => state.geo == _appliedGeo ? _results(state).length : null,
+    );
+    if (result == null || !mounted) return;
+    final geoChanged = result.geo != _appliedGeo;
+    setState(() => _filters = result);
+    if (geoChanged) await _load(result.geo);
+  }
+
+  Future<void> _openSort() async {
+    final next = await showSortSheet(context, options: _sortOptions, value: _sort);
+    if (next == null || !mounted) return;
+    setState(() => _sort = next);
+  }
+
+  void _setGeo(GeoFilter geo) {
+    setState(() => _filters = _filters.withGeo(geo));
+    if (geo != _appliedGeo) _load(geo);
+  }
+
+  void _clearAll() {
+    _query.clear();
+    final geoChanged = _filters.geo != _defaultGeo;
+    setState(() => _filters = FilterState(geo: _defaultGeo));
+    if (geoChanged) _load(_defaultGeo);
+  }
+
+  void _clearCategories() {
+    setState(() {
+      for (final id in _filters.valuesOf('category')) {
+        _filters = _filters.toggle('category', id);
+      }
+    });
+  }
+
+  Future<void> _openDetails(Business b) async {
+    await showProviderDetailSheet(
+      context,
+      business: b,
+      repo: ref.read(repoProvider),
+      onCall: _call,
+    );
   }
 
   Future<void> _call(Business b) async {
@@ -92,167 +262,93 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final q = _query.text.trim().toLowerCase();
-    final filtered = _items.where((b) {
-      if (_categoryId != null && b.category?.id != _categoryId) return false;
-      if (q.isEmpty) return true;
-      final hay = '${b.name} ${b.category?.name ?? ''} ${b.providerName ?? ''}'.toLowerCase();
-      return hay.contains(q);
-    }).toList();
+    final groups = _filterGroups;
+    final results = _results(_filters);
+    final filtered = _filters.activeCount(_defaultGeo) > 0 || _query.text.trim().isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Explore providers', style: GoogleFonts.nunito(fontSize: 22, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 4),
-              Text(
-                'Browse trusted local businesses near ${_pincode ?? 'your area'}.',
-                style: const TextStyle(fontSize: 13, color: AppColors.inkSoft),
-              ),
-            ],
+        FilterToolbar(
+          title: 'Explore providers',
+          subtitle: _filters.geo.isEverywhere ? 'across all areas' : 'near ${_filters.geo.label}',
+          searchController: _query,
+          onSearchChanged: (_) => setState(() {}),
+          searchHint: 'Search providers…',
+          animatedHint: true,
+          searchResultLabel: () {
+            final count = _results(_filters).length;
+            return '$count ${count == 1 ? 'provider' : 'providers'}';
+          },
+          sortLabel: sortLabelFor(_sortOptions, _sort),
+          onOpenSort: _openSort,
+          filterCount: _filters.activeCount(_defaultGeo),
+          onOpenFilters: _openFilters,
+          chips: buildActiveFilters(
+            state: _filters,
+            groups: groups,
+            defaultGeo: _defaultGeo,
+            onToggle: (groupId, value) => setState(() => _filters = _filters.toggle(groupId, value)),
+            onGeoChange: _setGeo,
           ),
+          onClearAll: _clearAll,
+          resultCount: results.length,
+          resultNoun: results.length == 1 ? 'provider' : 'providers',
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.line, width: 1.5),
-              boxShadow: AppColors.cardShadow,
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.search_rounded, size: 18, color: AppColors.inkFaint),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Stack(
-                    alignment: Alignment.centerLeft,
-                    children: [
-                      if (_query.text.isEmpty)
-                        const IgnorePointer(child: AnimatedSearchHint()),
-                      TextField(
-                        controller: _query,
-                        onChanged: (_) => setState(() {}),
-                        style: const TextStyle(fontSize: 13.5),
-                        decoration: const InputDecoration(
-                          hintText: '',
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          filled: false,
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+        CategoryFilterRow(
+          categories: _categories,
+          selectedIds: _filters.valuesOf('category'),
+          onToggle: (id) => setState(() => _filters = _filters.toggle('category', id)),
+          onClear: _clearCategories,
         ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 36,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            children: [
-              FilterChipPill(
-                label: 'All',
-                selected: _categoryId == null,
-                onTap: () => setState(() => _categoryId = null),
-              ),
-              const SizedBox(width: 8),
-              for (final c in _groups.expand((g) => g.categories)) ...[
-                FilterChipPill(
-                  label: c.name,
-                  selected: _categoryId == c.id,
-                  onTap: () => setState(() => _categoryId = c.id),
-                ),
-                const SizedBox(width: 8),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator(color: AppColors.blueDeep))
               : RefreshIndicator(
                   color: AppColors.blueDeep,
-                  onRefresh: _load,
+                  onRefresh: _refresh,
                   child: ListView.builder(
                     padding: const EdgeInsets.fromLTRB(20, 6, 20, 100),
-                    itemCount: filtered.isEmpty ? 2 : filtered.length + 1,
+                    itemCount: results.isEmpty ? 1 : results.length,
                     itemBuilder: (_, i) {
-                      if (filtered.isEmpty && i == 0) {
-                        return const EmptyState(
+                      if (results.isEmpty) {
+                        return EmptyState(
                           icon: Icons.storefront_outlined,
-                          title: 'No providers nearby',
-                          message: 'Try another category or check back later as more businesses join Sanyuj.',
+                          title: filtered ? 'No providers match these filters' : 'No providers nearby',
+                          message: filtered
+                              ? 'Try widening the location or picking a different category.'
+                              : 'Check back later as more businesses join Sanyuj.',
                           iconColor: AppColors.indigo,
                           iconBackground: AppColors.indigoSoft,
-                          padding: EdgeInsets.symmetric(vertical: 24, horizontal: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
+                          action: filtered
+                              ? TextButton(
+                                  onPressed: _clearAll,
+                                  child: const Text(
+                                    'Clear all filters',
+                                    style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.blueDeep),
+                                  ),
+                                )
+                              : null,
                         );
                       }
-                      if ((filtered.isEmpty && i == 1) || i == filtered.length) {
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 12),
-                          child: Container(
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: AppColors.indigoSoft,
-                              borderRadius: BorderRadius.circular(AppColors.radiusLg),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'Not seeing the right fit?',
-                                    style: GoogleFonts.nunito(fontSize: 14.5, fontWeight: FontWeight.w700, color: AppColors.indigo),
-                                  ),
-                                ),
-                                Material(
-                                  color: AppColors.indigo,
-                                  borderRadius: BorderRadius.circular(100),
-                                  child: InkWell(
-                                    onTap: () => context.push(
-                                      ref.read(repoProvider).userId == null
-                                          ? '/login?next=/business/setup'
-                                          : '/business/setup',
-                                    ),
-                                    borderRadius: BorderRadius.circular(100),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                      child: Text(
-                                        ref.read(repoProvider).userId == null ? 'Log in to list' : 'List your business',
-                                        style: GoogleFonts.nunito(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-                      final b = filtered[i];
+                      final b = results[i];
                       return SoftCard(
                         margin: const EdgeInsets.only(bottom: 10),
                         padding: const EdgeInsets.all(14),
                         radius: 18,
+                        onTap: () => _openDetails(b),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            CategoryIcon(value: b.category?.emoji, size: 44, radius: 12, fallback: '📍'),
+                            AvatarBadge(
+                              label: initials(b.name),
+                              imageUrl: b.photoUrl,
+                              size: 44,
+                              radius: 12,
+                              background: AppColors.tealSoft,
+                              foreground: AppColors.teal,
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
@@ -269,7 +365,11 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                                       ),
                                       child: Text(
                                         b.category!.name,
-                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.blueDeep),
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.blueDeep,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -282,8 +382,6 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                                     Text(displayPhone(b.phone!), style: monoStyle(fontSize: 11.5, color: AppColors.blueDeep))
                                   else
                                     const Text('No contact shared', style: TextStyle(fontSize: 11, color: AppColors.inkFaint)),
-                                  const SizedBox(height: 4),
-                                  Text('${b.rating.toStringAsFixed(1)} ★', style: const TextStyle(fontSize: 12, color: AppColors.inkSoft)),
                                   if ((b.address ?? '').isNotEmpty)
                                     Text(
                                       b.address!,

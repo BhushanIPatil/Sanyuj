@@ -254,3 +254,26 @@ export function AdBannerSkeleton() {
     </div>
   );
 }
+
+export function OfferlyPageSkeleton({ label = "Loading Offerly" }: { label?: string } = {}) {
+  return (
+    <div className="page-pad" aria-busy="true" aria-label={label}>
+      <header className="mb-6 space-y-2">
+        <SkeletonLine width="8rem" className="h-5" />
+        <SkeletonLine width="18rem" className="h-3" />
+      </header>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <SkeletonCard key={i} className="overflow-hidden p-0">
+            <Skeleton className="h-[160px] w-full rounded-none" />
+            <div className="space-y-2 p-4">
+              <SkeletonLine width="5rem" className="h-3" />
+              <SkeletonLine width="80%" className="h-4" />
+              <SkeletonLine width="60%" className="h-2.5" />
+            </div>
+          </SkeletonCard>
+        ))}
+      </div>
+    </div>
+  );
+}

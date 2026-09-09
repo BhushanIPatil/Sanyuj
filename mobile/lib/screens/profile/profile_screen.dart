@@ -56,7 +56,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _openUrl(String url) async {
     try {
-      final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      final uri = Uri.parse(url);
+      var ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) {
+        ok = await launchUrl(uri, mode: LaunchMode.platformDefault);
+      }
       if (!ok && mounted) showAppErrorSnack(context, 'Could not open link');
     } catch (e) {
       if (!mounted) return;
@@ -289,7 +293,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: () => context.push('/business/setup'),
+                        onTap: () => context.push('/business'),
                         borderRadius: BorderRadius.circular(100),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -321,6 +325,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   children: [
                     AvatarBadge(
                       label: initials(_business!.name),
+                      imageUrl: _business!.photoUrl,
                       size: 52,
                       radius: 16,
                       background: AppColors.blueDeep,
@@ -350,25 +355,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ],
                 ),
                 const SizedBox(height: 14),
-                Row(
-                  children: [
-                    _BizStat(value: '${_business!.rating.toStringAsFixed(1)}★', label: 'Rating'),
-                    const SizedBox(width: 10),
-                    _BizStat(value: '${_business!.responseRate}%', label: 'Response'),
-                  ],
-                ),
-                const SizedBox(height: 14),
                 SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => context.push('/business/coverage'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.ink,
-                      side: const BorderSide(color: AppColors.line, width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                      padding: const EdgeInsets.symmetric(vertical: 11),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.blueDeep,
+                      borderRadius: BorderRadius.circular(100),
                     ),
-                    child: Text('Service areas', style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 11.5)),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => context.push('/business'),
+                        borderRadius: BorderRadius.circular(100),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            'Manage business',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.nunito(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -379,6 +387,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           padding: EdgeInsets.zero,
           child: Column(
             children: [
+              _MenuItem(
+                icon: Icons.storefront_outlined,
+                iconColor: AppColors.greenDeep,
+                label: 'Your Business',
+                onTap: () => context.push('/business'),
+              ),
+              const Divider(height: 1, color: AppColors.line),
               _MenuItem(
                 icon: Icons.description_outlined,
                 iconColor: AppColors.indigo,
@@ -468,30 +483,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _BizStat extends StatelessWidget {
-  const _BizStat({required this.value, required this.label});
-
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-        child: Column(
-          children: [
-            Text(value, style: monoStyle(fontSize: 13)),
-            const SizedBox(height: 2),
-            Text(label.toUpperCase(), style: const TextStyle(fontSize: 9, color: AppColors.inkSoft, letterSpacing: 0.3)),
-          ],
-        ),
-      ),
     );
   }
 }

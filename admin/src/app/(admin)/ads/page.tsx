@@ -57,6 +57,7 @@ type AdForm = {
   offer_ends_at: string | null;
   price: string;
   payment_status: AdPaymentStatus;
+  is_home_screen: boolean;
 };
 
 const EMPTY_FILTERS = {
@@ -64,6 +65,7 @@ const EMPTY_FILTERS = {
   status: "all",
   payment: "all",
   coverage: "all",
+  placement: "all",
 };
 
 const EMPTY_AD: AdForm = {
@@ -83,6 +85,7 @@ const EMPTY_AD: AdForm = {
   offer_ends_at: null,
   price: "",
   payment_status: "unpaid",
+  is_home_screen: true,
 };
 
 function toDatetimeLocal(iso: string | null) {
@@ -110,6 +113,7 @@ function formFromAd(ad: AdRow): AdForm {
     offer_ends_at: ad.offer_ends_at,
     price: ad.price != null ? String(ad.price) : "",
     payment_status: ad.payment_status,
+    is_home_screen: ad.is_home_screen,
   };
 }
 
@@ -131,6 +135,7 @@ export default function AdsPage() {
   const [status, setStatus] = useState("all");
   const [payment, setPayment] = useState("all");
   const [coverage, setCoverage] = useState("all");
+  const [placement, setPlacement] = useState("all");
   const [selected, setSelected] = useState<AdRow | null>(null);
   const [editing, setEditing] = useState<AdRow | null>(null);
   const [creating, setCreating] = useState(false);
@@ -211,6 +216,7 @@ export default function AdsPage() {
       ...ad,
       price: typeof ad.price === "number" ? ad.price : null,
       payment_status: ad.payment_status === "paid" ? "paid" : "unpaid",
+      is_home_screen: ad.is_home_screen !== false,
       coverage: labels[ad.id] || "Everywhere",
       totalClicks: stats[ad.id]?.totalClicks ?? 0,
       uniqueUsers: stats[ad.id]?.uniqueUsers ?? 0,
@@ -230,6 +236,7 @@ export default function AdsPage() {
     status !== "all" ? 1 : 0,
     payment !== "all" ? 1 : 0,
     coverage !== "all" ? 1 : 0,
+    placement !== "all" ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
   const clearFilters = () => {
@@ -237,6 +244,7 @@ export default function AdsPage() {
     setStatus(EMPTY_FILTERS.status);
     setPayment(EMPTY_FILTERS.payment);
     setCoverage(EMPTY_FILTERS.coverage);
+    setPlacement(EMPTY_FILTERS.placement);
   };
 
   const filtered = useMemo(() => {
@@ -247,13 +255,15 @@ export default function AdsPage() {
       if (payment !== "all" && r.payment_status !== payment) return false;
       if (coverage === "everywhere" && r.coverage !== "Everywhere") return false;
       if (coverage === "targeted" && r.coverage === "Everywhere") return false;
+      if (placement === "home" && !r.is_home_screen) return false;
+      if (placement === "offerly" && r.is_home_screen) return false;
       if (q) {
         const hay = `${r.brand_name} ${r.title} ${r.body ?? ""} ${r.cta_label ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [rows, search, status, payment, coverage]);
+  }, [rows, search, status, payment, coverage, placement]);
 
   const pageStats = useMemo(() => {
     const total = rows.length;
@@ -340,6 +350,7 @@ export default function AdsPage() {
       offer_ends_at: form.offer_ends_at || null,
       price: parsePrice(form.price),
       payment_status: form.payment_status,
+      is_home_screen: form.is_home_screen,
     };
 
     try {
@@ -446,6 +457,13 @@ export default function AdsPage() {
                 <option value="targeted">Targeted</option>
               </FilterSelect>
             </FilterField>
+            <FilterField label="Placement">
+              <FilterSelect value={placement} onChange={setPlacement}>
+                <option value="all">All</option>
+                <option value="home">Home screen</option>
+                <option value="offerly">Offerly only</option>
+              </FilterSelect>
+            </FilterField>
             {activeFilterCount > 0 ? (
               <div className="flex items-end">
                 <button type="button" onClick={clearFilters} className="h-[46px] text-sm font-bold text-blue-deep hover:underline">
@@ -528,6 +546,16 @@ export default function AdsPage() {
               render: (row) => (
                 <Badge className={paymentBadge(row.payment_status)}>
                   {row.payment_status === "paid" ? "Paid" : "Unpaid"}
+                </Badge>
+              ),
+            },
+            {
+              key: "placement",
+              header: "Placement",
+              sortValue: (row) => (row.is_home_screen ? 1 : 0),
+              render: (row) => (
+                <Badge className={row.is_home_screen ? "bg-blue-soft text-blue-deep" : "bg-surface text-ink-soft"}>
+                  {row.is_home_screen ? "Home + Offerly" : "Offerly only"}
                 </Badge>
               ),
             },
@@ -770,6 +798,21 @@ export default function AdsPage() {
                       onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))}
                     />
                     Active
+                  </label>
+
+                  <label className="flex cursor-pointer items-start gap-2 text-sm font-semibold">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 cursor-pointer"
+                      checked={form.is_home_screen}
+                      onChange={(e) => setForm((f) => ({ ...f, is_home_screen: e.target.checked }))}
+                    />
+                    <span>
+                      Show on home screen
+                      <span className="mt-0.5 block text-xs font-medium text-ink-soft">
+                        All ads appear in Offerly. Check this to also show in the home carousel.
+                      </span>
+                    </span>
                   </label>
                 </div>
 

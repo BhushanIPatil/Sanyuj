@@ -29,6 +29,7 @@ export type AdRow = {
   offer_ends_at: string | null;
   price: number | null;
   payment_status: AdPaymentStatus;
+  is_home_screen: boolean;
   created_at: string;
   coverage: string;
   totalClicks: number;
@@ -109,6 +110,9 @@ export function AdDetailPanel({
           <Badge className={paymentBadge(ad.payment_status)}>
             {ad.payment_status === "paid" ? "Paid" : "Unpaid"}
           </Badge>
+          <Badge className={ad.is_home_screen ? "bg-blue-soft text-blue-deep" : "bg-surface text-ink-soft"}>
+            {ad.is_home_screen ? "Home + Offerly" : "Offerly only"}
+          </Badge>
         </div>
       }
       onClose={onClose}
@@ -167,6 +171,7 @@ export function AdDetailPanel({
         <Detail label="Banner ends" value={ad.ends_at ? formatDateTime(ad.ends_at) : "No end"} />
         <Detail label="Offer starts" value={ad.offer_starts_at ? formatDateTime(ad.offer_starts_at) : "Not set"} />
         <Detail label="Offer ends" value={ad.offer_ends_at ? formatDateTime(ad.offer_ends_at) : "Not set"} />
+        <Detail label="Home screen" value={ad.is_home_screen ? "Yes — carousel + Offerly" : "Offerly only"} />
         <Detail label="Sort order" value={ad.sort_order} />
         <Detail label="Created" value={formatDateTime(ad.created_at)} />
       </dl>

@@ -259,6 +259,13 @@ class _BusinessCoverageScreenState extends ConsumerState<BusinessCoverageScreen>
                 padding: EdgeInsets.all(20),
                 child: Text('Create a business profile first.', style: TextStyle(color: AppColors.inkSoft)),
               ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: PrimaryButton(
+                  label: 'Set up business',
+                  onPressed: () => context.go('/business'),
+                ),
+              ),
             ],
           ),
         ),

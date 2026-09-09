@@ -1,5 +1,6 @@
 ﻿import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,7 +15,9 @@ import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
 import '../../widgets/common.dart';
 import '../../widgets/ad_detail_sheet.dart';
+import '../../widgets/go_live_card.dart';
 import '../../widgets/live_provider_card.dart';
+import '../../widgets/provider_detail_sheet.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -29,12 +32,34 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<CategoryGroup> _groups = [];
   List<Map<String, dynamic>> _live = [];
   List<AdBanner> _ads = [];
+  List<Business> _nearby = [];
   bool _loading = true;
   int _adIndex = 0;
-  final _adController = PageController();
+  PageController _adController = PageController();
   Timer? _adTimer;
   String? _guestAddress;
   bool _guestAddressLoading = false;
+
+  bool get _adLooping => _ads.length > 1;
+
+  int _adIndexForPage(int page) {
+    if (_ads.isEmpty) return 0;
+    if (!_adLooping) return page.clamp(0, _ads.length - 1);
+    if (page <= 0) return _ads.length - 1;
+    if (page >= _ads.length + 1) return 0;
+    return page - 1;
+  }
+
+  void _resetAdPager({required int adCount}) {
+    final old = _adController;
+    _adController = PageController(initialPage: adCount > 1 ? 1 : 0);
+    _adIndex = 0;
+    if (old.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+    } else {
+      old.dispose();
+    }
+  }
 
   @override
   void initState() {
@@ -51,11 +76,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _scheduleNextAd() {
     _adTimer?.cancel();
-    if (_ads.length < 2) return;
+    if (!_adLooping) return;
     _adTimer = Timer(adCarouselInterval, () {
-      if (!mounted || _ads.length < 2 || !_adController.hasClients) return;
+      if (!mounted || !_adLooping || !_adController.hasClients) return;
+      final current = _adController.page?.round() ?? 1;
       _adController.animateToPage(
-        _adIndex + 1,
+        current + 1,
         duration: const Duration(milliseconds: 350),
         curve: Curves.easeInOut,
       );
@@ -95,22 +121,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             pincode: profile?.pincode,
             localityId: profile?.localityId,
             areaId: profile?.areaId,
+            homeScreenOnly: true,
           )
           .catchError((_) => <AdBanner>[]);
       final live = await repo.fetchLiveSessions(profile?.pincode);
+      final nearby = await repo
+          .fetchBusinesses(
+            pincode: profile?.pincode,
+            localityId: profile?.localityId,
+            areaId: profile?.areaId,
+            excludeOwn: true,
+            limit: 8,
+          )
+          .catchError((_) => <Business>[]);
       if (!mounted) return;
+      _resetAdPager(adCount: ads.length);
       setState(() {
         _profile = profile;
         _business = business;
         _groups = groups;
         _live = live;
+        _nearby = nearby.take(6).toList();
         _ads = ads;
-        _adIndex = 0;
         _loading = false;
       });
-      if (_adController.hasClients) {
-        _adController.jumpToPage(0);
-      }
       _scheduleNextAd();
       if (repo.userId == null) {
         _loadGuestAddress();
@@ -124,8 +158,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _openUrl(String url) async {
     try {
-      final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      final uri = Uri.parse(url);
+      var ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) {
+        ok = await launchUrl(uri, mode: LaunchMode.platformDefault);
+      }
       if (!ok && mounted) showAppErrorSnack(context, 'Could not open link');
+    } catch (e) {
+      if (!mounted) return;
+      showAppErrorSnack(context, e);
+    }
+  }
+
+  Future<void> _refreshLive() async {
+    try {
+      final live = await ref.read(repoProvider).fetchLiveSessions(_profile?.pincode);
+      if (!mounted) return;
+      setState(() => _live = live);
+    } catch (_) {
+      // The live strip keeps its current contents if the refresh fails.
+    }
+  }
+
+  Future<void> _openProviderDetails(Business b) async {
+    await showProviderDetailSheet(
+      context,
+      business: b,
+      repo: ref.read(repoProvider),
+      onCall: _callBusiness,
+    );
+  }
+
+  Future<void> _callBusiness(Business b) async {
+    final digits = b.phone?.replaceAll(RegExp(r'\D'), '') ?? '';
+    if (digits.isEmpty) {
+      showAppSnack(context, 'No contact for ${b.name}');
+      return;
+    }
+    try {
+      await launchUrl(Uri.parse('tel:$digits'), mode: LaunchMode.externalApplication);
     } catch (e) {
       if (!mounted) return;
       showAppErrorSnack(context, e);
@@ -146,7 +217,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 goTo: (path) {
                   if (path.startsWith('/login')) {
                     context.push(path);
-                  } else if (path == '/explore') {
+                  } else if (path == '/explore' || path == '/offerly' || path == '/notifications') {
                     context.go(path);
                   } else {
                     context.push(path);
@@ -240,6 +311,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     switch (action) {
                       case _HomeMenuAction.profile:
                         context.go('/profile');
+                      case _HomeMenuAction.business:
+                        if (isGuest) {
+                          context.push('/login?next=/business');
+                        } else {
+                          context.push('/business');
+                        }
                       case _HomeMenuAction.terms:
                         _openUrl(AppConfig.termsUrl);
                       case _HomeMenuAction.privacy:
@@ -256,6 +333,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           Icon(Icons.person_outline_rounded, size: 18, color: AppColors.blueDeep),
                           const SizedBox(width: 10),
                           const Text('My Profile', style: TextStyle(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _HomeMenuAction.business,
+                      child: Row(
+                        children: [
+                          Icon(Icons.storefront_outlined, size: 18, color: AppColors.greenDeep),
+                          const SizedBox(width: 10),
+                          const Text('Your Business', style: TextStyle(fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
@@ -326,49 +413,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   borderRadius: BorderRadius.circular(adBannerRadius),
                   child: Stack(
                     children: [
-                      PageView.builder(
-                        controller: _adController,
-                        itemCount: _ads.length > 1 ? _ads.length + 1 : _ads.length,
-                        onPageChanged: (i) {
-                          if (i >= _ads.length) {
-                            setState(() => _adIndex = 0);
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (!mounted || !_adController.hasClients) return;
-                              _adController.jumpToPage(0);
-                              _scheduleNextAd();
-                            });
-                            return;
+                      NotificationListener<ScrollNotification>(
+                        onNotification: (notification) {
+                          if (notification.metrics.axis != Axis.horizontal) return false;
+                          if (notification is ScrollStartNotification && notification.dragDetails != null) {
+                            _adTimer?.cancel();
+                          } else if (notification is ScrollEndNotification) {
+                            _scheduleNextAd();
                           }
-                          setState(() => _adIndex = i);
-                          _scheduleNextAd();
+                          return false;
                         },
-                        itemBuilder: (_, i) {
-                          final ad = _ads[i % _ads.length];
-                          final imageUrl = ad.imageUrl?.trim();
-                          return GestureDetector(
-                            onTap: () => _showAd(ad),
-                            child: imageUrl != null && imageUrl.isNotEmpty
-                                ? Image.network(
-                                    imageUrl,
-                                    fit: BoxFit.contain,
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                    alignment: Alignment.center,
-                                    errorBuilder: (_, _, _) => _AdFallback(ad: ad),
-                                    loadingBuilder: (context, child, progress) {
-                                      if (progress == null) return child;
-                                      return const Center(
-                                        child: SizedBox(
-                                          width: 22,
-                                          height: 22,
-                                          child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.blueDeep),
-                                        ),
-                                      );
-                                    },
-                                  )
-                                : _AdFallback(ad: ad),
-                          );
-                        },
+                        child: PageView.builder(
+                          controller: _adController,
+                          padEnds: false,
+                          scrollDirection: Axis.horizontal,
+                          dragStartBehavior: DragStartBehavior.down,
+                          physics: const PageScrollPhysics(parent: ClampingScrollPhysics()),
+                          itemCount: _adLooping ? _ads.length + 2 : _ads.length,
+                          onPageChanged: (i) {
+                            if (_adLooping && (i == 0 || i == _ads.length + 1)) {
+                              final target = i == 0 ? _ads.length : 1;
+                              setState(() => _adIndex = _adIndexForPage(i));
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (!mounted || !_adController.hasClients) return;
+                                _adController.jumpToPage(target);
+                                _scheduleNextAd();
+                              });
+                              return;
+                            }
+                            setState(() => _adIndex = _adIndexForPage(i));
+                            _scheduleNextAd();
+                          },
+                          itemBuilder: (_, i) {
+                            final ad = _ads[_adIndexForPage(i)];
+                            final imageUrl = ad.imageUrl?.trim();
+                            return GestureDetector(
+                              onTap: () => _showAd(ad),
+                              child: imageUrl != null && imageUrl.isNotEmpty
+                                  ? Image.network(
+                                      imageUrl,
+                                      fit: BoxFit.contain,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                      alignment: Alignment.center,
+                                      errorBuilder: (_, _, _) => _AdFallback(ad: ad),
+                                      loadingBuilder: (context, child, progress) {
+                                        if (progress == null) return child;
+                                        return const Center(
+                                          child: SizedBox(
+                                            width: 22,
+                                            height: 22,
+                                            child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.blueDeep),
+                                          ),
+                                        );
+                                      },
+                                    )
+                                  : _AdFallback(ad: ad),
+                            );
+                          },
+                        ),
                       ),
                       if (_ads.length > 1)
                         Positioned(
@@ -406,7 +509,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(100),
               child: InkWell(
-                onTap: () => _openUrl('mailto:support@sanyuj.app?subject=Banner%20ad%20on%20Sanyuj'),
+                onTap: () => _openUrl(
+                  'mailto:${AppConfig.supportEmail}?subject=Banner%20ad%20on%20Sanyuj',
+                ),
                 borderRadius: BorderRadius.circular(100),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
@@ -439,6 +544,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
           ),
+
+          if (_business != null)
+            GoLiveCard(
+              businessId: _business!.id,
+              pincode: _profile?.pincode,
+              onChanged: _refreshLive,
+              margin: const EdgeInsets.fromLTRB(20, 10, 20, 2),
+            ),
 
           SectionHeader(
             title: 'Categories',
@@ -483,13 +596,86 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
 
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text('Nearby providers', style: GoogleFonts.nunito(fontSize: 16, fontWeight: FontWeight.w700)),
+                ),
+                GestureDetector(
+                  onTap: () => context.go('/explore'),
+                  child: const Text('See all', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.blueDeep)),
+                ),
+              ],
+            ),
+          ),
+          if (_nearby.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: EmptyState(
+                icon: Icons.storefront_outlined,
+                title: 'No providers nearby',
+                message: 'No providers in this area yet. Try Explore, or list your business so neighbours can find you.',
+                padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+              ),
+            )
+          else
+            ..._nearby.map(
+              (b) => SoftCard(
+                margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                padding: const EdgeInsets.all(14),
+                radius: 18,
+                onTap: () => _openProviderDetails(b),
+                child: Row(
+                  children: [
+                    AvatarBadge(
+                      label: initials(b.name),
+                      imageUrl: b.photoUrl,
+                      size: 48,
+                      radius: 15,
+                      background: AppColors.tealSoft,
+                      foreground: AppColors.teal,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(b.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5)),
+                          const SizedBox(height: 3),
+                          Text(
+                            b.category?.name ?? 'Service',
+                            style: const TextStyle(fontSize: 12, color: AppColors.inkSoft),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Material(
+                      color: AppColors.blueDeep,
+                      borderRadius: BorderRadius.circular(13),
+                      child: InkWell(
+                        onTap: () => _callBusiness(b),
+                        borderRadius: BorderRadius.circular(13),
+                        child: const SizedBox(
+                          width: 40,
+                          height: 40,
+                          child: Icon(Icons.call_rounded, color: Colors.white, size: 18),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
           if (isGuest || _business == null)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () => context.push(isGuest ? '/login?next=/business/setup' : '/business/setup'),
+                  onTap: () => context.push(isGuest ? '/login?next=/business' : '/business'),
                   borderRadius: BorderRadius.circular(AppColors.radiusLg),
                   child: Ink(
                     padding: const EdgeInsets.all(18),
@@ -579,5 +765,5 @@ class _AdFallback extends StatelessWidget {
   }
 }
 
-enum _HomeMenuAction { profile, terms, privacy, help }
+enum _HomeMenuAction { profile, business, terms, privacy, help }
 

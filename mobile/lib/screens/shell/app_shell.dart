@@ -13,15 +13,19 @@ class AppShell extends StatelessWidget {
 
   static const _tabs = [
     ('/explore', 'Explore', Icons.search_rounded),
+    ('/offerly', 'Offerly', Icons.local_offer_rounded),
     ('/home', 'Home', Icons.home_rounded),
+    ('/notifications', 'Notices', Icons.notifications_rounded),
     ('/profile', 'Profile', Icons.person_outline_rounded),
   ];
+
+  static const _homeIndex = 2;
 
   int _index(String loc) {
     for (var i = 0; i < _tabs.length; i++) {
       if (loc.startsWith(_tabs[i].$1)) return i;
     }
-    return 1;
+    return _homeIndex;
   }
 
   Future<void> _onBack(BuildContext context) async {
@@ -82,6 +86,7 @@ class AppShell extends StatelessWidget {
                     bottom: 14 + MediaQuery.paddingOf(context).bottom,
                     child: _FloatingBottomNav(
                       index: idx,
+                      homeIndex: _homeIndex,
                       onSelect: (i) => context.go(_tabs[i].$1),
                       tabs: _tabs,
                     ),
@@ -105,16 +110,29 @@ class AppShell extends StatelessWidget {
 class _FloatingBottomNav extends StatelessWidget {
   const _FloatingBottomNav({
     required this.index,
+    required this.homeIndex,
     required this.onSelect,
     required this.tabs,
   });
 
   final int index;
+  final int homeIndex;
   final ValueChanged<int> onSelect;
   final List<(String, String, IconData)> tabs;
 
   @override
   Widget build(BuildContext context) {
+    final left = <(int, (String, String, IconData))>[];
+    final right = <(int, (String, String, IconData))>[];
+    for (var i = 0; i < tabs.length; i++) {
+      if (i == homeIndex) continue;
+      if (i < homeIndex) {
+        left.add((i, tabs[i]));
+      } else {
+        right.add((i, tabs[i]));
+      }
+    }
+
     return Container(
       height: 70,
       decoration: BoxDecoration(
@@ -130,25 +148,44 @@ class _FloatingBottomNav extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              for (var i = 0; i < tabs.length; i++)
-                Expanded(
-                  child: i == 1
-                      ? const SizedBox.shrink()
-                      : _NavItem(
-                          label: tabs[i].$2,
-                          icon: tabs[i].$3,
-                          selected: index == i,
-                          onTap: () => onSelect(i),
-                          margin: i == 0
-                              ? const EdgeInsets.fromLTRB(4, 8, 0, 8)
-                              : const EdgeInsets.fromLTRB(0, 8, 4, 8),
+              Expanded(
+                child: Row(
+                  children: [
+                    for (final item in left)
+                      Expanded(
+                        child: _NavItem(
+                          label: item.$2.$2,
+                          icon: item.$2.$3,
+                          selected: index == item.$1,
+                          onTap: () => onSelect(item.$1),
+                          margin: const EdgeInsets.fromLTRB(4, 8, 2, 8),
                         ),
+                      ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: 62),
+              Expanded(
+                child: Row(
+                  children: [
+                    for (final item in right)
+                      Expanded(
+                        child: _NavItem(
+                          label: item.$2.$2,
+                          icon: item.$2.$3,
+                          selected: index == item.$1,
+                          onTap: () => onSelect(item.$1),
+                          margin: const EdgeInsets.fromLTRB(2, 8, 4, 8),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
           Positioned(
             top: -18,
-            child: _HomeFab(selected: index == 1, onTap: () => onSelect(1)),
+            child: _HomeFab(selected: index == homeIndex, onTap: () => onSelect(homeIndex)),
           ),
         ],
       ),

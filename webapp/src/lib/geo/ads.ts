@@ -16,6 +16,47 @@ export async function fetchCoveringAdIds(
     .filter((id): id is string => Boolean(id));
 }
 
+export type AdDetail = {
+  id: string;
+  brand_name: string;
+  title: string;
+  body: string | null;
+  cta_label: string | null;
+  cta_url: string | null;
+  image_url: string | null;
+  background: string | null;
+  offer_starts_at: string | null;
+  offer_ends_at: string | null;
+  created_at: string | null;
+};
+
+const AD_SELECT =
+  "id, brand_name, title, body, cta_label, cta_url, image_url, background, offer_starts_at, offer_ends_at, created_at";
+
+export async function fetchVisibleAds(
+  supabase: SupabaseClient,
+  opts: {
+    pincode?: string | null;
+    localityId?: string | null;
+    areaId?: string | null;
+    homeScreenOnly?: boolean;
+    limit?: number;
+  },
+): Promise<AdDetail[]> {
+  const covering = await fetchCoveringAdIds(supabase, opts);
+  if (!covering.length) return [];
+  let query = supabase
+    .from("ads")
+    .select(AD_SELECT)
+    .eq("is_active", true)
+    .eq("is_deleted", false)
+    .in("id", covering);
+  if (opts.homeScreenOnly) query = query.eq("is_home_screen", true);
+  const ordered = query.order("sort_order", { ascending: true });
+  const { data } = await (opts.limit != null ? ordered.limit(opts.limit) : ordered);
+  return (data as AdDetail[] | null) ?? [];
+}
+
 export async function recordAdClick(adId: string) {
   const supabase = createClient();
   const {
@@ -34,19 +75,6 @@ export const AD_BANNER_HEIGHT = 220;
 export const AD_BANNER_RADIUS = 12;
 export const AD_BANNER_ASPECT = "2.4 / 1";
 export const AD_CAROUSEL_MS = 2000;
-
-export type AdDetail = {
-  id: string;
-  brand_name: string;
-  title: string;
-  body: string | null;
-  cta_label: string | null;
-  cta_url: string | null;
-  image_url: string | null;
-  background: string | null;
-  offer_starts_at: string | null;
-  offer_ends_at: string | null;
-};
 
 export function formatAdDate(iso: string | null) {
   if (!iso) return "Not set";

@@ -69,12 +69,18 @@ class WelcomeScreen extends StatelessWidget {
                   children: [
                     Text("By continuing you agree to Sanyuj's ", style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
                     GestureDetector(
-                      onTap: () => launchUrl(Uri.parse(AppConfig.termsUrl)),
+                      onTap: () => launchUrl(
+                        Uri.parse(AppConfig.termsUrl),
+                        mode: LaunchMode.externalApplication,
+                      ),
                       child: const Text('Terms', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w700)),
                     ),
                     Text(' & ', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
                     GestureDetector(
-                      onTap: () => launchUrl(Uri.parse(AppConfig.privacyUrl)),
+                      onTap: () => launchUrl(
+                        Uri.parse(AppConfig.privacyUrl),
+                        mode: LaunchMode.externalApplication,
+                      ),
                       child: const Text('Privacy Policy', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w700)),
                     ),
                   ],

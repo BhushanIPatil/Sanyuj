@@ -13,7 +13,6 @@ export type UserBusiness = {
   id: string;
   owner_id: string;
   name: string;
-  rating: number;
   is_active: boolean;
   is_deleted: boolean;
   categories: { name: string } | null;
@@ -182,9 +181,7 @@ export function UserDetailPanel({
         <section className="mt-5 rounded-[16px] border border-line p-3">
           <p className="text-xs font-bold uppercase tracking-wide text-ink-soft">Business</p>
           <p className="mt-1 font-semibold">{user.business.name}</p>
-          <p className="text-xs text-ink-soft">
-            {user.business.categories?.name ?? "—"} · {Number(user.business.rating).toFixed(1)}★
-          </p>
+          <p className="text-xs text-ink-soft">{user.business.categories?.name ?? "—"}</p>
           <p className="mt-1 text-xs text-ink-faint">
             Business {accountStatusLabel(user.business.is_active, user.business.is_deleted)}
           </p>

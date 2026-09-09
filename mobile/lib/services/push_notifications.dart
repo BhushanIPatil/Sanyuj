@@ -148,36 +148,56 @@ class PushNotifications {
     final title =
         message.notification?.title ?? message.data['title'] ?? 'Sanyuj';
     final body = message.notification?.body ?? message.data['body'] ?? '';
+    final id = _trayNotificationId(message);
+    final payload = message.data['notification_id'];
+
+    // Show text immediately. Waiting on a large/slow image can delay or drop
+    // the tray item (this campaign image is over FCM's 1MB cap).
+    await _showTray(
+      id: id,
+      title: title,
+      body: body,
+      payload: payload,
+    );
+
     final imageUrl =
         message.data['image'] ??
         message.notification?.android?.imageUrl?.toString() ??
         message.notification?.apple?.imageUrl?.toString();
+    if (imageUrl == null || imageUrl.trim().isEmpty) return;
 
-    StyleInformation? androidStyle;
-    DarwinNotificationAttachment? iosAttachment;
-    ByteArrayAndroidBitmap? largeIcon;
+    final bytes = await _downloadImage(imageUrl.trim());
+    if (bytes == null || bytes.isEmpty) return;
 
-    if (imageUrl != null && imageUrl.trim().isNotEmpty) {
-      final bytes = await _downloadImage(imageUrl.trim());
-      if (bytes != null && bytes.isNotEmpty) {
-        largeIcon = ByteArrayAndroidBitmap(bytes);
-        androidStyle = BigPictureStyleInformation(
-          ByteArrayAndroidBitmap(bytes),
-          largeIcon: largeIcon,
-          contentTitle: title,
-          summaryText: body,
-          htmlFormatContentTitle: false,
-          htmlFormatSummaryText: false,
-        );
-        iosAttachment = await _iosAttachmentFromBytes(bytes);
-      }
-    }
+    final largeIcon = ByteArrayAndroidBitmap(bytes);
+    await _showTray(
+      id: id,
+      title: title,
+      body: body,
+      payload: payload,
+      androidStyle: BigPictureStyleInformation(
+        ByteArrayAndroidBitmap(bytes),
+        largeIcon: largeIcon,
+        contentTitle: title,
+        summaryText: body,
+        htmlFormatContentTitle: false,
+        htmlFormatSummaryText: false,
+      ),
+      largeIcon: largeIcon,
+      iosAttachment: await _iosAttachmentFromBytes(bytes),
+    );
+  }
 
-    // Unique per delivery so a resend of the same campaign is a new tray item
-    // (Android replaces notifications that reuse the same local id).
-    final id = _trayNotificationId(message);
-
-    await _localNotifications.show(
+  static Future<void> _showTray({
+    required int id,
+    required String title,
+    required String body,
+    String? payload,
+    StyleInformation? androidStyle,
+    ByteArrayAndroidBitmap? largeIcon,
+    DarwinNotificationAttachment? iosAttachment,
+  }) {
+    return _localNotifications.show(
       id: id,
       title: title,
       body: body,
@@ -199,7 +219,7 @@ class PushNotifications {
           attachments: iosAttachment == null ? null : [iosAttachment],
         ),
       ),
-      payload: message.data['notification_id'],
+      payload: payload,
     );
   }
 
@@ -216,7 +236,9 @@ class PushNotifications {
           )
           .timeout(const Duration(seconds: 12));
       if (res.statusCode < 200 || res.statusCode >= 300) return null;
-      if (res.bodyBytes.length > 1024 * 1024) return null; // FCM-style 1MB cap
+      final declared = int.tryParse(res.headers['content-length'] ?? '');
+      if (declared != null && declared > 1024 * 1024) return null;
+      if (res.bodyBytes.length > 1024 * 1024) return null;
       return res.bodyBytes;
     } catch (_) {
       return null;

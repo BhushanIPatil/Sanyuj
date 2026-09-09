@@ -30,12 +30,17 @@ class AppConfig {
 
   static const privacyUrl = String.fromEnvironment(
     'PRIVACY_URL',
-    defaultValue: 'https://sanyuj.app/privacy',
+    defaultValue: 'https://sanyuj.vercel.app/privacy',
   );
 
   static const termsUrl = String.fromEnvironment(
     'TERMS_URL',
-    defaultValue: 'https://sanyuj.app/terms',
+    defaultValue: 'https://sanyuj.vercel.app/terms',
+  );
+
+  static const helpUrl = String.fromEnvironment(
+    'HELP_URL',
+    defaultValue: 'https://sanyuj.vercel.app/help',
   );
 
   static const supportEmail = String.fromEnvironment(
@@ -45,11 +50,6 @@ class AppConfig {
 
   /// Keep in sync with `version:` in pubspec.yaml (name part before `+`).
   static const appVersion = '1.0.0';
-
-  static const helpUrl = String.fromEnvironment(
-    'HELP_URL',
-    defaultValue: 'https://sanyuj.app/help',
-  );
 
   static bool get isConfigured =>
       supabaseUrl.isNotEmpty &&

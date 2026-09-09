@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../models/models.dart';
 import '../../providers.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
+import '../../widgets/go_live_card.dart';
 import '../../widgets/live_provider_card.dart';
 
 class LiveNearbyScreen extends ConsumerStatefulWidget {
@@ -19,6 +21,7 @@ class LiveNearbyScreen extends ConsumerStatefulWidget {
 class _LiveNearbyScreenState extends ConsumerState<LiveNearbyScreen> {
   List<Map<String, dynamic>> _live = [];
   String? _pincode;
+  Business? _business;
   bool _loading = true;
   bool _refreshing = false;
 
@@ -34,10 +37,12 @@ class _LiveNearbyScreenState extends ConsumerState<LiveNearbyScreen> {
     try {
       final repo = ref.read(repoProvider);
       final profile = await repo.fetchProfile();
+      final business = await repo.fetchMyBusiness();
       final live = await repo.fetchLiveSessions(profile?.pincode);
       if (!mounted) return;
       setState(() {
         _pincode = profile?.pincode;
+        _business = business;
         _live = live;
         _loading = false;
       });
@@ -119,6 +124,13 @@ class _LiveNearbyScreenState extends ConsumerState<LiveNearbyScreen> {
                 ],
               ),
             ),
+            if (_business != null)
+              GoLiveCard(
+                businessId: _business!.id,
+                pincode: _pincode,
+                margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                onChanged: () => _load(silent: true),
+              ),
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator(color: AppColors.greenDeep))

@@ -287,8 +287,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     await GuestSession.instance.enter();
     if (!mounted) return;
     final next = widget.next;
-    const gated = {'/profile/edit', '/business/setup'};
-    if (next != null && next.startsWith('/') && !gated.contains(next)) {
+    const gated = {'/profile/edit', '/business', '/business/setup', '/business/coverage'};
+    if (next != null && next.startsWith('/') && !gated.contains(next) && !next.startsWith('/business')) {
       context.go(next);
     } else {
       context.go('/home');
@@ -353,7 +353,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             _AuthMode.forgot =>
               'Enter your email and we will send a 6-digit code to reset your password.',
             _AuthMode.register => 'One account for everything — find help or list your business.',
-            _AuthMode.login => 'Use your email and password to continue.',
+            _AuthMode.login => '',
           },
       };
 
@@ -405,16 +405,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _sub,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      color: Colors.white.withValues(alpha: 0.82),
-                      height: 1.5,
+                  if (_sub.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _sub,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        color: Colors.white.withValues(alpha: 0.82),
+                        height: 1.5,
+                      ),
                     ),
-                  ),
+                  ],
                   if (_info != null) ...[
                     const SizedBox(height: 16),
                     Container(
@@ -523,16 +525,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                   ],
-                  if (_step == _AuthStep.form && _mode == _AuthMode.login)
-                    Center(
-                      child: TextButton(
-                        onPressed: () => _resetTo(_AuthMode.forgot),
-                        child: Text(
-                          'Forgot password?',
-                          style: GoogleFonts.nunito(fontWeight: FontWeight.w700, color: Colors.white),
-                        ),
-                      ),
-                    ),
                   if (_step == _AuthStep.form && _mode != _AuthMode.restore && _mode != _AuthMode.forgot)
                     Center(
                       child: TextButton(
@@ -582,7 +574,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7)),
                       ),
                       GestureDetector(
-                        onTap: () => launchUrl(Uri.parse(AppConfig.termsUrl)),
+                        onTap: () => launchUrl(
+                          Uri.parse(AppConfig.termsUrl),
+                          mode: LaunchMode.externalApplication,
+                        ),
                         child: const Text(
                           'Terms',
                           style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w700),
@@ -590,7 +585,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       Text(' & ', style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
                       GestureDetector(
-                        onTap: () => launchUrl(Uri.parse(AppConfig.privacyUrl)),
+                        onTap: () => launchUrl(
+                          Uri.parse(AppConfig.privacyUrl),
+                          mode: LaunchMode.externalApplication,
+                        ),
                         child: const Text(
                           'Privacy Policy',
                           style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w700),
@@ -648,6 +646,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
         ),
+        if (_mode == _AuthMode.login)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => _resetTo(_AuthMode.forgot),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.only(top: 6, left: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                'Forgot password?',
+                style: GoogleFonts.nunito(fontWeight: FontWeight.w700, color: Colors.white),
+              ),
+            ),
+          ),
       ],
       if (_mode == _AuthMode.register || _mode == _AuthMode.restore) ...[
         const SizedBox(height: 14),

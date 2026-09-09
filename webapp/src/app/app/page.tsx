@@ -19,6 +19,9 @@ import { displayPhone } from "@/lib/auth/phone";
 import { loginUrl } from "@/lib/auth/guest";
 import { Radio, RefreshCw, Store } from "lucide-react";
 import { fetchCoveringBusinessIds } from "@/lib/geo/coverage";
+import { BusinessAvatar } from "@/components/BusinessPhotoPicker";
+import { ProviderDetailSheet, type ProviderDetail } from "@/components/ProviderDetailSheet";
+import { GoLiveCard } from "@/components/GoLiveCard";
 
 type Profile = {
   full_name: string | null;
@@ -48,7 +51,11 @@ type LiveRow = {
 type NearbyBiz = {
   id: string;
   name: string;
-  rating: number;
+  owner_id: string;
+  photo_url: string | null;
+  phone: string | null;
+  providerName: string | null;
+  address: string | null;
   categories: CatRef;
 };
 
@@ -76,11 +83,23 @@ export default function HomePage() {
   const [live, setLive] = useState<LiveRow[]>([]);
   const [nearby, setNearby] = useState<NearbyBiz[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [hasBusiness, setHasBusiness] = useState(false);
+  const [myBusinessId, setMyBusinessId] = useState<string | null>(null);
   const [refreshingLive, setRefreshingLive] = useState(false);
   const [stoppingLiveId, setStoppingLiveId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [detailProvider, setDetailProvider] = useState<ProviderDetail | null>(null);
+
+  const openProviderDetails = (b: NearbyBiz) =>
+    setDetailProvider({
+      id: b.id,
+      name: b.name,
+      photo_url: b.photo_url,
+      category: categoryDisplayName(b.categories),
+      providerName: b.providerName,
+      phone: b.phone,
+      address: b.address,
+    });
 
   async function loadLiveNearby(pincode?: string | null) {
     const supabase = createClient();
@@ -187,7 +206,7 @@ export default function HomePage() {
           const { data: biz } = await visible(supabase.from("businesses").select("id"))
             .eq("owner_id", user.id)
             .maybeSingle();
-          setHasBusiness(!!biz);
+          setMyBusinessId((biz as { id: string } | null)?.id ?? null);
         }
 
         try {
@@ -199,27 +218,60 @@ export default function HomePage() {
 
         await loadLiveNearby(prof?.pincode);
 
-        const bizSelect = "id, name, rating, owner_id, categories(id, name, slug, emoji)";
+        const bizSelect = "id, name, owner_id, photo_url, categories(id, name, slug, emoji)";
         const pin = prof?.pincode;
+        let rawNearby: NearbyBiz[] = [];
         if (!pin) {
-          const { data: allBiz } = await visible(supabase.from("businesses").select(bizSelect)).limit(6);
-          setNearby((allBiz as unknown as NearbyBiz[]) ?? []);
+          const { data: allBiz } = await visible(supabase.from("businesses").select(bizSelect))
+            .order("name")
+            .limit(12);
+          rawNearby = (allBiz as unknown as NearbyBiz[]) ?? [];
         } else {
           const covering = await fetchCoveringBusinessIds(supabase, {
             pincode: pin,
             localityId: prof?.locality_id,
             areaId: prof?.area_id,
           });
-          if (!covering.length) {
-            setNearby([]);
-          } else {
+          if (covering.length) {
             const { data: nearbyBiz } = await visible(supabase.from("businesses").select(bizSelect))
               .in("id", covering)
-              .order("rating", { ascending: false })
-              .limit(6);
-            setNearby((nearbyBiz as unknown as NearbyBiz[]) ?? []);
+              .order("name")
+              .limit(12);
+            rawNearby = (nearbyBiz as unknown as NearbyBiz[]) ?? [];
           }
         }
+        const others = user
+          ? rawNearby.filter((b) => b.owner_id !== user.id)
+          : rawNearby;
+        const sliced = others.slice(0, 6);
+        const nearbyOwnerIds = [...new Set(sliced.map((b) => b.owner_id))];
+        const ownerById = new Map<
+          string,
+          { phone: string | null; full_name: string | null; address: string | null }
+        >();
+        if (nearbyOwnerIds.length) {
+          const { data: owners } = await visible(
+            supabase.from("profiles").select("id, phone, full_name, address"),
+          ).in("id", nearbyOwnerIds);
+          for (const o of owners ?? []) {
+            ownerById.set(o.id, {
+              phone: o.phone ?? null,
+              full_name: o.full_name ?? null,
+              address: o.address ?? null,
+            });
+          }
+        }
+        setNearby(
+          sliced.map((b) => {
+            const owner = ownerById.get(b.owner_id);
+            return {
+              ...b,
+              phone: owner?.phone ?? null,
+              providerName: owner?.full_name ?? null,
+              address: owner?.address ?? null,
+            };
+          }),
+        );
       } finally {
         setLoading(false);
       }
@@ -234,6 +286,15 @@ export default function HomePage() {
   return (
     <div className="page-pad">
       <HomeAds pincode={profile?.pincode} localityId={profile?.locality_id} areaId={profile?.area_id} />
+
+      {myBusinessId ? (
+        <GoLiveCard
+          businessId={myBusinessId}
+          pincode={profile?.pincode}
+          onChanged={() => void loadLiveNearby(profile?.pincode)}
+          className="mt-6"
+        />
+      ) : null}
 
       <div className="mt-8 flex items-start justify-between gap-3">
         <div>
@@ -406,23 +467,45 @@ export default function HomePage() {
               nearby.map((b) => (
                 <div
                   key={b.id}
-                  className="flex items-center gap-3 rounded-[18px] border border-line bg-white p-4 shadow-card"
+                  role="button"
+                  tabIndex={0}
+                  className="flex cursor-pointer items-center gap-3 rounded-[18px] border border-line bg-white p-4 text-left shadow-card transition hover:border-blue-deep/40"
+                  onClick={() => openProviderDetails(b)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openProviderDetails(b);
+                    }
+                  }}
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-[15px] bg-teal-soft font-display font-bold text-teal">
-                    {initials(b.name)}
-                  </div>
+                  <BusinessAvatar name={b.name} photoUrl={b.photo_url} size={48} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-bold">{b.name}</p>
                     <p className="text-xs text-ink-soft">
-                      {categoryDisplayName(b.categories)} · {b.rating.toFixed(1)} ★
+                      {categoryDisplayName(b.categories)}
                     </p>
                   </div>
-                  <button
-                    className="flex h-10 w-10 items-center justify-center rounded-[13px] grad-hero text-white"
-                    onClick={() => showToast(`Calling ${b.name}…`)}
-                  >
-                    ☎
-                  </button>
+                  {b.phone ? (
+                    <a
+                      href={`tel:${b.phone.replace(/\D/g, "")}`}
+                      className="flex h-10 w-10 items-center justify-center rounded-[13px] grad-hero text-white"
+                      aria-label={`Call ${b.name}`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      ☎
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      className="flex h-10 w-10 items-center justify-center rounded-[13px] bg-surface text-ink-faint"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        showToast(`No contact for ${b.name}`);
+                      }}
+                    >
+                      ☎
+                    </button>
+                  )}
                 </div>
               ))
             )}
@@ -430,9 +513,9 @@ export default function HomePage() {
       </div>
 
       <div className="mt-8">
-        {isGuest || !hasBusiness ? (
+        {isGuest || !myBusinessId ? (
           <Link
-            href={isGuest ? loginUrl("/app/business/setup") : "/app/business/setup"}
+            href={isGuest ? loginUrl("/app/business") : "/app/business"}
             className="flex items-center gap-3.5 rounded-[24px] border border-green-deep/20 p-5"
             style={{ background: "linear-gradient(135deg,#E1F9EE 0%,#E6F2FE 100%)" }}
           >
@@ -449,6 +532,12 @@ export default function HomePage() {
           </Link>
         ) : null}
       </div>
+
+      <ProviderDetailSheet
+        provider={detailProvider}
+        open={detailProvider != null}
+        onClose={() => setDetailProvider(null)}
+      />
     </div>
   );
 }

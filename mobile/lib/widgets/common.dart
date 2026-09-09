@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/errors.dart';
 import '../utils/format.dart';
@@ -312,6 +313,7 @@ class AvatarBadge extends StatelessWidget {
   const AvatarBadge({
     super.key,
     required this.label,
+    this.imageUrl,
     this.size = 48,
     this.radius = 15,
     this.background = AppColors.blueSoft,
@@ -320,6 +322,7 @@ class AvatarBadge extends StatelessWidget {
   });
 
   final String label;
+  final String? imageUrl;
   final double size;
   final double radius;
   final Color background;
@@ -328,6 +331,7 @@ class AvatarBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final url = imageUrl?.trim();
     return Container(
       width: size,
       height: size,
@@ -335,17 +339,22 @@ class AvatarBadge extends StatelessWidget {
         color: gradient == null ? background : null,
         gradient: gradient,
         borderRadius: BorderRadius.circular(radius),
+        image: url != null && url.isNotEmpty
+            ? DecorationImage(image: NetworkImage(url), fit: BoxFit.cover)
+            : null,
       ),
-      child: Center(
-        child: Text(
-          label,
-          style: GoogleFonts.nunito(
-            fontWeight: FontWeight.w700,
-            fontSize: size * 0.34,
-            color: gradient != null ? Colors.white : foreground,
-          ),
-        ),
-      ),
+      child: url != null && url.isNotEmpty
+          ? null
+          : Center(
+              child: Text(
+                label,
+                style: GoogleFonts.nunito(
+                  fontWeight: FontWeight.w700,
+                  fontSize: size * 0.34,
+                  color: gradient != null ? Colors.white : foreground,
+                ),
+              ),
+            ),
     );
   }
 }
@@ -548,6 +557,138 @@ class CategoryIcon extends StatelessWidget {
         child: Text(
           (raw != null && raw.isNotEmpty) ? raw : fallback,
           style: TextStyle(fontSize: size * 0.5),
+        ),
+      ),
+    );
+  }
+}
+
+/// Paired background/foreground colours for a category chip.
+@immutable
+class CategoryTint {
+  const CategoryTint(this.background, this.foreground);
+
+  final Color background;
+  final Color foreground;
+}
+
+const _categoryTints = <CategoryTint>[
+  CategoryTint(AppColors.blueSoft, AppColors.blueDeep),
+  CategoryTint(AppColors.greenSoft, AppColors.greenDeep),
+  CategoryTint(AppColors.tealSoft, AppColors.teal),
+  CategoryTint(AppColors.indigoSoft, AppColors.indigo),
+  CategoryTint(AppColors.cyanSoft, AppColors.cyan),
+  CategoryTint(AppColors.roseSoft, AppColors.rose),
+  CategoryTint(AppColors.amberSoft, AppColors.amber),
+  CategoryTint(AppColors.mintSoft, AppColors.mint),
+];
+
+/// Hashes [seed] so a category keeps the same colour between rebuilds and screens.
+CategoryTint categoryTint(String seed) {
+  var hash = 0;
+  for (final unit in seed.codeUnits) {
+    hash = (hash * 31 + unit) & 0x7fffffff;
+  }
+  return _categoryTints[hash % _categoryTints.length];
+}
+
+/// Horizontal "All + category" strip mirroring the category group in the filter
+/// sheet, so both stay in step.
+class CategoryFilterRow extends StatelessWidget {
+  const CategoryFilterRow({
+    super.key,
+    required this.categories,
+    required this.selectedIds,
+    required this.onToggle,
+    required this.onClear,
+    this.padding = const EdgeInsets.fromLTRB(20, 2, 20, 12),
+  });
+
+  final List<Category> categories;
+  final List<String> selectedIds;
+  final ValueChanged<String> onToggle;
+
+  /// Called when "All" is tapped.
+  final VoidCallback onClear;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) {
+    if (categories.isEmpty) return const SizedBox.shrink();
+    // Scrolls at its natural height so long labels are never clipped.
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: padding,
+      child: Row(
+        children: [
+          _CategoryPill(
+            label: 'All',
+            tint: const CategoryTint(AppColors.surface, AppColors.inkSoft),
+            selected: selectedIds.isEmpty,
+            onTap: onClear,
+          ),
+          for (final c in categories) ...[
+            const SizedBox(width: 8),
+            _CategoryPill(
+              label: c.name,
+              iconValue: c.emoji,
+              tint: categoryTint(c.slug.isEmpty ? c.id : c.slug),
+              selected: selectedIds.contains(c.id),
+              onTap: () => onToggle(c.id),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryPill extends StatelessWidget {
+  const _CategoryPill({
+    required this.label,
+    required this.tint,
+    required this.selected,
+    required this.onTap,
+    this.iconValue,
+  });
+
+  final String label;
+  final String? iconValue;
+  final CategoryTint tint;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+        decoration: BoxDecoration(
+          color: tint.background,
+          borderRadius: BorderRadius.circular(100),
+          border: Border.all(
+            color: selected ? tint.foreground : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if ((iconValue ?? '').trim().isNotEmpty) ...[
+              CategoryIcon(value: iconValue, size: 20, radius: 6, fallback: '•'),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.3,
+                fontWeight: FontWeight.w700,
+                color: tint.foreground,
+              ),
+            ),
+          ],
         ),
       ),
     );

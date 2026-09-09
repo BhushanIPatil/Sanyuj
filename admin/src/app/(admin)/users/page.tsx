@@ -112,7 +112,7 @@ export default function UsersPage() {
         .limit(500),
       supabase
         .from("businesses")
-        .select("id, owner_id, name, rating, is_active, is_deleted, categories(name)")
+        .select("id, owner_id, name, is_active, is_deleted, categories(name)")
         .limit(500),
     ]);
 

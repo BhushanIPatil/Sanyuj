@@ -4,17 +4,20 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/onboarding_screen.dart';
+import 'screens/business/business_screen.dart';
 import 'screens/business/setup_screen.dart';
 import 'screens/business/coverage_screen.dart';
 import 'screens/explore/explore_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/home/live_nearby_screen.dart';
+import 'screens/offerly/offerly_screen.dart';
+import 'screens/notifications/notifications_screen.dart';
 import 'screens/profile/edit_profile_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/shell/app_shell.dart';
 import 'services/guest.dart';
 
-/// Resolves the first route before the app UI renders (native splash stays visible).
+/// Resolves the first route from local auth only so the native splash can dismiss quickly.
 Future<String> resolveInitialRoute() async {
   final session = Supabase.instance.client.auth.currentSession;
   if (session == null) {
@@ -22,20 +25,6 @@ Future<String> resolveInitialRoute() async {
     return '/home';
   }
   await GuestSession.instance.clear();
-  try {
-    final row = await Supabase.instance.client
-        .from('profiles')
-        .select('onboarding_complete')
-        .eq('id', session.user.id)
-        .eq('is_active', true)
-        .eq('is_deleted', false)
-        .maybeSingle();
-    if (row == null || row['onboarding_complete'] != true) {
-      return '/onboarding';
-    }
-  } catch (_) {
-    // Fall through to home.
-  }
   return '/home';
 }
 
@@ -50,7 +39,7 @@ GoRouter createRouter({
     redirect: (context, state) {
       final session = Supabase.instance.client.auth.currentSession;
       final loc = state.matchedLocation;
-      final authRequired = loc == '/profile/edit' || loc == '/business/setup' || loc == '/business/coverage';
+      final authRequired = loc == '/profile/edit' || loc.startsWith('/business');
 
       if (session == null) {
         if (authRequired) {
@@ -73,6 +62,8 @@ GoRouter createRouter({
         builder: (context, state, child) => AppShell(child: child),
         routes: [
           GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
+          GoRoute(path: '/offerly', builder: (context, state) => const OfferlyScreen()),
+          GoRoute(path: '/notifications', builder: (context, state) => const NotificationsScreen()),
           GoRoute(
             path: '/explore',
             builder: (context, state) => ExploreScreen(
@@ -84,6 +75,7 @@ GoRouter createRouter({
       ),
       GoRoute(path: '/live-nearby', builder: (context, state) => const LiveNearbyScreen()),
       GoRoute(path: '/profile/edit', builder: (context, state) => const EditProfileScreen()),
+      GoRoute(path: '/business', builder: (context, state) => const BusinessScreen()),
       GoRoute(path: '/business/setup', builder: (context, state) => const BusinessSetupScreen()),
       GoRoute(path: '/business/coverage', builder: (context, state) => const BusinessCoverageScreen()),
     ],

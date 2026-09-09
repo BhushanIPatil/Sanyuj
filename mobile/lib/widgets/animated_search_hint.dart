@@ -12,12 +12,16 @@ class AnimatedSearchHint extends StatefulWidget {
     this.second = 'Search Providers…',
     this.pause = const Duration(milliseconds: 1500),
     this.charDelay = const Duration(milliseconds: 55),
+    this.style,
   });
 
   final String first;
   final String second;
   final Duration pause;
   final Duration charDelay;
+
+  /// Should match the host field's text style so the hint sits on the baseline.
+  final TextStyle? style;
 
   @override
   State<AnimatedSearchHint> createState() => _AnimatedSearchHintState();
@@ -82,7 +86,7 @@ class _AnimatedSearchHintState extends State<AnimatedSearchHint> {
   Widget build(BuildContext context) {
     return Text(
       _text.isEmpty ? ' ' : _text,
-      style: const TextStyle(fontSize: 13.5, color: AppColors.inkFaint),
+      style: widget.style ?? const TextStyle(fontSize: 13.5, color: AppColors.inkFaint),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );

@@ -327,7 +327,9 @@ function LoginForm() {
           ? "An account already exists with this email. Set a new password to restore it — we’ll email a verification code."
           : mode === "forgot"
             ? "Enter your email and we’ll send a 6-digit code to reset your password."
-            : "One account for everything — find trusted local help, or list your own business for free.";
+            : mode === "register"
+              ? "One account for everything — find trusted local help, or list your own business for free."
+              : "";
 
   const submitLabel =
     loading
@@ -361,7 +363,7 @@ function LoginForm() {
           <SanyujBrand href="/" size={112} priority />
         </div>
         <h1 className="font-display text-2xl font-extrabold">{title}</h1>
-        <p className="mt-2 text-sm leading-relaxed text-ink-soft">{subtitle}</p>
+        {subtitle ? <p className="mt-2 text-sm leading-relaxed text-ink-soft">{subtitle}</p> : null}
 
         {info ? (
           <div className="mt-4 rounded-[14px] bg-blue-soft px-3.5 py-3 text-sm font-semibold leading-relaxed text-blue-deep">
@@ -455,6 +457,17 @@ function LoginForm() {
                     {showPassword ? <EyeOff size={18} strokeWidth={1.8} /> : <Eye size={18} strokeWidth={1.8} />}
                   </button>
                 </div>
+                {mode === "login" ? (
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      className="text-sm font-semibold text-blue-deep"
+                      onClick={() => resetAuthState("forgot")}
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                ) : null}
               </>
             ) : null}
 
@@ -594,16 +607,6 @@ function LoginForm() {
               {submitLabel}
             </button>
           </form>
-        ) : null}
-
-        {step === "form" && mode === "login" ? (
-          <button
-            type="button"
-            className="mt-4 w-full text-center text-sm font-semibold text-blue-deep"
-            onClick={() => resetAuthState("forgot")}
-          >
-            Forgot password?
-          </button>
         ) : null}
 
         {step === "form" && (mode === "restore" || mode === "forgot") ? (

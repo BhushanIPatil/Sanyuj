@@ -4,6 +4,10 @@
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Sanyuj uses your location to show your current address while browsing as a guest.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Sanyuj uses the camera so you can take a photo for your business listing.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Sanyuj uses your photos so you can choose a picture for your business listing.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

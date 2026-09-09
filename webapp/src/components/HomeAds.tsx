@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { AdBannerSkeleton } from "@/components/ui/Skeleton";
@@ -9,7 +10,7 @@ import {
   AD_BANNER_HEIGHT,
   AD_BANNER_RADIUS,
   AD_CAROUSEL_MS,
-  fetchCoveringAdIds,
+  fetchVisibleAds,
   recordAdClick,
   type AdDetail,
 } from "@/lib/geo/ads";
@@ -92,22 +93,14 @@ export function HomeAds({
       setLoading(true);
       try {
         const supabase = createClient();
-        const covering = await fetchCoveringAdIds(supabase, { pincode, localityId, areaId });
-        if (!covering.length) {
-          setAds([]);
-          return;
-        }
-        const { data } = await supabase
-          .from("ads")
-          .select(
-            "id, brand_name, title, body, cta_label, cta_url, image_url, background, offer_starts_at, offer_ends_at",
-          )
-          .eq("is_active", true)
-          .eq("is_deleted", false)
-          .in("id", covering)
-          .order("sort_order", { ascending: true })
-          .limit(8);
-        setAds((data as AdDetail[] | null) ?? []);
+        const data = await fetchVisibleAds(supabase, {
+          pincode,
+          localityId,
+          areaId,
+          homeScreenOnly: true,
+          limit: 8,
+        });
+        setAds(data);
         setActive(0);
       } catch {
         setAds([]);
@@ -229,7 +222,10 @@ export function HomeAds({
                 style={{ height: AD_BANNER_HEIGHT }}
               >
                 <p className="text-sm font-semibold text-ink-soft">
-                  Featured offers for your area will show up here.
+                  Featured offers for your area will show up here.{" "}
+                  <Link href="/app/offerly" className="font-bold text-blue-deep hover:underline">
+                    Browse Offerly
+                  </Link>
                 </p>
               </div>
             )}

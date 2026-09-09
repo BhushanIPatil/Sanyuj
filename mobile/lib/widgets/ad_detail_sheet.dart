@@ -234,6 +234,10 @@ Future<void> openAdCta(BuildContext context, AdBanner ad, {required void Functio
     }
     if (url.contains('explore')) {
       goTo('/explore');
+      return;
+    }
+    if (url.contains('offerly')) {
+      goTo('/offerly');
     }
   } catch (e) {
     if (!context.mounted) return;

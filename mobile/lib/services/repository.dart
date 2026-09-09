@@ -1,3 +1,4 @@
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/models.dart';
@@ -73,7 +74,7 @@ class SanyujRepository {
     if (uid == null) return null;
     final row = await visible(
       _db.from('businesses').select(
-            'id, name, owner_id, rating, response_rate, categories(id, name, slug, emoji, group_id)',
+            'id, name, owner_id, photo_url, response_rate, categories(id, name, slug, emoji, group_id)',
           ),
     ).eq('owner_id', uid).maybeSingle();
     if (row == null) return null;
@@ -85,10 +86,12 @@ class SanyujRepository {
     String? pincode,
     String? localityId,
     String? areaId,
+    bool excludeOwn = false,
+    int limit = 200,
   }) async {
     var q = visible(
       _db.from('businesses').select(
-            'id, name, rating, response_rate, owner_id, categories(id, name, slug, emoji, group_id)',
+            'id, name, response_rate, owner_id, photo_url, created_at, categories(id, name, slug, emoji, group_id)',
           ),
     );
     if (categoryId != null) q = q.eq('category_id', categoryId);
@@ -114,10 +117,13 @@ class SanyujRepository {
       q = q.inFilter('id', ids);
     }
 
-    final data = await q.order('rating', ascending: false).limit(40);
-    final businesses = (data as List)
+    final data = await q.order('name').limit(limit);
+    var businesses = (data as List)
         .map((e) => Business.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
+    if (excludeOwn && userId != null) {
+      businesses = businesses.where((b) => b.ownerId != userId).toList();
+    }
     if (businesses.isEmpty) return [];
 
     final ownerIds = businesses.map((b) => b.ownerId).where((id) => id.isNotEmpty).toSet().toList();
@@ -191,6 +197,8 @@ class SanyujRepository {
     String? pincode,
     String? localityId,
     String? areaId,
+    bool homeScreenOnly = false,
+    int? limit = 8,
   }) async {
     final covering = await _db.rpc(
       'ads_covering',
@@ -209,13 +217,48 @@ class SanyujRepository {
         .whereType<String>()
         .toList();
     if (ids.isEmpty) return [];
-    final data = await visible(
+    var query = visible(
       _db.from('ads').select(
-        'id, brand_name, title, body, cta_label, cta_url, image_url, background, offer_starts_at, offer_ends_at',
+        'id, brand_name, title, body, cta_label, cta_url, image_url, background, offer_starts_at, offer_ends_at, created_at',
       ),
-    ).inFilter('id', ids).order('sort_order').limit(8);
+    ).inFilter('id', ids);
+    if (homeScreenOnly) {
+      query = query.eq('is_home_screen', true);
+    }
+    final ordered = query.order('sort_order');
+    final data = await (limit != null ? ordered.limit(limit) : ordered);
     return (data as List)
         .map((e) => AdBanner.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  Future<List<AreaNotice>> fetchNotices({
+    String? pincode,
+    String? localityId,
+    String? areaId,
+  }) async {
+    final covering = await _db.rpc(
+      'notices_covering',
+      params: {
+        'p_pincode': pincode,
+        'p_locality_id': localityId,
+        'p_area_id': areaId,
+      },
+    );
+    final ids = (covering as List)
+        .map((e) {
+          if (e is String) return e;
+          if (e is Map) return (e['notice_id'] ?? e['id']) as String?;
+          return null;
+        })
+        .whereType<String>()
+        .toList();
+    if (ids.isEmpty) return [];
+    final data = await visible(
+      _db.from('notices').select('id, title, body, image_url, starts_at, ends_at, created_at'),
+    ).inFilter('id', ids).order('sort_order');
+    return (data as List)
+        .map((e) => AreaNotice.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
   }
 
@@ -232,6 +275,7 @@ class SanyujRepository {
     required String name,
     required String categoryId,
     required String phone,
+    String? photoUrl,
   }) async {
     final uid = userId;
     if (uid == null) throw Exception('Not signed in');
@@ -240,9 +284,89 @@ class SanyujRepository {
       'owner_id': uid,
       'name': name,
       'category_id': categoryId,
+      'photo_url': photoUrl,
       'is_active': true,
       'is_deleted': false,
     });
+  }
+
+  Future<void> updateBusiness({
+    required String id,
+    required String name,
+    required String categoryId,
+    required String phone,
+  }) async {
+    final uid = userId;
+    if (uid == null) throw Exception('Not signed in');
+    await _db.from('profiles').update({'phone': phone}).eq('id', uid);
+    await _db.from('businesses').update({
+      'name': name,
+      'category_id': categoryId,
+    }).eq('id', id).eq('owner_id', uid);
+  }
+
+  Future<void> deleteOwnBusiness() async {
+    if (userId == null) throw Exception('Not signed in');
+    await _db.rpc('delete_own_business');
+  }
+
+  String? _storagePathFromPublicUrl(String? url) {
+    if (url == null || url.isEmpty) return null;
+    const marker = '/object/public/business-photos/';
+    final i = url.indexOf(marker);
+    if (i < 0) return null;
+    final path = Uri.decodeComponent(url.substring(i + marker.length).split('?').first);
+    return path.isEmpty ? null : path;
+  }
+
+  String _contentTypeFor(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    if (ext == 'png') return 'image/png';
+    if (ext == 'webp') return 'image/webp';
+    return 'image/jpeg';
+  }
+
+  Future<void> removeStoredBusinessPhoto(String? photoUrl) async {
+    final path = _storagePathFromPublicUrl(photoUrl);
+    if (path == null) return;
+    try {
+      await _db.storage.from('business-photos').remove([path]);
+    } catch (_) {}
+  }
+
+  Future<String> uploadBusinessPhoto(XFile file, {String? previousUrl}) async {
+    final uid = userId;
+    if (uid == null) throw Exception('Not signed in');
+    final bytes = await file.readAsBytes();
+    if (bytes.length > 5 * 1024 * 1024) {
+      throw Exception('Photo must be 5 MB or smaller');
+    }
+    final ext = () {
+      final fromName = file.name.split('.').last.toLowerCase();
+      if (['jpg', 'jpeg', 'png', 'webp'].contains(fromName)) {
+        return fromName == 'jpeg' ? 'jpg' : fromName;
+      }
+      final fromPath = file.path.split('.').last.toLowerCase();
+      if (['jpg', 'jpeg', 'png', 'webp'].contains(fromPath)) {
+        return fromPath == 'jpeg' ? 'jpg' : fromPath;
+      }
+      return 'jpg';
+    }();
+    final path = '$uid/profile-${DateTime.now().millisecondsSinceEpoch}.$ext';
+    await _db.storage.from('business-photos').uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(upsert: true, contentType: _contentTypeFor(path)),
+        );
+    await removeStoredBusinessPhoto(previousUrl);
+    final publicUrl = _db.storage.from('business-photos').getPublicUrl(path);
+    return '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+  }
+
+  Future<void> setBusinessPhoto({required String businessId, required String? photoUrl}) async {
+    final uid = userId;
+    if (uid == null) throw Exception('Not signed in');
+    await _db.from('businesses').update({'photo_url': photoUrl}).eq('id', businessId).eq('owner_id', uid);
   }
 
   Future<bool> businessCoversPincode({required String businessId, required String pincode}) async {
@@ -291,22 +415,46 @@ class SanyujRepository {
     await _db.from('business_service_areas').delete().eq('business_id', businessId).eq('pincode', pincode);
   }
 
-  Future<void> goLive({required String businessId, required String pincode}) async {
+  static const liveSessionDuration = Duration(hours: 2);
+
+  /// The provider's own live session that has not expired yet, if any.
+  Future<Map<String, dynamic>?> fetchActiveLiveSession(String businessId) async {
+    if (userId == null) return null;
+    final rows = await visible(
+      _db.from('live_sessions').select('id, business_id, pincode, started_at, ends_at'),
+    )
+        .eq('business_id', businessId)
+        .gt('ends_at', DateTime.now().toUtc().toIso8601String())
+        .order('started_at', ascending: false)
+        .limit(1);
+    final list = rows as List;
+    if (list.isEmpty) return null;
+    return Map<String, dynamic>.from(list.first as Map);
+  }
+
+  Future<Map<String, dynamic>> goLive({
+    required String businessId,
+    required String pincode,
+  }) async {
     final covers = await businessCoversPincode(businessId: businessId, pincode: pincode);
     if (!covers) throw Exception('Add this pincode to your service areas before going live');
-    await _db.from('live_sessions').insert({
-      'business_id': businessId,
-      'pincode': pincode,
-      'ends_at': DateTime.now().toUtc().add(const Duration(hours: 2)).toIso8601String(),
-      'is_active': true,
-      'is_deleted': false,
-    });
+    // Only one session should be live at a time, so clear any earlier one first.
+    await _db.from('live_sessions').delete().eq('business_id', businessId);
+    final row = await _db
+        .from('live_sessions')
+        .insert({
+          'business_id': businessId,
+          'pincode': pincode,
+          'ends_at': DateTime.now().toUtc().add(liveSessionDuration).toIso8601String(),
+          'is_active': true,
+          'is_deleted': false,
+        })
+        .select('id, business_id, pincode, started_at, ends_at')
+        .single();
+    return Map<String, dynamic>.from(row);
   }
 
   Future<void> stopLive(String sessionId) async {
-    await visible(_db.from('live_sessions').update({
-      'is_active': false,
-      'ends_at': DateTime.now().toUtc().toIso8601String(),
-    })).eq('id', sessionId);
+    await _db.from('live_sessions').delete().eq('id', sessionId);
   }
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Bell,
   ChevronDown,
   FileText,
   HelpCircle,
@@ -10,6 +11,8 @@ import {
   Menu,
   ScrollText,
   Search,
+  Store,
+  Tag,
   User,
   X,
 } from "lucide-react";
@@ -23,6 +26,8 @@ import { SanyujBrand } from "@/components/SanyujLogo";
 
 export const APP_NAV = [
   { href: "/app", label: "Home", icon: Home, match: "/app", exact: true },
+  { href: "/app/offerly", label: "Offerly", icon: Tag, match: "/app/offerly" },
+  { href: "/app/notifications", label: "Notifications", icon: Bell, match: "/app/notifications" },
   { href: "/app/explore", label: "Explore", icon: Search, match: "/app/explore" },
   { href: "/app/profile", label: "Profile", icon: User, match: "/app/profile" },
 ] as const;
@@ -160,6 +165,17 @@ function ProfileMenu({
           My Profile
         </Link>
       )}
+      <Link
+        href={guest ? loginUrl("/app/business") : "/app/business"}
+        role="menuitem"
+        onClick={onClose}
+        className="flex items-center gap-3 px-3.5 py-2.5 text-sm font-semibold text-ink hover:bg-surface"
+      >
+        <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-green-soft text-green-deep">
+          <Store size={15} />
+        </span>
+        Your Business
+      </Link>
       <Link
         href={TERMS_URL}
         role="menuitem"

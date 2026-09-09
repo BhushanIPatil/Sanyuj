@@ -13,7 +13,7 @@ export function setGuestCookie(on: boolean) {
 }
 
 const AUTH_REQUIRED = [
-  /^\/app\/business\/setup\/?$/,
+  /^\/app\/business(\/.*)?$/,
   /^\/app\/profile\/edit\/?$/,
 ];
 

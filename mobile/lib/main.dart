@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app_router.dart';
@@ -16,17 +19,16 @@ Future<void> main() async {
 
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-  await GuestSession.instance.load();
-  await Supabase.initialize(
-    url: AppConfig.supabaseUrl,
-    publishableKey: AppConfig.supabaseAnonKey,
-  );
+  await Future.wait([
+    GuestSession.instance.load(),
+    Supabase.initialize(
+      url: AppConfig.supabaseUrl,
+      publishableKey: AppConfig.supabaseAnonKey,
+    ),
+  ]);
 
-  // FCM — fails open if Firebase config files are missing.
-  await PushNotifications.init();
-
+  // Keep the native splash short: skip network/permission work until the first frame.
   final initialRoute = await resolveInitialRoute();
-
   runApp(ProviderScope(child: SanyujApp(initialRoute: initialRoute)));
 }
 
@@ -50,7 +52,31 @@ class _SanyujAppState extends State<SanyujApp> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAppUpdate());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(PushNotifications.init());
+      unawaited(_redirectIfOnboardingNeeded());
+      unawaited(_checkAppUpdate());
+    });
+  }
+
+  Future<void> _redirectIfOnboardingNeeded() async {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) return;
+    try {
+      final row = await Supabase.instance.client
+          .from('profiles')
+          .select('onboarding_complete')
+          .eq('id', session.user.id)
+          .eq('is_active', true)
+          .eq('is_deleted', false)
+          .maybeSingle();
+      if (row == null || row['onboarding_complete'] != true) {
+        final ctx = _navigatorKey.currentContext;
+        if (ctx != null && ctx.mounted) ctx.go('/onboarding');
+      }
+    } catch (_) {
+      // Stay on the first screen if the profile lookup fails.
+    }
   }
 
   Future<void> _checkAppUpdate() async {

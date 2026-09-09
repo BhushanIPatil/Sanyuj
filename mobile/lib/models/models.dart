@@ -97,20 +97,21 @@ class Business {
     required this.id,
     required this.name,
     required this.ownerId,
-    this.rating = 4.5,
-    this.responseRate = 90,
+    this.photoUrl,
+    this.responseRate = 0,
     this.category,
     this.providerName,
     this.phone,
     this.address,
     this.lat,
     this.lng,
+    this.createdAt,
   });
 
   final String id;
   final String name;
   final String ownerId;
-  final double rating;
+  final String? photoUrl;
   final int responseRate;
   final Category? category;
   final String? providerName;
@@ -118,6 +119,7 @@ class Business {
   final String? address;
   final double? lat;
   final double? lng;
+  final DateTime? createdAt;
 
   factory Business.fromJson(Map<String, dynamic> json) {
     final cat = json['categories'];
@@ -125,13 +127,16 @@ class Business {
       id: json['id'] as String,
       name: json['name'] as String,
       ownerId: json['owner_id'] as String? ?? '',
-      rating: (json['rating'] as num?)?.toDouble() ?? 4.5,
-      responseRate: json['response_rate'] as int? ?? 90,
+      photoUrl: json['photo_url'] as String?,
+      responseRate: json['response_rate'] as int? ?? 0,
       providerName: json['providerName'] as String? ?? json['provider_name'] as String?,
       phone: json['phone'] as String?,
       address: json['address'] as String?,
       lat: (json['lat'] as num?)?.toDouble(),
       lng: (json['lng'] as num?)?.toDouble(),
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'] as String)
+          : null,
       category: cat is Map<String, dynamic>
           ? Category(
               id: cat['id'] as String,
@@ -145,6 +150,10 @@ class Business {
   }
 
   Business copyWith({
+    String? name,
+    String? photoUrl,
+    bool clearPhotoUrl = false,
+    Category? category,
     String? providerName,
     String? phone,
     String? address,
@@ -153,16 +162,17 @@ class Business {
   }) {
     return Business(
       id: id,
-      name: name,
+      name: name ?? this.name,
       ownerId: ownerId,
-      rating: rating,
+      photoUrl: clearPhotoUrl ? null : (photoUrl ?? this.photoUrl),
       responseRate: responseRate,
-      category: category,
+      category: category ?? this.category,
       providerName: providerName ?? this.providerName,
       phone: phone ?? this.phone,
       address: address ?? this.address,
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
+      createdAt: createdAt,
     );
   }
 }
@@ -179,6 +189,7 @@ class AdBanner {
     this.background,
     this.offerStartsAt,
     this.offerEndsAt,
+    this.createdAt,
   });
 
   final String id;
@@ -191,6 +202,7 @@ class AdBanner {
   final String? background;
   final DateTime? offerStartsAt;
   final DateTime? offerEndsAt;
+  final DateTime? createdAt;
 
   factory AdBanner.fromJson(Map<String, dynamic> json) => AdBanner(
         id: json['id'] as String,
@@ -206,6 +218,41 @@ class AdBanner {
             : null,
         offerEndsAt: json['offer_ends_at'] != null
             ? DateTime.tryParse(json['offer_ends_at'] as String)
+            : null,
+        createdAt: json['created_at'] != null
+            ? DateTime.tryParse(json['created_at'] as String)
+            : null,
+      );
+}
+
+class AreaNotice {
+  AreaNotice({
+    required this.id,
+    required this.title,
+    this.body,
+    this.imageUrl,
+    this.startsAt,
+    this.endsAt,
+    this.createdAt,
+  });
+
+  final String id;
+  final String title;
+  final String? body;
+  final String? imageUrl;
+  final DateTime? startsAt;
+  final DateTime? endsAt;
+  final DateTime? createdAt;
+
+  factory AreaNotice.fromJson(Map<String, dynamic> json) => AreaNotice(
+        id: json['id'] as String,
+        title: json['title'] as String? ?? '',
+        body: json['body'] as String?,
+        imageUrl: json['image_url'] as String?,
+        startsAt: json['starts_at'] != null ? DateTime.tryParse(json['starts_at'] as String) : null,
+        endsAt: json['ends_at'] != null ? DateTime.tryParse(json['ends_at'] as String) : null,
+        createdAt: json['created_at'] != null
+            ? DateTime.tryParse(json['created_at'] as String)
             : null,
       );
 }

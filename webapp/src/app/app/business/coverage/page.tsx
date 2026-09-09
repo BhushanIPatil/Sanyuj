@@ -226,7 +226,7 @@ export default function BusinessCoveragePage() {
     <div className="page-pad max-w-2xl">
       <header className="mb-4 flex items-center gap-3">
         <Link
-          href="/app/profile"
+          href="/app/business"
           className="flex h-10 w-10 items-center justify-center rounded-[13px] border border-line bg-white shadow-card"
         >
           ←

@@ -23,6 +23,7 @@ import { visible } from "@/lib/db/visible";
 import { ProfilePageSkeleton } from "@/components/ui/Skeleton";
 import { GuestCta } from "@/components/GuestCta";
 import { locationLabel } from "@/lib/geo/display";
+import { BusinessAvatar } from "@/components/BusinessPhotoPicker";
 
 type Profile = {
   full_name: string | null;
@@ -38,8 +39,7 @@ type Profile = {
 type Business = {
   id: string;
   name: string;
-  rating: number;
-  response_rate: number;
+  photo_url: string | null;
   categories: { id: string; name: string; slug: string } | null;
 };
 
@@ -71,7 +71,7 @@ export default function ProfilePage() {
         const { data: biz } = await visible(
           supabase
             .from("businesses")
-            .select("id, name, rating, response_rate, categories(id, name, slug)"),
+            .select("id, name, photo_url, categories(id, name, slug)"),
         )
           .eq("owner_id", user.id)
           .maybeSingle();
@@ -230,41 +230,41 @@ export default function ProfilePage() {
           ) : (
             <div className="rounded-[22px] bg-blue-soft p-[18px] shadow-card">
               <div className="flex items-center gap-3">
-                <div className="flex h-[52px] w-[52px] items-center justify-center rounded-[16px] bg-blue-deep font-display text-base font-bold text-white">
-                  {business.name.slice(0, 2).toUpperCase()}
-                </div>
-                <div>
-                  <p className="text-[15px] font-bold">{business.name}</p>
+                <BusinessAvatar
+                  name={business.name}
+                  photoUrl={business.photo_url}
+                  size={52}
+                  className="bg-blue-deep text-white"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-bold">{business.name}</p>
                   <span className="mt-1 inline-block rounded-full bg-white/80 px-2.5 py-1 text-[10.5px] font-bold text-blue-deep">
                     {categoryDisplayName(business.categories)}
                   </span>
                 </div>
               </div>
-              <div className="mt-3.5 flex gap-2.5">
-                {[
-                  [`${business.rating.toFixed(1)}★`, "Rating"],
-                  [`${business.response_rate}%`, "Response"],
-                ].map(([v, l]) => (
-                  <div key={l} className="flex-1 rounded-[12px] bg-white p-2.5 text-center">
-                    <div className="font-mono text-[13px] font-bold">{v}</div>
-                    <div className="mt-0.5 text-[9px] uppercase tracking-wide text-ink-soft">{l}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3.5">
-                <Link
-                  href="/app/business/coverage"
-                  className="block rounded-full border-[1.5px] border-line bg-white py-2.5 text-center text-[11.5px] font-bold"
-                >
-                  Service areas
-                </Link>
-              </div>
+              <Link
+                href="/app/business"
+                className="mt-3.5 block rounded-full bg-blue-deep py-3 text-center text-[13px] font-bold text-white"
+              >
+                Manage business
+              </Link>
             </div>
           )}
         </div>
 
         <div className="space-y-4">
           <div className="overflow-hidden rounded-[18px] border border-line bg-white shadow-card">
+            <Link
+              href="/app/business"
+              className="flex items-center gap-3 border-b border-line px-4 py-[15px]"
+            >
+              <span className="flex h-[34px] w-[34px] items-center justify-center rounded-[11px] bg-surface text-green-deep">
+                <Store size={16} />
+              </span>
+              <span className="flex-1 text-[13px] font-semibold">Your Business</span>
+              <span className="text-ink-faint">›</span>
+            </Link>
             <Link
               href="/terms"
               className="flex items-center gap-3 border-b border-line px-4 py-[15px]"

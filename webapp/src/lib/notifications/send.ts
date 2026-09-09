@@ -14,11 +14,37 @@ const INVALID_TOKEN_CODES = new Set([
   "messaging/invalid-argument",
 ]);
 
+const FCM_IMAGE_MAX_BYTES = 1024 * 1024;
+
 function normalizeImageUrl(raw: string | null | undefined): string | undefined {
   const url = raw?.trim();
   if (!url) return undefined;
   // FCM only downloads HTTPS images (< ~1MB) for rich notifications.
   if (!/^https:\/\//i.test(url)) return undefined;
+  return url;
+}
+
+/** Drop images FCM/Android will refuse — oversized files can hide the whole tray item. */
+async function usablePushImageUrl(
+  raw: string | null | undefined,
+): Promise<string | undefined> {
+  const url = normalizeImageUrl(raw);
+  if (!url) return undefined;
+  try {
+    const res = await fetch(url, { method: "HEAD", redirect: "follow" });
+    const len = Number(res.headers.get("content-length") ?? "0");
+    if (!res.ok || (len > 0 && len > FCM_IMAGE_MAX_BYTES)) {
+      console.warn("[push] skipping notification image", {
+        url,
+        status: res.status,
+        bytes: len,
+      });
+      return undefined;
+    }
+  } catch (e) {
+    console.warn("[push] skipping notification image (HEAD failed)", url, e);
+    return undefined;
+  }
   return url;
 }
 
@@ -49,7 +75,7 @@ export async function sendPushToTokens(
   let failureCount = 0;
   const invalidTokens: string[] = [];
 
-  const imageUrl = normalizeImageUrl(message.image ?? undefined);
+  const imageUrl = await usablePushImageUrl(message.image ?? undefined);
   // Unique per send so a resend of the same campaign is a new tray item
   // (Android/web replace notifications that share the same `tag`).
   const sendId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
