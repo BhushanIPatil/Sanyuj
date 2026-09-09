@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Briefcase,
   FolderTree,
   LayoutDashboard,
   LogOut,
@@ -25,7 +24,6 @@ export const ADMIN_NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, match: "/dashboard", exact: true },
   { href: "/users", label: "Users", icon: Users, match: "/users" },
   { href: "/providers", label: "Providers", icon: Store, match: "/providers" },
-  { href: "/jobs", label: "Jobs", icon: Briefcase, match: "/jobs" },
   { href: "/live", label: "Live", icon: Radio, match: "/live" },
   { href: "/ads", label: "Ads", icon: Megaphone, match: "/ads" },
   { href: "/notifications", label: "Notifications", icon: Bell, match: "/notifications" },

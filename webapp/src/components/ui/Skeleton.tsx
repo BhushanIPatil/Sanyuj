@@ -64,23 +64,6 @@ export function SkeletonProviderRow() {
   );
 }
 
-/** Job list card placeholder. */
-export function SkeletonJobCard() {
-  return (
-    <SkeletonCard>
-      <div className="flex items-start justify-between gap-2">
-        <SkeletonLine width="65%" className="h-3.5" />
-        <Skeleton className="h-5 w-14 rounded-full" />
-      </div>
-      <SkeletonLine width="45%" className="mt-3 h-2.5" />
-      <div className="mt-3 flex items-center justify-between border-t border-dashed border-line pt-3">
-        <SkeletonLine width="28%" className="h-3.5" />
-        <Skeleton className="h-6 w-24 rounded-full" />
-      </div>
-    </SkeletonCard>
-  );
-}
-
 export function HomePageSkeleton() {
   return (
     <div className="page-pad" aria-busy="true" aria-label="Loading home">
@@ -177,56 +160,6 @@ export function ExplorePageSkeleton() {
   );
 }
 
-export function JobsListSkeleton({ count = 4 }: { count?: number }) {
-  return (
-    <div
-      className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
-      aria-busy="true"
-      aria-label="Loading jobs"
-    >
-      {Array.from({ length: count }).map((_, i) => (
-        <SkeletonJobCard key={i} />
-      ))}
-    </div>
-  );
-}
-
-export function MyJobsPageSkeleton() {
-  return (
-    <div className="page-pad" aria-busy="true" aria-label="Loading my jobs">
-      <header className="space-y-2">
-        <SkeletonLine width="8rem" className="h-2.5" />
-        <SkeletonLine width="6rem" className="h-5" />
-      </header>
-      <Skeleton className="mt-4 h-11 w-full rounded-full" />
-      <JobsListSkeleton />
-    </div>
-  );
-}
-
-export function JobsFeedPageSkeleton() {
-  return (
-    <div className="page-pad" aria-busy="true" aria-label="Loading job feed">
-      <header className="mb-4 flex items-center gap-3">
-        <Skeleton className="h-10 w-10 rounded-[13px]" />
-        <div className="space-y-2">
-          <SkeletonLine width="7rem" className="h-2.5" />
-          <SkeletonLine width="5rem" className="h-4" />
-        </div>
-      </header>
-      <Skeleton className="h-28 w-full rounded-[26px]" />
-      <Skeleton className="mt-3.5 h-[72px] w-full rounded-[26px]" />
-      <div className="mt-4 grid grid-cols-3 gap-2.5">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-16 rounded-[18px]" />
-        ))}
-      </div>
-      <Skeleton className="mt-4 h-11 w-full rounded-full" />
-      <JobsListSkeleton count={3} />
-    </div>
-  );
-}
-
 export function ProfilePageSkeleton() {
   return (
     <div className="page-pad" aria-busy="true" aria-label="Loading profile">
@@ -257,57 +190,6 @@ export function ProfilePageSkeleton() {
           </div>
         ))}
       </SkeletonCard>
-    </div>
-  );
-}
-
-export function MyInterestsPageSkeleton() {
-  return (
-    <div className="page-pad" aria-busy="true" aria-label="Loading interests">
-      <header className="mb-4 flex items-center gap-3">
-        <Skeleton className="h-10 w-10 rounded-[13px]" />
-        <div className="space-y-2">
-          <SkeletonLine width="9rem" className="h-2.5" />
-          <SkeletonLine width="7rem" className="h-4" />
-        </div>
-      </header>
-      <Skeleton className="h-11 w-full rounded-full" />
-      <div className="mt-4 space-y-2.5">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <SkeletonProviderRow key={i} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function JobDetailSkeleton() {
-  return (
-    <div className="page-pad" aria-busy="true" aria-label="Loading job">
-      <header className="mb-4 flex items-center gap-3">
-        <Skeleton className="h-10 w-10 rounded-[13px]" />
-        <div className="space-y-2">
-          <SkeletonLine width="5rem" className="h-2.5" />
-          <SkeletonLine width="10rem" className="h-4" />
-        </div>
-      </header>
-      <SkeletonCard>
-        <Skeleton className="h-5 w-20 rounded-full" />
-        <SkeletonLine width="85%" className="mt-3 h-5" />
-        <SkeletonLine width="100%" className="mt-3 h-2.5" />
-        <SkeletonLine width="90%" className="mt-2 h-2.5" />
-        <SkeletonLine width="70%" className="mt-2 h-2.5" />
-        <div className="mt-4 flex gap-3">
-          <Skeleton className="h-10 flex-1 rounded-[14px]" />
-          <Skeleton className="h-10 w-24 rounded-[14px]" />
-        </div>
-      </SkeletonCard>
-      <SkeletonLine width="8rem" className="mt-6 h-4" />
-      <div className="mt-3 space-y-2.5">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <SkeletonProviderRow key={i} />
-        ))}
-      </div>
     </div>
   );
 }

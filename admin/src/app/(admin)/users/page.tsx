@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Briefcase,
   KeyRound,
   Pencil,
   Plus,
@@ -103,7 +102,7 @@ export default function UsersPage() {
   const load = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const [profilesRes, bizRes, jobsRes] = await Promise.all([
+    const [profilesRes, bizRes] = await Promise.all([
       supabase
         .from("profiles")
         .select(
@@ -113,30 +112,17 @@ export default function UsersPage() {
         .limit(500),
       supabase
         .from("businesses")
-        .select("id, owner_id, name, rating, jobs_done, is_active, is_deleted, categories(name)")
+        .select("id, owner_id, name, rating, is_active, is_deleted, categories(name)")
         .limit(500),
-      supabase.from("jobs").select("customer_id, status").limit(5000),
     ]);
 
     const businesses = (bizRes.data as unknown as UserBusiness[]) ?? [];
     const bizByOwner = new Map(businesses.map((b) => [b.owner_id, b]));
-    const jobCounts = new Map<string, { posted: number; open: number; closed: number }>();
-    for (const job of (jobsRes.data as { customer_id: string; status: string }[] | null) ?? []) {
-      const cur = jobCounts.get(job.customer_id) ?? { posted: 0, open: 0, closed: 0 };
-      cur.posted += 1;
-      if (job.status === "open") cur.open += 1;
-      if (job.status === "closed") cur.closed += 1;
-      jobCounts.set(job.customer_id, cur);
-    }
 
     const list: UserRow[] = ((profilesRes.data as ProfileRow[]) ?? []).map((p) => {
-      const counts = jobCounts.get(p.id) ?? { posted: 0, open: 0, closed: 0 };
       return {
         ...p,
         business: bizByOwner.get(p.id) ?? null,
-        jobsPosted: counts.posted,
-        openJobs: counts.open,
-        closedJobs: counts.closed,
       };
     });
 
@@ -192,10 +178,7 @@ export default function UsersPage() {
     const deleted = rows.filter((r) => r.is_deleted).length;
     const providers = rows.filter((r) => r.business).length;
     const customers = total - providers;
-    const jobsPosted = rows.reduce((sum, r) => sum + r.jobsPosted, 0);
-    const openJobs = rows.reduce((sum, r) => sum + r.openJobs, 0);
-    const closedJobs = rows.reduce((sum, r) => sum + r.closedJobs, 0);
-    return { total, active, inactive, deleted, providers, customers, jobsPosted, openJobs, closedJobs };
+    return { total, active, inactive, deleted, providers, customers };
   }, [rows]);
 
   const closePanel = useCallback(() => setSelected(null), []);
@@ -276,7 +259,7 @@ export default function UsersPage() {
   const deleteUser = async (row: UserRow) => {
     const ok = await confirm({
       title: "Delete user?",
-      message: `This deactivates ${row.full_name || row.email || "this account"} and hides their jobs. You can restore later.`,
+      message: `This deactivates ${row.full_name || row.email || "this account"} and hides their business data. You can restore later.`,
       confirmLabel: "Delete",
       tone: "danger",
     });
@@ -407,13 +390,6 @@ export default function UsersPage() {
           icon={Store}
           tone="indigo"
         />
-        <StatCard
-          label="Jobs posted"
-          value={stats.jobsPosted}
-          hint={`${stats.openJobs} open · ${stats.closedJobs} closed`}
-          icon={Briefcase}
-          tone="amber"
-        />
       </div>
 
       <div className="mt-4">
@@ -463,21 +439,6 @@ export default function UsersPage() {
               render: (row) => (
                 <span className="text-ink-soft">
                   {locationLabel(row.pincode, row.locality, row.area)}
-                </span>
-              ),
-            },
-            {
-              key: "jobs",
-              header: "Jobs",
-              sortValue: (row) => row.jobsPosted,
-              render: (row) => (
-                <span className="text-ink-soft">
-                  {row.jobsPosted} posted
-                  {row.jobsPosted > 0 ? (
-                    <span className="block text-xs text-ink-faint">
-                      {row.openJobs} open · {row.closedJobs} closed
-                    </span>
-                  ) : null}
                 </span>
               ),
             },

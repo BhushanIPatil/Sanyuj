@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Briefcase, Radio, SlidersHorizontal, Store, UserCheck } from "lucide-react";
+import { Radio, SlidersHorizontal, Store, UserCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDateTime, initials, locationLabel } from "@/lib/format";
 import { accountStatusBadge, accountStatusLabel } from "@/lib/status";
@@ -20,12 +20,6 @@ type CoverageRow = {
   area_id: string | null;
   localities: { name: string } | null;
   areas: { name: string } | null;
-};
-
-type InterestLite = {
-  business_id: string;
-  status: string;
-  jobs: { status: string; closed_with_business_id: string | null } | null;
 };
 
 type LiveLite = {
@@ -66,7 +60,7 @@ export default function ProvidersPage() {
   const load = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const [bizRes, coverageRes, interestsRes, dealsRes, liveRes] = await Promise.all([
+    const [bizRes, coverageRes, liveRes] = await Promise.all([
       supabase
         .from("businesses")
         .select(
@@ -78,8 +72,6 @@ export default function ProvidersPage() {
         .from("business_service_areas")
         .select("business_id, pincode, locality_id, area_id, localities(name), areas(name)")
         .eq("is_deleted", false),
-      supabase.from("job_interests").select("business_id, status, jobs(status, closed_with_business_id)").limit(5000),
-      supabase.from("jobs").select("closed_with_business_id").not("closed_with_business_id", "is", null).limit(5000),
       supabase.from("live_sessions").select("business_id, is_active, is_deleted").limit(2000),
     ]);
 
@@ -90,20 +82,6 @@ export default function ProvidersPage() {
       coverageByBiz.set(row.business_id, cur);
     }
 
-    const interestCounts = new Map<string, { interests: number; waiting: number }>();
-    for (const row of (interestsRes.data as unknown as InterestLite[] | null) ?? []) {
-      const cur = interestCounts.get(row.business_id) ?? { interests: 0, waiting: 0 };
-      cur.interests += 1;
-      if (row.status === "waiting" && row.jobs?.status !== "closed") cur.waiting += 1;
-      interestCounts.set(row.business_id, cur);
-    }
-
-    const closedCounts = new Map<string, number>();
-    for (const row of (dealsRes.data as { closed_with_business_id: string | null }[] | null) ?? []) {
-      if (!row.closed_with_business_id) continue;
-      closedCounts.set(row.closed_with_business_id, (closedCounts.get(row.closed_with_business_id) ?? 0) + 1);
-    }
-
     const liveNow = new Set(
       ((liveRes.data as LiveLite[] | null) ?? [])
         .filter((s) => s.is_active && !s.is_deleted)
@@ -112,15 +90,11 @@ export default function ProvidersPage() {
 
     const list: ProviderRow[] = ((bizRes.data as unknown as Omit<
       ProviderRow,
-      "coverage" | "interests" | "waiting" | "closedDeals" | "liveNow"
+      "coverage" | "liveNow"
     >[]) ?? []).map((b) => {
-      const counts = interestCounts.get(b.id) ?? { interests: 0, waiting: 0 };
       return {
         ...b,
         coverage: coverageLabel(coverageByBiz.get(b.id) ?? []),
-        interests: counts.interests,
-        waiting: counts.waiting,
-        closedDeals: closedCounts.get(b.id) ?? 0,
         liveNow: liveNow.has(b.id),
       };
     });
@@ -172,10 +146,7 @@ export default function ProvidersPage() {
     const inactive = rows.filter((r) => !r.is_active && !r.is_deleted).length;
     const deleted = rows.filter((r) => r.is_deleted).length;
     const liveNow = rows.filter((r) => r.liveNow).length;
-    const closedDeals = rows.reduce((sum, r) => sum + r.closedDeals, 0);
-    const interests = rows.reduce((sum, r) => sum + r.interests, 0);
-    const waiting = rows.reduce((sum, r) => sum + r.waiting, 0);
-    return { total, active, inactive, deleted, liveNow, closedDeals, interests, waiting };
+    return { total, active, inactive, deleted, liveNow };
   }, [rows]);
 
   const closePanel = useCallback(() => setSelected(null), []);
@@ -257,13 +228,6 @@ export default function ProvidersPage() {
           tone="green"
         />
         <StatCard label="Live now" value={stats.liveNow} icon={Radio} tone="teal" />
-        <StatCard
-          label="Closed jobs"
-          value={stats.closedDeals}
-          hint={`${stats.interests} interests · ${stats.waiting} waiting`}
-          icon={Briefcase}
-          tone="amber"
-        />
       </div>
 
       <div className="mt-4">
@@ -315,22 +279,13 @@ export default function ProvidersPage() {
             {
               key: "activity",
               header: "Activity",
-              sortValue: (row) => row.closedDeals * 1000 + row.interests,
-              render: (row) => (
-                <div>
-                  <p className="text-ink-soft">
-                    {row.interests} interested · {row.closedDeals} closed
-                  </p>
-                  {row.waiting > 0 ? (
-                    <p className="text-xs text-ink-faint">{row.waiting} waiting</p>
-                  ) : null}
-                  {row.liveNow ? (
-                    <Badge className="mt-1 bg-teal-soft text-teal">Live now</Badge>
-                  ) : (
-                    <p className="text-xs text-ink-faint">Not live</p>
-                  )}
-                </div>
-              ),
+              sortValue: (row) => (row.liveNow ? 1 : 0),
+              render: (row) =>
+                row.liveNow ? (
+                  <Badge className="bg-teal-soft text-teal">Live now</Badge>
+                ) : (
+                  <span className="text-xs text-ink-faint">Not live</span>
+                ),
             },
             {
               key: "status",

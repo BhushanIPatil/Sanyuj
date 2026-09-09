@@ -99,11 +99,11 @@ export function SeekerScene() {
           <div className="h-[68px]" aria-hidden />
         )}
 
-        {/* Interest ping */}
+        {/* Nearby call prompt */}
         {phase >= 3 ? (
-          <div key="interest" className="land-fade-up flex justify-center">
+          <div key="call-nearby" className="land-fade-up flex justify-center">
             <span className="rounded-full border border-line bg-white px-3.5 py-1.5 text-xs font-bold text-ink-soft shadow-card">
-              +2 interested nearby
+              Call now · nearby
             </span>
           </div>
         ) : (
@@ -114,23 +114,23 @@ export function SeekerScene() {
   );
 }
 
-/** Job post → interest → live — product value in three beats. */
+/** Browse → live nearby → call — product value in three beats. */
 export function ValueLoop() {
   const phase = useSceneCycle(3, 2600);
   const steps = [
     {
-      label: "Post a job",
-      detail: "Leak in bathroom · Today",
+      label: "Browse nearby",
+      detail: "Plumbers · Electricians · More",
       tone: "bg-blue-soft text-blue-deep",
     },
     {
-      label: "Get interest",
-      detail: "3 providers ready",
+      label: "See who's live",
+      detail: "Working in your pincode now",
       tone: "bg-indigo-soft text-indigo",
     },
     {
-      label: "Live near you",
-      detail: "Call · Hire · Done",
+      label: "Call and hire",
+      detail: "Talk · Hire · Done",
       tone: "bg-green-soft text-green-deep",
     },
   ] as const;
@@ -183,7 +183,7 @@ export function ValueLoop() {
   );
 }
 
-/** Provider: no leads → free listing → nearby job. */
+/** Provider: no leads → free listing → neighbour finds them. */
 export function ProviderScene() {
   const phase = useSceneCycle(3, 2600);
 
@@ -228,19 +228,19 @@ export function ProviderScene() {
         </div>
 
         {phase >= 2 ? (
-          <div key="job-ping" className="land-pop rounded-[20px] border border-line bg-white p-4 shadow-pop">
+          <div key="live-ping" className="land-pop rounded-[20px] border border-line bg-white p-4 shadow-pop">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-green-deep">
-                  New job nearby
+                  Neighbour nearby
                 </p>
-                <p className="mt-1 font-display text-sm font-bold">Fix kitchen tap · 1.2 km</p>
+                <p className="mt-1 font-display text-sm font-bold">Ramesh is live · 1.2 km</p>
               </div>
-              <span className="shrink-0 rounded-full bg-amber-soft px-2.5 py-1 text-[10px] font-bold text-amber">
-                Open
+              <span className="shrink-0 rounded-full bg-green-soft px-2.5 py-1 text-[10px] font-bold text-green-deep">
+                LIVE
               </span>
             </div>
-            <p className="mt-3 text-xs font-semibold text-blue-deep">Send interest →</p>
+            <p className="mt-3 text-xs font-semibold text-blue-deep">Call now →</p>
           </div>
         ) : (
           <div className="h-[96px]" aria-hidden />

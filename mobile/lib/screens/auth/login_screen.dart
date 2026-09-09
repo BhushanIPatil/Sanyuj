@@ -287,7 +287,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     await GuestSession.instance.enter();
     if (!mounted) return;
     final next = widget.next;
-    const gated = {'/post-job', '/profile/edit', '/business/setup'};
+    const gated = {'/profile/edit', '/business/setup'};
     if (next != null && next.startsWith('/') && !gated.contains(next)) {
       context.go(next);
     } else {

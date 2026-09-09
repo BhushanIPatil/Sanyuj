@@ -2,7 +2,7 @@
  * Isolated push-notification layer.
  *
  * - Devices: upsert / deactivate FCM tokens
- * - Send: sendPushToTokens / sendPushToUsers / broadcastPush (reusable for future job events)
+ * - Send: sendPushToTokens / sendPushToUsers / broadcastPush
  * - Admin: sendStoredNotification for rows in `push_notifications`
  *
  * Routes should import from `@/lib/notifications` only.

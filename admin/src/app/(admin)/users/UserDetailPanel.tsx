@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { formatBudget, formatDateTime, initials, locationLabel } from "@/lib/format";
-import { accountStatusBadge, accountStatusLabel, jobStatusBadgeClass, jobStatusLabel } from "@/lib/status";
+import { formatDateTime, initials, locationLabel } from "@/lib/format";
+import { accountStatusBadge, accountStatusLabel } from "@/lib/status";
 import { Badge } from "@/components/ui/Badge";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
@@ -14,7 +14,6 @@ export type UserBusiness = {
   owner_id: string;
   name: string;
   rating: number;
-  jobs_done: number;
   is_active: boolean;
   is_deleted: boolean;
   categories: { name: string } | null;
@@ -35,88 +34,16 @@ export type UserRow = {
   created_at: string;
   updated_at: string;
   business: UserBusiness | null;
-  jobsPosted: number;
-  openJobs: number;
-  closedJobs: number;
 };
 
-type JobDetail = {
+type LiveSession = {
   id: string;
-  title: string;
-  status: string;
   pincode: string;
-  locality: string | null;
-  area: string | null;
-  budget_min: number | null;
-  budget_max: number | null;
-  created_at: string;
-  closed_with_business_id: string | null;
+  started_at: string;
+  ends_at: string;
   is_active: boolean;
   is_deleted: boolean;
-  categories: { name: string } | null;
-  businesses: { name: string } | null;
 };
-
-type InterestDetail = {
-  id: string;
-  status: string;
-  offered_amount: number | null;
-  created_at: string;
-  jobs: {
-    id: string;
-    title: string;
-    status: string;
-    closed_with_business_id: string | null;
-    categories: { name: string } | null;
-    profiles: { full_name: string | null; phone: string | null } | null;
-  } | null;
-};
-
-function interestLabel(status: string, jobStatus: string | undefined, closedWith: string | null, businessId: string) {
-  if (jobStatus === "closed" && closedWith === businessId) return "Won deal";
-  if (jobStatus === "closed") return "Lost / closed";
-  if (status === "withdrawn") return "Withdrawn";
-  if (status === "selected") return "Selected";
-  if (status === "waiting") return "Waiting";
-  return status;
-}
-
-function interestBadge(status: string, jobStatus: string | undefined, closedWith: string | null, businessId: string) {
-  if (jobStatus === "closed" && closedWith === businessId) return "bg-green-soft text-green-deep";
-  if (jobStatus === "closed") return "bg-surface text-ink-soft";
-  if (status === "withdrawn") return "bg-rose-soft text-rose";
-  if (status === "selected") return "bg-indigo-soft text-indigo";
-  return "bg-amber-soft text-amber";
-}
-
-function JobList({ jobs, empty }: { jobs: JobDetail[]; empty: string }) {
-  if (!jobs.length) {
-    return <p className="py-3 text-sm text-ink-faint">{empty}</p>;
-  }
-  return (
-    <ul className="divide-y divide-line rounded-[16px] border border-line">
-      {jobs.map((job) => (
-        <li key={job.id} className="px-3 py-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="truncate font-semibold">{job.title}</p>
-              <p className="mt-0.5 text-xs text-ink-soft">
-                {job.categories?.name ?? "—"} · {locationLabel(job.pincode, job.locality, job.area)}
-              </p>
-              <p className="mt-0.5 text-xs text-ink-faint">
-                {formatBudget(job.budget_min, job.budget_max)} · {formatDateTime(job.created_at)}
-              </p>
-              {job.status === "closed" && job.businesses ? (
-                <p className="mt-0.5 text-xs text-ink-soft">Closed with {job.businesses.name}</p>
-              ) : null}
-            </div>
-            <Badge className={jobStatusBadgeClass(job.status)}>{jobStatusLabel(job.status)}</Badge>
-          </div>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 export function UserDetailPanel({
   user,
@@ -134,66 +61,33 @@ export function UserDetailPanel({
   onRestore: () => void;
 }) {
   const [loading, setLoading] = useState(true);
-  const [posted, setPosted] = useState<JobDetail[]>([]);
-  const [interests, setInterests] = useState<InterestDetail[]>([]);
-  const [wonDeals, setWonDeals] = useState<JobDetail[]>([]);
   const [liveNow, setLiveNow] = useState(false);
-  const [jobTab, setJobTab] = useState<"all" | "open" | "closed">("all");
+  const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       setLoading(true);
-      const supabase = createClient();
-      const jobSelect =
-        "id, title, status, pincode, locality, area, budget_min, budget_max, created_at, closed_with_business_id, is_active, is_deleted, categories(name), businesses(name)";
-
-      const { data: jobsData } = await supabase
-        .from("jobs")
-        .select(jobSelect)
-        .eq("customer_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(200);
-
-      let interestRows: InterestDetail[] = [];
-      let dealRows: JobDetail[] = [];
-      let isLive = false;
-
-      if (user.business) {
-        const [interestsRes, dealsRes, liveRes] = await Promise.all([
-          supabase
-            .from("job_interests")
-            .select(
-              "id, status, offered_amount, created_at, jobs(id, title, status, closed_with_business_id, categories(name), profiles(full_name, phone))",
-            )
-            .eq("business_id", user.business.id)
-            .order("created_at", { ascending: false })
-            .limit(200),
-          supabase
-            .from("jobs")
-            .select(jobSelect)
-            .eq("closed_with_business_id", user.business.id)
-            .order("created_at", { ascending: false })
-            .limit(200),
-          supabase
-            .from("live_sessions")
-            .select("id")
-            .eq("business_id", user.business.id)
-            .eq("is_active", true)
-            .eq("is_deleted", false)
-            .limit(1),
-        ]);
-        interestRows = (interestsRes.data as unknown as InterestDetail[]) ?? [];
-        dealRows = (dealsRes.data as unknown as JobDetail[]) ?? [];
-        isLive = ((liveRes.data as { id: string }[] | null) ?? []).length > 0;
+      if (!user.business) {
+        if (!cancelled) {
+          setLiveNow(false);
+          setLiveSessions([]);
+          setLoading(false);
+        }
+        return;
       }
 
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("live_sessions")
+        .select("id, pincode, started_at, ends_at, is_active, is_deleted")
+        .eq("business_id", user.business.id)
+        .order("started_at", { ascending: false })
+        .limit(20);
       if (cancelled) return;
-
-      setPosted((jobsData as unknown as JobDetail[]) ?? []);
-      setInterests(interestRows);
-      setWonDeals(dealRows);
-      setLiveNow(isLive);
+      const sessions = (data as LiveSession[] | null) ?? [];
+      setLiveSessions(sessions);
+      setLiveNow(sessions.some((s) => s.is_active && !s.is_deleted));
       setLoading(false);
     };
     void load();
@@ -201,13 +95,6 @@ export function UserDetailPanel({
       cancelled = true;
     };
   }, [user.id, user.business?.id]);
-
-  const openJobs = posted.filter((j) => j.status === "open");
-  const closedJobs = posted.filter((j) => j.status === "closed");
-  const waitingInterests = interests.filter(
-    (i) => i.status === "waiting" && i.jobs?.status !== "closed",
-  );
-  const bizId = user.business?.id ?? "";
 
   return (
     <SlideOver
@@ -291,26 +178,12 @@ export function UserDetailPanel({
         ) : null}
       </dl>
 
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        {[
-          ["Posted", posted.length],
-          ["Open", openJobs.length],
-          ["Closed", closedJobs.length],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-[14px] border border-line bg-white px-3 py-2.5 text-center">
-            <p className="font-display text-lg font-extrabold">{loading ? "—" : value}</p>
-            <p className="text-[11px] font-semibold text-ink-soft">{label}</p>
-          </div>
-        ))}
-      </div>
-
       {user.business ? (
         <section className="mt-5 rounded-[16px] border border-line p-3">
           <p className="text-xs font-bold uppercase tracking-wide text-ink-soft">Business</p>
           <p className="mt-1 font-semibold">{user.business.name}</p>
           <p className="text-xs text-ink-soft">
-            {user.business.categories?.name ?? "—"} · {Number(user.business.rating).toFixed(1)}★ ·{" "}
-            {user.business.jobs_done} jobs done
+            {user.business.categories?.name ?? "—"} · {Number(user.business.rating).toFixed(1)}★
           </p>
           <p className="mt-1 text-xs text-ink-faint">
             Business {accountStatusLabel(user.business.is_active, user.business.is_deleted)}
@@ -318,106 +191,41 @@ export function UserDetailPanel({
         </section>
       ) : null}
 
-      {loading ? (
-        <div className="mt-5 space-y-3">
-          <SkeletonLine width="7rem" className="h-4" />
-          <Skeleton className="h-24 w-full rounded-[16px]" />
-          <Skeleton className="h-24 w-full rounded-[16px]" />
-        </div>
-      ) : (
-        <>
-          <section className="mt-5">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <h3 className="text-sm font-bold">Job posts</h3>
-              <div className="flex rounded-full bg-surface p-0.5">
-                {(
-                  [
-                    ["all", `All (${posted.length})`],
-                    ["open", `Open (${openJobs.length})`],
-                    ["closed", `Closed (${closedJobs.length})`],
-                  ] as const
-                ).map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                      jobTab === id ? "bg-white text-ink shadow-card" : "text-ink-soft"
-                    }`}
-                    onClick={() => setJobTab(id)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <JobList
-              jobs={jobTab === "open" ? openJobs : jobTab === "closed" ? closedJobs : posted}
-              empty={
-                jobTab === "open"
-                  ? "No open jobs."
-                  : jobTab === "closed"
-                    ? "No closed jobs."
-                    : "This user has not posted any jobs."
-              }
-            />
+      {user.business ? (
+        loading ? (
+          <div className="mt-5 space-y-3">
+            <SkeletonLine width="7rem" className="h-4" />
+            <Skeleton className="h-24 w-full rounded-[16px]" />
+          </div>
+        ) : (
+          <section className="mt-5 pb-4">
+            <h3 className="mb-2 text-sm font-bold">Live sessions</h3>
+            {liveSessions.length === 0 ? (
+              <p className="py-3 text-sm text-ink-faint">This provider has not gone live yet.</p>
+            ) : (
+              <ul className="divide-y divide-line rounded-[16px] border border-line">
+                {liveSessions.map((session) => {
+                  const active = session.is_active && !session.is_deleted;
+                  return (
+                    <li key={session.id} className="flex items-start justify-between gap-3 px-3 py-3">
+                      <div>
+                        <p className="font-semibold">{active ? "Live now" : "Ended"}</p>
+                        <p className="mt-0.5 text-xs text-ink-soft">Pincode {session.pincode}</p>
+                        <p className="mt-0.5 text-xs text-ink-faint">
+                          {formatDateTime(session.started_at)} → {formatDateTime(session.ends_at)}
+                        </p>
+                      </div>
+                      <Badge className={active ? "bg-teal-soft text-teal" : "bg-surface text-ink-soft"}>
+                        {active ? "Live" : "Ended"}
+                      </Badge>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </section>
-
-          {user.business ? (
-            <>
-              <section className="mt-5">
-                <h3 className="mb-2 text-sm font-bold">
-                  Interests ({interests.length}
-                  {waitingInterests.length ? ` · ${waitingInterests.length} waiting` : ""})
-                </h3>
-                {interests.length === 0 ? (
-                  <p className="py-3 text-sm text-ink-faint">No interests yet.</p>
-                ) : (
-                  <ul className="divide-y divide-line rounded-[16px] border border-line">
-                    {interests.map((row) => (
-                      <li key={row.id} className="px-3 py-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate font-semibold">{row.jobs?.title ?? "Job"}</p>
-                            <p className="mt-0.5 text-xs text-ink-soft">
-                              {row.jobs?.profiles?.full_name || "Customer"} ·{" "}
-                              {row.jobs?.categories?.name ?? "—"}
-                            </p>
-                            <p className="mt-0.5 text-xs text-ink-faint">
-                              {row.offered_amount != null
-                                ? `Offered ₹${row.offered_amount.toLocaleString()}`
-                                : "No offer amount"}{" "}
-                              · {formatDateTime(row.created_at)}
-                            </p>
-                          </div>
-                          <Badge
-                            className={interestBadge(
-                              row.status,
-                              row.jobs?.status,
-                              row.jobs?.closed_with_business_id ?? null,
-                              bizId,
-                            )}
-                          >
-                            {interestLabel(
-                              row.status,
-                              row.jobs?.status,
-                              row.jobs?.closed_with_business_id ?? null,
-                              bizId,
-                            )}
-                          </Badge>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-              <section className="mt-5 pb-4">
-                <h3 className="mb-2 text-sm font-bold">Deals closed with this provider ({wonDeals.length})</h3>
-                <JobList jobs={wonDeals} empty="No jobs were closed with this provider." />
-              </section>
-            </>
-          ) : null}
-        </>
-      )}
+        )
+      ) : null}
     </SlideOver>
   );
 }

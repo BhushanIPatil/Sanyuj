@@ -5,7 +5,7 @@ import { LegalSection, LegalShell } from "@/components/LegalShell";
 export const metadata: Metadata = {
   title: "Terms of Use",
   description:
-    "Terms of Use for Sanyuj — the free local help marketplace. Learn about accounts, listings, jobs, and sponsored ads.",
+    "Terms of Use for Sanyuj — the free local help marketplace. Learn about accounts, listings, and sponsored ads.",
 };
 
 const UPDATED = "7 September 2026";
@@ -27,9 +27,8 @@ export default function TermsPage() {
       <LegalSection title="1. What Sanyuj is">
         <p>
           Sanyuj is a hyperlocal marketplace that helps neighbours find local help and helps
-          skilled people and small businesses get found nearby. You can post jobs, browse providers,
-          express interest in jobs, go live when available, and call other users when they choose to
-          share contact details.
+          skilled people and small businesses get found nearby. You can browse providers, go live
+          when available, and call other users when they choose to share contact details.
         </p>
         <p>
           Sanyuj is a discovery and connection platform. We are not an employer, employment agency,
@@ -40,12 +39,12 @@ export default function TermsPage() {
       <LegalSection title="2. Free to use — no platform fees">
         <p>
           <strong className="text-ink">Sanyuj does not charge users</strong> to create an account,
-          browse the Service, post jobs, list a business, express interest, go live, or contact other
-          users through the features we provide.
+          browse the Service, list a business, go live, or contact other users through the features
+          we provide.
         </p>
         <p>
           Any budget, offer, or payment for work is agreed directly between the customer and the
-          provider. Sanyuj does not take a commission, process job payments, or hold funds for those
+          provider. Sanyuj does not take a commission, process payments for work, or hold funds for those
           arrangements.
         </p>
       </LegalSection>
@@ -69,7 +68,7 @@ export default function TermsPage() {
             listings are not charged for ads.
           </li>
           <li>
-            Sponsored ads are separate from free business listings and job posts. Showing an ad does
+            Sponsored ads are separate from free business listings. Showing an ad does
             not mean we endorse the advertiser’s products or services.
           </li>
         </ul>
@@ -82,9 +81,9 @@ export default function TermsPage() {
           credentials secure.
         </p>
         <p>
-          You may browse limited content as a guest. Features such as posting jobs or managing a
+          You may browse limited content as a guest. Features such as managing a
           business listing require a signed-in account. Providers may need a phone number and
-          business details to list and appear in job matching.
+          business details to list and appear nearby.
         </p>
         <p>
           If you are under the age where you can form a binding contract in your jurisdiction, you
@@ -92,14 +91,14 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="5. Jobs, listings, and user interactions">
+      <LegalSection title="5. Listings and user interactions">
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            Job posts, interests, offers, messages/calls, and business profiles are created by users.
+            Business profiles, live status, and contact details are created by users.
             You are responsible for the accuracy and legality of content you submit.
           </li>
           <li>
-            Location (such as pincode, locality, and area) is used to show relevant jobs, providers,
+            Location (such as pincode, locality, and area) is used to show relevant providers
             and ads. Provide a real service area so neighbours get useful matches.
           </li>
           <li>
@@ -107,12 +106,11 @@ export default function TermsPage() {
             another user. Use caution and local common sense.
           </li>
           <li>
-            We may apply reasonable limits (for example, how often you can post jobs) to keep the
-            Service fair and reliable.
+            We may apply reasonable limits to keep the Service fair and reliable.
           </li>
           <li>
-            Sanyuj does not guarantee that a job will be filled, that a provider will respond, or that
-            any work will meet your expectations. Vet people before engaging them.
+            Sanyuj does not guarantee that a provider will be available or that any work
+            will meet your expectations. Vet people before engaging them.
           </li>
         </ul>
       </LegalSection>
@@ -138,7 +136,7 @@ export default function TermsPage() {
           Sanyuj’s name, branding, design, and software remain our property (or our licensors’). You
           keep ownership of content you post, and you grant us a non-exclusive licence to host,
           display, and distribute that content as needed to operate and improve the Service
-          (including showing your listing or job to nearby users).
+          (including showing your listing to nearby users).
         </p>
       </LegalSection>
 

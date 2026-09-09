@@ -27,7 +27,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Profile? _profile;
   Business? _business;
   List<CategoryGroup> _groups = [];
-  List<Job> _recent = [];
   List<Map<String, dynamic>> _live = [];
   List<AdBanner> _ads = [];
   bool _loading = true;
@@ -53,7 +52,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _scheduleNextAd() {
     _adTimer?.cancel();
     if (_ads.length < 2) return;
-    _adTimer = Timer(const Duration(milliseconds: 1500), () {
+    _adTimer = Timer(adCarouselInterval, () {
       if (!mounted || _ads.length < 2) return;
       _adController.animateToPage(
         (_adIndex + 1) % _ads.length,
@@ -90,7 +89,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final repo = ref.read(repoProvider);
       final profile = await repo.fetchProfile();
       final groups = await repo.fetchCategoryTree();
-      final recent = await repo.fetchMyJobs();
       final business = await repo.fetchMyBusiness();
       final ads = await repo
           .fetchAds(
@@ -105,7 +103,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _profile = profile;
         _business = business;
         _groups = groups;
-        _recent = recent.take(2).toList();
         _live = live;
         _ads = ads;
         _adIndex = 0;
@@ -138,7 +135,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _showAd(AdBanner ad) async {
     await ref.read(repoProvider).recordAdClick(ad.id);
     if (!mounted) return;
-    final isGuest = ref.read(repoProvider).userId == null;
     await showAdDetailSheet(
       context,
       ad: ad,
@@ -147,7 +143,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           : () => openAdCta(
                 context,
                 ad,
-                isGuest: isGuest,
                 goTo: (path) {
                   if (path.startsWith('/login')) {
                     context.push(path);
@@ -180,8 +175,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             : (isGuest
                 ? 'Location unavailable'
                 : (profileLocation.isEmpty ? 'Set your location in profile' : profileLocation)));
-    final closedCount = _recent.where((j) => j.status == 'closed').length;
-    final closedPct = _recent.isEmpty ? 0 : ((closedCount / _recent.length) * 100).round();
 
     return Stack(
       children: [
@@ -345,32 +338,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           final imageUrl = ad.imageUrl?.trim();
                           return GestureDetector(
                             onTap: () => _showAd(ad),
-                            child: ColoredBox(
-                              color: AppColors.surface,
-                              child: imageUrl != null && imageUrl.isNotEmpty
-                                  ? Image.network(
-                                      imageUrl,
-                                      fit: BoxFit.contain,
-                                      width: double.infinity,
-                                      height: double.infinity,
-                                      alignment: Alignment.center,
-                                      errorBuilder: (_, _, _) => _AdFallback(ad: ad),
-                                      loadingBuilder: (context, child, progress) {
-                                        if (progress == null) return child;
-                                        return Container(
-                                          color: AppColors.surface,
-                                          child: const Center(
-                                            child: SizedBox(
-                                              width: 22,
-                                              height: 22,
-                                              child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.blueDeep),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    )
-                                  : _AdFallback(ad: ad),
-                            ),
+                            child: imageUrl != null && imageUrl.isNotEmpty
+                                ? Image.network(
+                                    imageUrl,
+                                    fit: BoxFit.contain,
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    alignment: Alignment.center,
+                                    errorBuilder: (_, _, _) => _AdFallback(ad: ad),
+                                    loadingBuilder: (context, child, progress) {
+                                      if (progress == null) return child;
+                                      return const Center(
+                                        child: SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.blueDeep),
+                                        ),
+                                      );
+                                    },
+                                  )
+                                : _AdFallback(ad: ad),
                           );
                         },
                       ),
@@ -487,92 +474,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
 
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-            child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: AppColors.indigoSoft,
-                borderRadius: BorderRadius.circular(AppColors.radiusLg),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      "Can't find your exact need? Post it & let providers come to you.",
-                      style: GoogleFonts.nunito(fontSize: 14.5, fontWeight: FontWeight.w700, color: AppColors.indigo, height: 1.35),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Material(
-                    color: AppColors.indigo,
-                    borderRadius: BorderRadius.circular(100),
-                    child: InkWell(
-                      onTap: () => context.push(isGuest ? '/login?next=/post-job' : '/post-job'),
-                      borderRadius: BorderRadius.circular(100),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        child: Text(
-                          isGuest ? 'Log in to post' : 'Post a Job',
-                          style: GoogleFonts.nunito(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          SectionHeader(
-            title: 'Recent activity',
-            trailing: GestureDetector(
-              onTap: () => context.go('/my-jobs'),
-              child: const Text('Show all', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.blueDeep)),
-            ),
-          ),
-          if (_recent.isEmpty)
-            EmptyState(
-              icon: Icons.history_rounded,
-              title: isGuest ? 'Nothing here yet' : 'No recent jobs',
-              message: isGuest
-                  ? 'Log in to post a job and track it here.'
-                  : 'Jobs you post will show up in this list.',
-              action: isGuest
-                  ? SizedBox(
-                      width: double.infinity,
-                      child: PrimaryButton(
-                        label: 'Log in',
-                        onPressed: () => context.push('/login?next=/post-job'),
-                      ),
-                    )
-                  : SizedBox(
-                      width: double.infinity,
-                      child: PrimaryButton(
-                        label: 'Post a job',
-                        onPressed: () => context.push('/post-job'),
-                      ),
-                    ),
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
-            )
-          else ...[
-            ..._recent.map(
-              (j) => GestureDetector(
-                onTap: () async {
-                  await context.push('/jobs/${j.id}');
-                  if (mounted) await _load();
-                },
-                child: StatusRowTile(
-                  title: j.title,
-                  subtitle: j.status == 'open' ? 'Open - waiting for responses' : 'Closed',
-                  amount: j.budgetLabel,
-                  when: timeAgo(j.createdAt),
-                  ok: j.status == 'closed',
-                ),
-              ),
-            ),
-          ],
-
           if (isGuest || _business == null)
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -608,7 +509,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               Text('Have a business or offer a service?', style: GoogleFonts.nunito(fontSize: 14, fontWeight: FontWeight.w700)),
                               const SizedBox(height: 3),
                               const Text(
-                                'List it free on Sanyuj and start getting job requests nearby.',
+                                'List it free on Sanyuj and get found by neighbours nearby.',
                                 style: TextStyle(fontSize: 11, color: AppColors.inkSoft, height: 1.4),
                               ),
                             ],
@@ -618,85 +519,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ],
                     ),
                   ),
-                ),
-              ),
-            ),
-
-          if (_recent.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-              child: Container(
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: AppColors.blueDeep,
-                  borderRadius: BorderRadius.circular(AppColors.radiusLg),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF1F8E7B).withValues(alpha: 0.28),
-                      blurRadius: 30,
-                      offset: const Offset(0, 16),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('THIS MONTH', style: eyebrowStyle(color: Colors.white.withValues(alpha: 0.75))),
-                          const SizedBox(height: 6),
-                          Text(
-                            closedCount > 0
-                                ? '$closedCount of ${_recent.length} jobs you posted got closed'
-                                : 'Track your posted jobs and responses here',
-                            style: GoogleFonts.nunito(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700, height: 1.35),
-                          ),
-                          const SizedBox(height: 14),
-                          Material(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(100),
-                            child: InkWell(
-                              onTap: () => context.go('/my-jobs'),
-                              borderRadius: BorderRadius.circular(100),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                child: Text('View My Jobs', style: GoogleFonts.nunito(color: AppColors.blueDeep, fontWeight: FontWeight.w700, fontSize: 12.5)),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    SizedBox(
-                      width: 80,
-                      height: 80,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          SizedBox(
-                            width: 80,
-                            height: 80,
-                            child: CircularProgressIndicator(
-                              value: closedPct / 100,
-                              strokeWidth: 7,
-                              backgroundColor: Colors.white.withValues(alpha: 0.28),
-                              valueColor: const AlwaysStoppedAnimation(Colors.white),
-                              strokeCap: StrokeCap.round,
-                            ),
-                          ),
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text('$closedPct%', style: monoStyle(fontSize: 16, color: Colors.white)),
-                              Text('Closed', style: TextStyle(fontSize: 8, color: Colors.white.withValues(alpha: 0.85), letterSpacing: 0.4)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ),

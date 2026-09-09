@@ -18,13 +18,6 @@ export function formatDate(iso: string | null | undefined) {
   });
 }
 
-export function formatBudget(min: number | null, max: number | null) {
-  if (min == null && max == null) return "—";
-  if (min != null && max != null) return `₹${min.toLocaleString()} – ₹${max.toLocaleString()}`;
-  if (min != null) return `From ₹${min.toLocaleString()}`;
-  return `Up to ₹${max!.toLocaleString()}`;
-}
-
 export function formatMoney(amount: number | null | undefined) {
   if (amount == null || !Number.isFinite(amount)) return "—";
   return `₹${Math.round(amount).toLocaleString()}`;

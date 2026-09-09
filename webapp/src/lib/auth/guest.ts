@@ -13,11 +13,8 @@ export function setGuestCookie(on: boolean) {
 }
 
 const AUTH_REQUIRED = [
-  /^\/app\/post-job\/?$/,
   /^\/app\/business\/setup\/?$/,
   /^\/app\/profile\/edit\/?$/,
-  /^\/app\/my-jobs\/[^/]+\/edit\/?$/,
-  /^\/app\/my-interests\/?$/,
 ];
 
 export function isAuthRequiredPath(path: string) {

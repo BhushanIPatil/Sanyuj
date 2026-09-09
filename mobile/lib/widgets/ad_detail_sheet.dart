@@ -75,15 +75,12 @@ class _AdDetailSheet extends StatelessWidget {
                   child: AspectRatio(
                     aspectRatio: adBannerAspectRatio,
                     child: imageUrl != null && imageUrl.isNotEmpty
-                        ? ColoredBox(
-                            color: AppColors.surface,
-                            child: Image.network(
-                              imageUrl,
-                              fit: BoxFit.contain,
-                              width: double.infinity,
-                              alignment: Alignment.center,
-                              errorBuilder: (_, _, _) => _BannerFallback(ad: ad),
-                            ),
+                        ? Image.network(
+                            imageUrl,
+                            fit: BoxFit.contain,
+                            width: double.infinity,
+                            alignment: Alignment.center,
+                            errorBuilder: (_, _, _) => _BannerFallback(ad: ad),
                           )
                         : _BannerFallback(ad: ad),
                   ),
@@ -226,7 +223,7 @@ class _BannerFallback extends StatelessWidget {
   }
 }
 
-Future<void> openAdCta(BuildContext context, AdBanner ad, {required bool isGuest, required void Function(String) goTo}) async {
+Future<void> openAdCta(BuildContext context, AdBanner ad, {required void Function(String) goTo}) async {
   final url = ad.ctaUrl?.trim();
   if (url == null || url.isEmpty) return;
   try {
@@ -237,8 +234,6 @@ Future<void> openAdCta(BuildContext context, AdBanner ad, {required bool isGuest
     }
     if (url.contains('explore')) {
       goTo('/explore');
-    } else if (url.contains('post-job') || url.contains('post_job')) {
-      goTo(isGuest ? '/login?next=/post-job' : '/post-job');
     }
   } catch (e) {
     if (!context.mounted) return;

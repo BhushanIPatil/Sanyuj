@@ -9,10 +9,6 @@ import 'screens/business/coverage_screen.dart';
 import 'screens/explore/explore_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/home/live_nearby_screen.dart';
-import 'screens/jobs/job_detail_screen.dart';
-import 'screens/jobs/jobs_feed_screen.dart';
-import 'screens/jobs/my_jobs_screen.dart';
-import 'screens/jobs/post_job_screen.dart';
 import 'screens/profile/edit_profile_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/shell/app_shell.dart';
@@ -54,7 +50,7 @@ GoRouter createRouter({
     redirect: (context, state) {
       final session = Supabase.instance.client.auth.currentSession;
       final loc = state.matchedLocation;
-      final authRequired = loc == '/post-job' || loc == '/profile/edit' || loc == '/business/setup' || loc == '/business/coverage';
+      final authRequired = loc == '/profile/edit' || loc == '/business/setup' || loc == '/business/coverage';
 
       if (session == null) {
         if (authRequired) {
@@ -77,8 +73,6 @@ GoRouter createRouter({
         builder: (context, state, child) => AppShell(child: child),
         routes: [
           GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
-          GoRoute(path: '/jobs-feed', builder: (context, state) => const JobsFeedScreen()),
-          GoRoute(path: '/my-jobs', builder: (context, state) => const MyJobsScreen()),
           GoRoute(
             path: '/explore',
             builder: (context, state) => ExploreScreen(
@@ -87,14 +81,6 @@ GoRouter createRouter({
           ),
           GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
         ],
-      ),
-      GoRoute(
-        path: '/post-job',
-        builder: (context, state) => PostJobScreen(jobId: state.uri.queryParameters['edit']),
-      ),
-      GoRoute(
-        path: '/jobs/:id',
-        builder: (context, state) => JobDetailScreen(jobId: state.pathParameters['id']!),
       ),
       GoRoute(path: '/live-nearby', builder: (context, state) => const LiveNearbyScreen()),
       GoRoute(path: '/profile/edit', builder: (context, state) => const EditProfileScreen()),

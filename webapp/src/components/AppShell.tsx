@@ -3,12 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Briefcase,
   ChevronDown,
   FileText,
   HelpCircle,
   Home,
-  Inbox,
   Menu,
   ScrollText,
   Search,
@@ -25,8 +23,6 @@ import { SanyujBrand } from "@/components/SanyujLogo";
 
 export const APP_NAV = [
   { href: "/app", label: "Home", icon: Home, match: "/app", exact: true },
-  { href: "/app/jobs-feed", label: "New Jobs", icon: Inbox, match: "/app/jobs-feed" },
-  { href: "/app/my-jobs", label: "My Jobs", icon: Briefcase, match: "/app/my-jobs" },
   { href: "/app/explore", label: "Explore", icon: Search, match: "/app/explore" },
   { href: "/app/profile", label: "Profile", icon: User, match: "/app/profile" },
 ] as const;
@@ -356,7 +352,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link href={loginUrl(pathname)} className="font-bold underline">
             Log in
           </Link>{" "}
-          to post a job.
+          to list a business.
         </div>
       ) : null}
 

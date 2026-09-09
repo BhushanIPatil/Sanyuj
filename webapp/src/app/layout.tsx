@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: "%s · Sanyuj",
   },
   description:
-    "Find live local help nearby, post a job, or list your business free and get found by neighbours.",
+    "Find live local help nearby, or list your business free and get found by neighbours.",
   applicationName: "Sanyuj",
   appleWebApp: {
     capable: true,

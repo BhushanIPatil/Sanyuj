@@ -39,7 +39,6 @@ type Business = {
   id: string;
   name: string;
   rating: number;
-  jobs_done: number;
   response_rate: number;
   categories: { id: string; name: string; slug: string } | null;
 };
@@ -72,7 +71,7 @@ export default function ProfilePage() {
         const { data: biz } = await visible(
           supabase
             .from("businesses")
-            .select("id, name, rating, jobs_done, response_rate, categories(id, name, slug)"),
+            .select("id, name, rating, response_rate, categories(id, name, slug)"),
         )
           .eq("owner_id", user.id)
           .maybeSingle();
@@ -102,7 +101,7 @@ export default function ProfilePage() {
     const ok = await confirm({
       title: "Delete account?",
       message:
-        "This permanently deactivates your Sanyuj account and associated jobs/business data. You can restore later by registering again with the same email.",
+        "This permanently deactivates your Sanyuj account and associated business data. You can restore later by registering again with the same email.",
       confirmLabel: "Delete account",
       tone: "danger",
     });
@@ -132,7 +131,7 @@ export default function ProfilePage() {
         <div className="mt-6 max-w-lg">
           <GuestCta
             title="You're browsing as a guest"
-            body="Log in with your email to post jobs, save your location, and list a business."
+            body="Log in with your email to save your location and list a business."
             next="/app/profile"
           />
         </div>
@@ -217,7 +216,7 @@ export default function ProfilePage() {
                 <div className="min-w-0 flex-1">
                   <h3 className="text-sm font-bold">List your business</h3>
                   <p className="mt-1 text-[11.5px] leading-relaxed text-ink-soft">
-                    Get job requests from nearby customers — free, takes under a minute.
+                    Get found by neighbours nearby — free, takes under a minute.
                   </p>
                 </div>
               </div>
@@ -243,7 +242,6 @@ export default function ProfilePage() {
               </div>
               <div className="mt-3.5 flex gap-2.5">
                 {[
-                  [String(business.jobs_done), "Jobs Done"],
                   [`${business.rating.toFixed(1)}★`, "Rating"],
                   [`${business.response_rate}%`, "Response"],
                 ].map(([v, l]) => (
@@ -253,18 +251,12 @@ export default function ProfilePage() {
                   </div>
                 ))}
               </div>
-              <div className="mt-3.5 flex gap-2.5">
+              <div className="mt-3.5">
                 <Link
                   href="/app/business/coverage"
-                  className="flex-1 rounded-full border-[1.5px] border-line bg-white py-2.5 text-center text-[11.5px] font-bold"
+                  className="block rounded-full border-[1.5px] border-line bg-white py-2.5 text-center text-[11.5px] font-bold"
                 >
                   Service areas
-                </Link>
-                <Link
-                  href="/app/jobs-feed"
-                  className="flex-1 rounded-full bg-blue-deep py-2.5 text-center text-[11.5px] font-bold text-white"
-                >
-                  Open Job Feed →
                 </Link>
               </div>
             </div>

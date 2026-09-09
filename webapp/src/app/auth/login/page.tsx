@@ -642,7 +642,7 @@ function LoginForm() {
               Continue as guest
             </button>
             <p className="mt-2 text-center text-[11px] text-ink-faint">
-              Browse providers nearby. Log in when you want to post a job.
+              Browse providers nearby. Log in when you want to list a business.
             </p>
           </>
         ) : null}

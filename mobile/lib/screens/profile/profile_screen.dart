@@ -96,7 +96,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       context,
       title: 'Delete account?',
       message:
-          'This permanently deactivates your Sanyuj account and associated jobs/business data. '
+          'This permanently deactivates your Sanyuj account and associated business data. '
           'You can restore later by registering again with the same email.',
     );
     if (ok != true) return;
@@ -135,7 +135,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const ScreenTopBar(title: 'Profile'),
           GuestPrompt(
             title: "You're browsing as a guest",
-            body: 'Log in with your email to post jobs, save your location, and list a business.',
+            body: 'Log in with your email to save your location and list a business.',
             onLogin: () => context.push('/login?next=/profile'),
           ),
         ],
@@ -270,7 +270,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           Text('List your business', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
                           SizedBox(height: 3),
                           Text(
-                            'Get job requests from nearby customers — free, takes under a minute.',
+                            'Get found by neighbours nearby — free, takes under a minute.',
                             style: TextStyle(fontSize: 11.5, color: AppColors.inkSoft, height: 1.4),
                           ),
                         ],
@@ -352,53 +352,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    _BizStat(value: '${_business!.jobsDone}', label: 'Jobs Done'),
-                    const SizedBox(width: 10),
                     _BizStat(value: '${_business!.rating.toStringAsFixed(1)}★', label: 'Rating'),
                     const SizedBox(width: 10),
                     _BizStat(value: '${_business!.responseRate}%', label: 'Response'),
                   ],
                 ),
                 const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => context.push('/business/coverage'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.ink,
-                          side: const BorderSide(color: AppColors.line, width: 1.5),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
-                          padding: const EdgeInsets.symmetric(vertical: 11),
-                        ),
-                        child: Text('Service areas', style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 11.5)),
-                      ),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => context.push('/business/coverage'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.ink,
+                      side: const BorderSide(color: AppColors.line, width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      padding: const EdgeInsets.symmetric(vertical: 11),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: AppColors.blueDeep,
-                          borderRadius: BorderRadius.circular(100),
-                        ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () => context.go('/jobs-feed'),
-                            borderRadius: BorderRadius.circular(100),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 11),
-                              child: Text(
-                                'Open Job Feed →',
-                                textAlign: TextAlign.center,
-                                style: GoogleFonts.nunito(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11.5),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                    child: Text('Service areas', style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 11.5)),
+                  ),
                 ),
               ],
             ),

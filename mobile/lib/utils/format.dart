@@ -40,17 +40,6 @@ String timeAgo(DateTime dt) {
   return '${hrs ~/ 24}d ago';
 }
 
-String jobStatusLabel(String status) {
-  switch (status) {
-    case 'open':
-      return 'Open';
-    case 'closed':
-      return 'Closed';
-    default:
-      return status;
-  }
-}
-
 String addressWithPincode(String? address, String? pincode) {
   final addr = address?.trim() ?? '';
   final pin = pincode?.trim() ?? '';

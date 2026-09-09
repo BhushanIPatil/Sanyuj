@@ -1,6 +1,6 @@
 # Sanyuj Admin
 
-Next.js admin dashboard for managing users, providers, jobs, live sessions, ads, and categories.
+Next.js admin dashboard for managing users, providers, live sessions, ads, and categories.
 
 Deploy this folder to **Vercel** as a separate project from `webapp/`.
 

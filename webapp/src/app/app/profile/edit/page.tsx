@@ -238,7 +238,7 @@ export default function EditProfilePage() {
         <section className="rounded-[22px] border border-line bg-white p-5 shadow-card">
           <p className="text-[10.5px] font-bold uppercase tracking-wide text-ink-soft">Location</p>
           <p className="mt-1 text-[12.5px] leading-relaxed text-ink-soft">
-            Used to show nearby providers and match jobs in your area.
+            Used to show nearby providers in your area.
           </p>
 
           <button

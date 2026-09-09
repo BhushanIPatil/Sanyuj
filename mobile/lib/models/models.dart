@@ -98,7 +98,6 @@ class Business {
     required this.name,
     required this.ownerId,
     this.rating = 4.5,
-    this.jobsDone = 0,
     this.responseRate = 90,
     this.category,
     this.providerName,
@@ -112,7 +111,6 @@ class Business {
   final String name;
   final String ownerId;
   final double rating;
-  final int jobsDone;
   final int responseRate;
   final Category? category;
   final String? providerName;
@@ -128,7 +126,6 @@ class Business {
       name: json['name'] as String,
       ownerId: json['owner_id'] as String? ?? '',
       rating: (json['rating'] as num?)?.toDouble() ?? 4.5,
-      jobsDone: json['jobs_done'] as int? ?? 0,
       responseRate: json['response_rate'] as int? ?? 90,
       providerName: json['providerName'] as String? ?? json['provider_name'] as String?,
       phone: json['phone'] as String?,
@@ -159,7 +156,6 @@ class Business {
       name: name,
       ownerId: ownerId,
       rating: rating,
-      jobsDone: jobsDone,
       responseRate: responseRate,
       category: category,
       providerName: providerName ?? this.providerName,
@@ -169,112 +165,6 @@ class Business {
       lng: lng ?? this.lng,
     );
   }
-}
-
-class Job {
-  Job({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.status,
-    required this.pincode,
-    required this.createdAt,
-    this.locality,
-    this.area,
-    this.areaId,
-    this.budgetMin,
-    this.budgetMax,
-    this.urgency,
-    this.category,
-    this.customerId,
-    this.updatedAt,
-    this.closedWithBusinessId,
-  });
-
-  final String id;
-  final String title;
-  final String description;
-  final String status;
-  final String pincode;
-  final String? locality;
-  final String? area;
-  final String? areaId;
-  final DateTime createdAt;
-  final DateTime? updatedAt;
-  final int? budgetMin;
-  final int? budgetMax;
-  final String? urgency;
-  final Category? category;
-  final String? customerId;
-  final String? closedWithBusinessId;
-
-  factory Job.fromJson(Map<String, dynamic> json) {
-    final cat = json['categories'];
-    return Job(
-      id: json['id'] as String,
-      title: json['title'] as String? ?? '',
-      description: json['description'] as String? ?? '',
-      status: json['status'] as String? ?? 'open',
-      pincode: json['pincode'] as String? ?? '',
-      locality: json['locality'] as String?,
-      area: json['area'] as String?,
-      areaId: json['area_id'] as String?,
-      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ?? DateTime.now(),
-      updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),
-      budgetMin: json['budget_min'] as int?,
-      budgetMax: json['budget_max'] as int?,
-      urgency: json['urgency'] as String?,
-      customerId: json['customer_id'] as String?,
-      closedWithBusinessId: json['closed_with_business_id'] as String?,
-      category: cat is Map<String, dynamic>
-          ? Category(
-              id: cat['id'] as String,
-              slug: cat['slug'] as String? ?? '',
-              name: cat['name'] as String? ?? '',
-              emoji: cat['emoji'] as String?,
-              groupId: cat['group_id'] as String? ?? '',
-            )
-          : null,
-    );
-  }
-
-  String get budgetLabel {
-    if (budgetMin == null && budgetMax == null) return 'Flexible';
-    if (budgetMin != null && budgetMax != null) {
-      if (budgetMin == budgetMax) return '₹$budgetMin';
-      return '₹$budgetMin–$budgetMax';
-    }
-    if (budgetMin != null) return 'From ₹$budgetMin';
-    return 'Up to ₹$budgetMax';
-  }
-}
-
-class JobInterest {
-  JobInterest({
-    required this.id,
-    required this.status,
-    this.offeredAmount,
-    this.businessId,
-    this.businessName,
-    this.businessRating,
-    this.categoryName,
-    this.categoryId,
-    this.ownerId,
-    this.ownerName,
-    this.ownerPhone,
-  });
-
-  final String id;
-  final String status;
-  final int? offeredAmount;
-  final String? businessId;
-  final String? businessName;
-  final double? businessRating;
-  final String? categoryName;
-  final String? categoryId;
-  final String? ownerId;
-  final String? ownerName;
-  final String? ownerPhone;
 }
 
 class AdBanner {
@@ -324,6 +214,7 @@ class AdBanner {
 const adBannerHeight = 188.0;
 const adBannerRadius = 12.0;
 const adBannerAspectRatio = 2.4;
+const adCarouselInterval = Duration(seconds: 2);
 
 class AppVersionInfo {
   AppVersionInfo({

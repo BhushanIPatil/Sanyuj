@@ -37,15 +37,11 @@ export default function PrivacyPage() {
         <p>
           <strong className="text-ink">Location &amp; address.</strong> Pincode, locality, area,
           address text, and optionally approximate coordinates when you allow location access or
-          enter an address. We use this to match nearby jobs, providers, and relevant ads.
+          enter an address. We use this to match nearby providers and relevant ads.
         </p>
         <p>
           <strong className="text-ink">Business listing.</strong> Business name, category, phone,
-          photo, coverage areas, and live/availability status if you list as a provider.
-        </p>
-        <p>
-          <strong className="text-ink">Jobs &amp; interests.</strong> Job titles, descriptions,
-          budgets/offers, urgency, and interest records between customers and providers.
+          photo,           coverage areas, and live/availability status if you list as a provider.
         </p>
         <p>
           <strong className="text-ink">Devices &amp; notifications.</strong> Push notification tokens
@@ -72,8 +68,8 @@ export default function PrivacyPage() {
       <LegalSection title="2. How we use information">
         <ul className="list-disc space-y-2 pl-5">
           <li>Create and secure your account; restore or delete accounts when requested</li>
-          <li>Show nearby providers, jobs, and service areas</li>
-          <li>Enable interests, live status, and phone-based contact between consenting users</li>
+          <li>Show nearby providers and service areas</li>
+          <li>Enable live status and phone-based contact between consenting users</li>
           <li>Send transactional and product notifications you allow</li>
           <li>
             Display and measure custom sponsored ads, including geographic targeting so ads are
@@ -88,8 +84,8 @@ export default function PrivacyPage() {
         <p>We share information only as needed to run Sanyuj:</p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            <strong className="text-ink">Other users.</strong> Your public listing or job details
-            (such as name, area, category, job description) are visible to other users as part of
+            <strong className="text-ink">Other users.</strong> Your public listing details
+            (such as name, area, and category) are visible to other users as part of
             the marketplace. Phone numbers are shared when a call/contact feature is used.
           </li>
           <li>
@@ -117,7 +113,7 @@ export default function PrivacyPage() {
           set up and run the campaign.
         </p>
         <p>
-          We do not process payments between customers and providers for jobs. Any payment for work
+          We do not process payments between customers and providers. Any payment for work
           is arranged directly by those parties.
         </p>
       </LegalSection>
@@ -134,7 +130,7 @@ export default function PrivacyPage() {
         <p>
           We keep account and marketplace data while your account is active and as needed to provide
           the Service. If you delete your account, we soft-deactivate associated profile, business,
-          job, interest, and device-token data so it is no longer used for normal product features.
+          and device-token data so it is no longer used for normal product features.
           Residual copies may remain for a limited period in backups, logs, or where we must retain
           records for security, dispute, or legal reasons.
         </p>

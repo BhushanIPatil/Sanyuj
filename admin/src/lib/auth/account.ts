@@ -16,10 +16,6 @@ export async function softDeleteUserData(admin: SupabaseClient, userId: string) 
   throwIfError(bizErr);
   const businessIds = (businesses ?? []).map((b) => b.id as string);
 
-  const { data: jobs, error: jobErr } = await admin.from("jobs").select("id").eq("customer_id", userId);
-  throwIfError(jobErr);
-  const jobIds = (jobs ?? []).map((j) => j.id as string);
-
   const { error: pErr } = await admin.from("profiles").update(ACCOUNT_DELETED).eq("id", userId);
   throwIfError(pErr);
 
@@ -33,25 +29,12 @@ export async function softDeleteUserData(admin: SupabaseClient, userId: string) 
   const { error: bErr } = await admin.from("businesses").update(ACCOUNT_DELETED).eq("owner_id", userId);
   throwIfError(bErr);
 
-  const { error: jErr } = await admin.from("jobs").update(ACCOUNT_DELETED).eq("customer_id", userId);
-  throwIfError(jErr);
-
   if (businessIds.length) {
-    const { error: iErr } = await admin
-      .from("job_interests")
-      .update(ACCOUNT_DELETED)
-      .in("business_id", businessIds);
-    throwIfError(iErr);
     const { error: lErr } = await admin
       .from("live_sessions")
       .update(ACCOUNT_DELETED)
       .in("business_id", businessIds);
     throwIfError(lErr);
-  }
-
-  if (jobIds.length) {
-    const { error: iErr } = await admin.from("job_interests").update(ACCOUNT_DELETED).in("job_id", jobIds);
-    throwIfError(iErr);
   }
 }
 
@@ -63,35 +46,18 @@ export async function restoreUserData(admin: SupabaseClient, userId: string) {
   throwIfError(bizErr);
   const businessIds = (businesses ?? []).map((b) => b.id as string);
 
-  const { data: jobs, error: jobErr } = await admin.from("jobs").select("id").eq("customer_id", userId);
-  throwIfError(jobErr);
-  const jobIds = (jobs ?? []).map((j) => j.id as string);
-
   const { error: pErr } = await admin.from("profiles").update(ACCOUNT_ACTIVE).eq("id", userId);
   throwIfError(pErr);
 
   const { error: bErr } = await admin.from("businesses").update(ACCOUNT_ACTIVE).eq("owner_id", userId);
   throwIfError(bErr);
 
-  const { error: jErr } = await admin.from("jobs").update(ACCOUNT_ACTIVE).eq("customer_id", userId);
-  throwIfError(jErr);
-
   if (businessIds.length) {
-    const { error: iErr } = await admin
-      .from("job_interests")
-      .update(ACCOUNT_ACTIVE)
-      .in("business_id", businessIds);
-    throwIfError(iErr);
     const { error: lErr } = await admin
       .from("live_sessions")
       .update({ is_active: false, is_deleted: false })
       .in("business_id", businessIds);
     throwIfError(lErr);
-  }
-
-  if (jobIds.length) {
-    const { error: iErr } = await admin.from("job_interests").update(ACCOUNT_ACTIVE).in("job_id", jobIds);
-    throwIfError(iErr);
   }
 }
 

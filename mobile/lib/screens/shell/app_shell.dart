@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
@@ -12,12 +11,9 @@ class AppShell extends StatelessWidget {
 
   final Widget child;
 
-  // Matches HTML bottom nav order: New Jobs · My Jobs · Home FAB · Explore · Profile
   static const _tabs = [
-    ('/jobs-feed', 'New Jobs', Icons.work_outline_rounded),
-    ('/my-jobs', 'My Jobs', Icons.calendar_today_outlined),
-    ('/home', 'Home', Icons.home_rounded),
     ('/explore', 'Explore', Icons.search_rounded),
+    ('/home', 'Home', Icons.home_rounded),
     ('/profile', 'Profile', Icons.person_outline_rounded),
   ];
 
@@ -25,16 +21,7 @@ class AppShell extends StatelessWidget {
     for (var i = 0; i < _tabs.length; i++) {
       if (loc.startsWith(_tabs[i].$1)) return i;
     }
-    return 2;
-  }
-
-  void _postJob(BuildContext context) {
-    final signedIn = Supabase.instance.client.auth.currentSession != null;
-    if (!signedIn) {
-      context.push('/login?next=/post-job');
-      return;
-    }
-    context.push('/post-job');
+    return 1;
   }
 
   Future<void> _onBack(BuildContext context) async {
@@ -66,13 +53,6 @@ class AppShell extends StatelessWidget {
                   leading: const Padding(
                     padding: EdgeInsets.fromLTRB(12, 16, 12, 24),
                     child: SanyujBrandRow(logoSize: 52),
-                  ),
-                  trailing: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: FilledButton(
-                      onPressed: () => _postJob(context),
-                      child: Text(Supabase.instance.client.auth.currentSession == null ? 'Log in to post' : 'Post a job'),
-                    ),
                   ),
                   destinations: [
                     for (final t in _tabs)
@@ -152,25 +132,23 @@ class _FloatingBottomNav extends StatelessWidget {
             children: [
               for (var i = 0; i < tabs.length; i++)
                 Expanded(
-                  child: i == 2
+                  child: i == 1
                       ? const SizedBox.shrink()
                       : _NavItem(
                           label: tabs[i].$2,
                           icon: tabs[i].$3,
                           selected: index == i,
                           onTap: () => onSelect(i),
-                          margin: i == 1
+                          margin: i == 0
                               ? const EdgeInsets.fromLTRB(4, 8, 0, 8)
-                              : i == 3
-                                  ? const EdgeInsets.fromLTRB(0, 8, 4, 8)
-                                  : const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                              : const EdgeInsets.fromLTRB(0, 8, 4, 8),
                         ),
                 ),
             ],
           ),
           Positioned(
             top: -18,
-            child: _HomeFab(selected: index == 2, onTap: () => onSelect(2)),
+            child: _HomeFab(selected: index == 1, onTap: () => onSelect(1)),
           ),
         ],
       ),

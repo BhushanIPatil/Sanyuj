@@ -17,8 +17,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { HomePageSkeleton } from "@/components/ui/Skeleton";
 import { displayPhone } from "@/lib/auth/phone";
 import { loginUrl } from "@/lib/auth/guest";
-import { Briefcase, Radio, RefreshCw, Store } from "lucide-react";
-import { jobStatusLabel } from "@/lib/jobs/status";
+import { Radio, RefreshCw, Store } from "lucide-react";
 import { fetchCoveringBusinessIds } from "@/lib/geo/coverage";
 
 type Profile = {
@@ -53,15 +52,6 @@ type NearbyBiz = {
   categories: CatRef;
 };
 
-type JobRow = {
-  id: string;
-  title: string;
-  status: string;
-  budget_min: number | null;
-  budget_max: number | null;
-  created_at: string;
-};
-
 function initials(name: string | null) {
   if (!name) return "U";
   return name
@@ -85,10 +75,8 @@ export default function HomePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [live, setLive] = useState<LiveRow[]>([]);
   const [nearby, setNearby] = useState<NearbyBiz[]>([]);
-  const [recent, setRecent] = useState<JobRow[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [hasBusiness, setHasBusiness] = useState(false);
-  const [closedRate, setClosedRate] = useState(0);
   const [refreshingLive, setRefreshingLive] = useState(false);
   const [stoppingLiveId, setStoppingLiveId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -232,20 +220,6 @@ export default function HomePage() {
             setNearby((nearbyBiz as unknown as NearbyBiz[]) ?? []);
           }
         }
-
-        if (user) {
-          const { data: jobs } = await visible(
-            supabase.from("jobs").select("id, title, status, budget_min, budget_max, created_at"),
-          )
-            .eq("customer_id", user.id)
-            .order("created_at", { ascending: false })
-            .limit(5);
-          setRecent((jobs as JobRow[] | null) ?? []);
-
-          const all = (jobs as JobRow[] | null) ?? [];
-          const closed = all.filter((j) => j.status === "closed").length;
-          setClosedRate(all.length ? Math.round((closed / all.length) * 100) : 0);
-        }
       } finally {
         setLoading(false);
       }
@@ -302,9 +276,9 @@ export default function HomePage() {
             <EmptyState
               icon={Radio}
               title="No one is live nearby"
-              message="Providers who check in as working will appear here. Post a job or browse Explore."
-              actionLabel={isGuest ? "Log in to post a job" : "Post a Job"}
-              actionHref={isGuest ? loginUrl("/app/post-job") : "/app/post-job"}
+              message="Providers who check in as working will appear here. Browse Explore to find nearby help."
+              actionLabel="Explore providers"
+              actionHref="/app/explore"
             />
           </div>
         ) : (
@@ -417,27 +391,14 @@ export default function HomePage() {
         ))}
       </div>
 
-      <div className="mt-6 flex flex-col items-start justify-between gap-4 rounded-[24px] bg-indigo-soft p-5 sm:flex-row sm:items-center">
-        <h3 className="max-w-xl font-display text-base font-bold leading-snug text-indigo sm:text-lg">
-          Can&apos;t find your exact need? Post it &amp; let providers come to you.
-        </h3>
-        <Link
-          href={isGuest ? loginUrl("/app/post-job") : "/app/post-job"}
-          className="shrink-0 rounded-full bg-indigo px-5 py-2.5 text-sm font-bold text-white"
-        >
-          {isGuest ? "Log in to post" : "Post a Job"}
-        </Link>
-      </div>
-
-      <div className="mt-8 grid gap-8 lg:grid-cols-2">
-        <section>
-          <h2 className="font-display text-lg font-bold">Nearby providers</h2>
-          <div className="mt-4 space-y-3">
+      <div className="mt-8">
+        <h2 className="font-display text-lg font-bold">Nearby providers</h2>
+        <div className="mt-4 space-y-3">
             {nearby.length === 0 ? (
               <EmptyState
                 icon={Store}
                 title="No providers nearby"
-                message="No providers in this area yet. Try Explore or post a job so businesses can find you."
+                message="No providers in this area yet. Try Explore, or list your business so neighbours can find you."
                 actionLabel="Explore providers"
                 actionHref="/app/explore"
               />
@@ -465,61 +426,10 @@ export default function HomePage() {
                 </div>
               ))
             )}
-          </div>
-        </section>
-
-        <section>
-          <h2 className="font-display text-lg font-bold">Recent activity</h2>
-          <div className="mt-4 space-y-2.5">
-            {recent.length === 0 ? (
-              <EmptyState
-                icon={Briefcase}
-                title={isGuest ? "Track your jobs here" : "No jobs yet"}
-                message={
-                  isGuest
-                    ? "Log in to post jobs and track them here."
-                    : "Your posted jobs will show up here."
-                }
-                actionLabel={isGuest ? "Log in" : "Post a Job"}
-                actionHref={isGuest ? loginUrl("/app/post-job") : "/app/post-job"}
-              />
-            ) : (
-              recent.map((j) => (
-                <Link
-                  key={j.id}
-                  href={`/app/my-jobs/${j.id}`}
-                  className="flex items-center gap-3 rounded-[18px] border border-line bg-white p-4 shadow-card"
-                >
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-[13px] ${
-                      j.status === "closed" ? "bg-green-soft text-green-deep" : "bg-amber-soft text-amber"
-                    }`}
-                  >
-                    {j.status === "closed" ? "✓" : "⏱"}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold">{j.title}</p>
-                    <p
-                      className={`text-xs font-semibold ${
-                        j.status === "closed" ? "text-green-deep" : "text-amber"
-                      }`}
-                    >
-                      {jobStatusLabel(j.status)}
-                    </p>
-                  </div>
-                  <div className="text-right font-mono text-sm font-bold">
-                    {j.budget_min != null
-                      ? `₹${j.budget_min}${j.budget_max ? `-${j.budget_max}` : ""}`
-                      : "—"}
-                  </div>
-                </Link>
-              ))
-            )}
-          </div>
-        </section>
+        </div>
       </div>
 
-      <div className="mt-8 grid gap-4 lg:grid-cols-2">
+      <div className="mt-8">
         {isGuest || !hasBusiness ? (
           <Link
             href={isGuest ? loginUrl("/app/business/setup") : "/app/business/setup"}
@@ -532,35 +442,12 @@ export default function HomePage() {
             <div className="flex-1">
               <h3 className="font-display text-base font-bold">Have a business or offer a service?</h3>
               <p className="mt-1 text-sm leading-snug text-ink-soft">
-                List it free on Sanyuj and start getting job requests nearby.
+                List it free on Sanyuj and get found by neighbours nearby.
               </p>
             </div>
             <span className="text-lg font-bold text-green-deep">→</span>
           </Link>
-        ) : (
-          <div />
-        )}
-
-        <div className="relative overflow-hidden rounded-[24px] grad-hero p-5 text-white shadow-pop">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-white/75">Your jobs</p>
-              <h2 className="mt-1.5 max-w-xs font-display text-lg font-bold leading-snug">
-                {closedRate}% of your recent jobs are closed
-              </h2>
-              <Link
-                href="/app/my-jobs"
-                className="mt-3 inline-block rounded-full bg-white px-4 py-2.5 text-sm font-bold text-blue-deep"
-              >
-                View My Jobs
-              </Link>
-            </div>
-            <div className="flex h-20 w-20 flex-col items-center justify-center rounded-full border-[7px] border-white/30">
-              <span className="font-mono text-base font-bold">{closedRate}%</span>
-              <span className="text-[8px] uppercase opacity-85">Closed</span>
-            </div>
-          </div>
-        </div>
+        ) : null}
       </div>
     </div>
   );

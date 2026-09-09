@@ -60,7 +60,7 @@ export function AdDetailSheet({
 
         <div className="overflow-y-auto px-5 pb-6 pt-2">
           <div
-            className="overflow-hidden rounded-[12px] border border-line bg-surface"
+            className="overflow-hidden rounded-[12px]"
             style={{ aspectRatio: "2.4 / 1" }}
           >
             {ad.image_url ? (

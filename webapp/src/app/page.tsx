@@ -71,7 +71,7 @@ export default function LandingPage() {
               Need someone now?
             </h2>
             <p className="mx-auto mt-2 max-w-md text-sm text-ink-soft sm:text-base">
-              Post once. See who&apos;s interested. Call who&apos;s live nearby.
+              Browse nearby providers. Call who&apos;s live. Hire when you&apos;re ready.
             </p>
             <div className="mt-10">
               <ValueLoop />
@@ -94,7 +94,7 @@ export default function LandingPage() {
                 Have a skill?
               </h2>
               <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-ink-soft sm:text-base lg:mx-0">
-                Free listing. Nearby jobs. Market yourself to your neighbourhood.
+                Free listing. Go live. Market yourself to your neighbourhood.
               </p>
               <Link
                 href="/auth/login"

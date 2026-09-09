@@ -71,8 +71,6 @@ Optional Edge Functions in `supabase/functions/` are legacy phone-OTP helpers an
 - `category_groups` — super categories (Food, Services, Daily) — manage in dashboard
 - `categories` — subcategories under a group — manage in dashboard
 - `businesses` — optional provider listing (`category_id`)
-- `jobs` — customer requests (`category_id`)
-- `job_interests` — provider responses
 - `live_sessions` — “Go Live” check-ins
 - `otp_codes` — short-lived OTP (service role only)
 - `api_rate_limits` — fixed-window counters for register / OTP email / restore / delete-account (service role + RPC only)

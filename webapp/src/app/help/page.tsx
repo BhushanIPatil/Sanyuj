@@ -5,7 +5,7 @@ import { LegalSection, LegalShell } from "@/components/LegalShell";
 export const metadata: Metadata = {
   title: "Help & Support",
   description:
-    "Get help with Sanyuj — posting jobs, free business listings, sponsored ads, and account support.",
+    "Get help with Sanyuj — finding nearby providers, free business listings, sponsored ads, and account support.",
 };
 
 const UPDATED = "7 September 2026";
@@ -44,25 +44,23 @@ export default function HelpPage() {
           <div>
             <h3 className="font-semibold text-ink">Is Sanyuj free?</h3>
             <p className="mt-1">
-              Yes. Creating an account, posting jobs, listing your business, browsing providers,
-              expressing interest, and going live are free. We do not take a commission on jobs. Any
-              payment for work is arranged directly between you and the other person.
+              Yes. Creating an account, listing your business, browsing providers, and going live
+              are free. Any payment for work is arranged directly between you and the other person.
             </p>
           </div>
           <div>
-            <h3 className="font-semibold text-ink">How do I post a job?</h3>
+            <h3 className="font-semibold text-ink">How do I find help nearby?</h3>
             <p className="mt-1">
-              Sign in, open Post job (or My Jobs), describe what you need, set your area, and publish.
-              Nearby providers can see the job and express interest. You may be limited to one new
-              job post per day to keep the feed fair.
+              Open Home or Explore, pick a category, and call providers who are listed or live in
+              your area. Sign in to save your location so results stay relevant.
             </p>
           </div>
           <div>
             <h3 className="font-semibold text-ink">How do I list my business?</h3>
             <p className="mt-1">
               From Profile or Home, set up your business with category, phone, and service coverage
-              (pincode / locality / area). Listing is free. Open the Job Feed and Go Live when you
-              want neighbours to find you quickly.
+              (pincode / locality / area). Listing is free. Go Live when you want neighbours to find
+              you quickly.
             </p>
           </div>
           <div>
@@ -84,14 +82,14 @@ export default function HelpPage() {
             <h3 className="font-semibold text-ink">How do I delete my account?</h3>
             <p className="mt-1">
               Open Profile → Account settings → Delete account. This deactivates your profile and
-              associated jobs/business data. You can also email support if you need help.
+              associated business data. You can also email support if you need help.
             </p>
           </div>
           <div>
             <h3 className="font-semibold text-ink">Guest browsing</h3>
             <p className="mt-1">
-              You can browse nearby providers as a guest. Sign in when you want to post a job or manage
-              a business listing.
+              You can browse nearby providers as a guest. Sign in when you want to save your
+              location or manage a business listing.
             </p>
           </div>
           <div>

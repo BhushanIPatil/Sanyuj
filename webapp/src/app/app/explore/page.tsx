@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -158,22 +157,11 @@ function ExploreInner() {
 
   return (
     <div className="page-pad">
-      <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-        <div className="min-w-0">
-          <h1 className="font-display text-[19px] font-bold">Explore providers</h1>
-          <p className="mt-1 text-sm text-ink-soft">
-            Browse trusted local businesses{pincode ? ` near ${pincode}` : " nearby"}.
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end sm:text-right">
-          <p className="font-display text-sm font-bold text-indigo">Not seeing the right fit?</p>
-          <Link
-            href={signedIn ? "/app/post-job" : loginUrl("/app/post-job")}
-            className="rounded-full bg-indigo px-4 py-2 text-sm font-bold text-white"
-          >
-            {signedIn ? "Post a Job" : "Log in to post a job"}
-          </Link>
-        </div>
+      <header className="mb-6">
+        <h1 className="font-display text-[19px] font-bold">Explore providers</h1>
+        <p className="mt-1 text-sm text-ink-soft">
+          Browse trusted local businesses{pincode ? ` near ${pincode}` : " nearby"}.
+        </p>
       </header>
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row">
@@ -307,9 +295,9 @@ function ExploreInner() {
             <EmptyState
               icon={Store}
               title="No providers nearby"
-              message="No providers in this area yet. Try another category or post a job so businesses can find you."
-              actionLabel={signedIn ? "Post a Job" : "Log in to post a job"}
-              actionHref={signedIn ? "/app/post-job" : loginUrl("/app/post-job")}
+              message="No providers in this area yet. Try another category, or list your business so neighbours can find you."
+              actionLabel={signedIn ? "List your business" : "Log in to list a business"}
+              actionHref={signedIn ? "/app/business/setup" : loginUrl("/app/business/setup")}
             />
           ) : null}
         </>

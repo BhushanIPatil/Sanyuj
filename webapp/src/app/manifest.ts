@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Sanyuj — Local help nearby",
     short_name: "Sanyuj",
     description:
-      "Find trusted local help near you, or list your business and get job requests from neighbours.",
+      "Find trusted local help near you, or list your business free and get found by neighbours.",
     start_url: "/app",
     scope: "/",
     display: "standalone",

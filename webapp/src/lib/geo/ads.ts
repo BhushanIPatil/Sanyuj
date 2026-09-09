@@ -33,7 +33,7 @@ export async function recordAdClick(adId: string) {
 export const AD_BANNER_HEIGHT = 220;
 export const AD_BANNER_RADIUS = 12;
 export const AD_BANNER_ASPECT = "2.4 / 1";
-export const AD_CAROUSEL_MS = 1500;
+export const AD_CAROUSEL_MS = 2000;
 
 export type AdDetail = {
   id: string;

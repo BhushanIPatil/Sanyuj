@@ -225,13 +225,15 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
                                   borderRadius: BorderRadius.circular(100),
                                   child: InkWell(
                                     onTap: () => context.push(
-                                      ref.read(repoProvider).userId == null ? '/login?next=/post-job' : '/post-job',
+                                      ref.read(repoProvider).userId == null
+                                          ? '/login?next=/business/setup'
+                                          : '/business/setup',
                                     ),
                                     borderRadius: BorderRadius.circular(100),
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                                       child: Text(
-                                        ref.read(repoProvider).userId == null ? 'Log in to post' : 'Post a Job',
+                                        ref.read(repoProvider).userId == null ? 'Log in to list' : 'List your business',
                                         style: GoogleFonts.nunito(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
                                       ),
                                     ),

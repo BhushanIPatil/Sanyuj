@@ -24,7 +24,7 @@ function normalizeImageUrl(raw: string | null | undefined): string | undefined {
 
 /**
  * Low-level: send a push to an explicit list of FCM tokens.
- * Safe to call from admin broadcast or future job/interest/deal hooks.
+ * Safe to call from admin broadcast or other product hooks.
  *
  * Always include a `notification` payload so Android/iOS show a tray item even
  * when the app is backgrounded or killed. Data-only messages are accepted by

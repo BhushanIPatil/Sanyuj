@@ -133,7 +133,7 @@ class _LiveNearbyScreenState extends ConsumerState<LiveNearbyScreen> {
                             const EmptyState(
                               icon: Icons.sensors_rounded,
                               title: 'No one live nearby',
-                              message: 'When providers check in nearby, they show up here. Post a job or try Explore.',
+                              message: 'When providers check in nearby, they show up here. Try Explore to find listed businesses.',
                               iconColor: AppColors.greenDeep,
                               iconBackground: AppColors.greenSoft,
                             )

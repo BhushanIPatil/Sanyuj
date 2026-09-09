@@ -27,21 +27,8 @@ export async function fetchCoveringBusinessIds(
     p_area_id: opts.areaId ?? null,
   });
   if (error) throw error;
-  return ((data as Array<{ business_id?: string; job_id?: string }> | string[] | null) ?? [])
+  return ((data as Array<{ business_id?: string }> | string[] | null) ?? [])
     .map((row) => (typeof row === "string" ? row : row.business_id))
-    .filter((id): id is string => Boolean(id));
-}
-
-export async function fetchJobsCoveredByBusiness(
-  supabase: SupabaseClient,
-  businessId: string,
-): Promise<string[]> {
-  const { data, error } = await supabase.rpc("jobs_covered_by_business", {
-    p_business_id: businessId,
-  });
-  if (error) throw error;
-  return ((data as Array<{ job_id?: string; id?: string }> | string[] | null) ?? [])
-    .map((row) => (typeof row === "string" ? row : row.job_id ?? row.id))
     .filter((id): id is string => Boolean(id));
 }
 
