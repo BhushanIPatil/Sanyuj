@@ -39,6 +39,7 @@ type ProfileRow = {
   pincode: string | null;
   locality: string | null;
   area: string | null;
+  area_id: string | null;
   address: string | null;
   onboarding_complete: boolean;
   is_active: boolean;
@@ -70,6 +71,7 @@ function formFromUser(row: UserRow): UserFormValues {
     pincode: row.pincode ?? "",
     locality: row.locality ?? "",
     area: row.area ?? "",
+    area_id: row.area_id ?? "",
     address: row.address ?? "",
     onboarding_complete: row.onboarding_complete,
     status: statusOf(row),
@@ -106,13 +108,13 @@ export default function UsersPage() {
       supabase
         .from("profiles")
         .select(
-          "id, email, phone, full_name, pincode, locality, area, address, onboarding_complete, is_active, is_deleted, created_at, updated_at",
+          "id, email, phone, full_name, pincode, locality, area, area_id, address, onboarding_complete, is_active, is_deleted, created_at, updated_at",
         )
         .order("created_at", { ascending: false })
         .limit(500),
       supabase
         .from("businesses")
-        .select("id, owner_id, name, is_active, is_deleted, categories(name)")
+        .select("id, owner_id, name, is_active, is_deleted, categories(name, is_other)")
         .limit(500),
     ]);
 

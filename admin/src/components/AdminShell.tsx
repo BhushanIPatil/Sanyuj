@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   FolderTree,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Megaphone,
@@ -20,6 +21,8 @@ import {
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { SanyujBrand } from "@/components/SanyujLogo";
+import { ChangePasswordModal } from "@/components/ChangePasswordModal";
+import { useToast } from "@/components/Toast";
 
 export const ADMIN_NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, match: "/dashboard", exact: true },
@@ -27,7 +30,7 @@ export const ADMIN_NAV = [
   { href: "/providers", label: "Providers", icon: Store, match: "/providers" },
   { href: "/live", label: "Live", icon: Radio, match: "/live" },
   { href: "/ads", label: "Ads", icon: Megaphone, match: "/ads" },
-  { href: "/notices", label: "Notices", icon: Newspaper, match: "/notices", exact: true },
+  { href: "/notices", label: "Notify", icon: Newspaper, match: "/notices", exact: true },
   { href: "/notifications", label: "Push", icon: Bell, match: "/notifications" },
   { href: "/categories", label: "Categories", icon: FolderTree, match: "/categories" },
   { href: "/areas", label: "Areas", icon: MapPinned, match: "/areas" },
@@ -93,8 +96,10 @@ function NavLinks({
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { showToast } = useToast();
   const [menuOpen, setMenuOpen] = useState(false);
   const [adminName, setAdminName] = useState("Admin");
+  const [passwordOpen, setPasswordOpen] = useState(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -105,7 +110,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         .select("full_name, email")
         .eq("id", user.id)
         .maybeSingle();
-      setAdminName(data?.full_name || data?.email || "Admin");
+      setAdminName(data?.full_name || data?.email || user.email || "Admin");
     });
   }, []);
 
@@ -137,6 +142,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </p>
             <button
               type="button"
+              onClick={() => setPasswordOpen(true)}
+              className="hidden cursor-pointer items-center gap-1.5 rounded-[12px] border border-line bg-white px-3 py-2 text-xs font-bold text-ink shadow-card lg:inline-flex"
+            >
+              <KeyRound size={14} />
+              Password
+            </button>
+            <button
+              type="button"
               onClick={() => void signOut()}
               className="hidden cursor-pointer items-center gap-1.5 rounded-[12px] border border-line bg-white px-3 py-2 text-xs font-bold text-ink shadow-card lg:inline-flex"
             >
@@ -160,6 +173,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <p className="truncate px-3.5 pt-2 text-xs font-semibold text-ink-soft">{adminName}</p>
             <button
               type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                setPasswordOpen(true);
+              }}
+              className="mt-1 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[14px] border border-line px-4 py-3 text-sm font-bold text-ink"
+            >
+              <KeyRound size={16} />
+              Change password
+            </button>
+            <button
+              type="button"
               onClick={() => void signOut()}
               className="mt-1 flex w-full cursor-pointer items-center justify-center gap-2 rounded-[14px] border border-line px-4 py-3 text-sm font-bold text-ink"
             >
@@ -173,6 +197,16 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       <main className="mx-auto min-h-[calc(100vh-3.5rem)] w-full bg-bg-app lg:min-h-[calc(100vh-4rem)]">
         {children}
       </main>
+
+      {passwordOpen ? (
+        <ChangePasswordModal
+          onClose={() => setPasswordOpen(false)}
+          onSaved={() => {
+            setPasswordOpen(false);
+            showToast("Password updated");
+          }}
+        />
+      ) : null}
     </div>
   );
 }

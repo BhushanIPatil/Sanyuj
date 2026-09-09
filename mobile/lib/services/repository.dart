@@ -31,12 +31,14 @@ class SanyujRepository {
     final data = await _db
         .from('categories')
         .select(
-          'id, slug, name, emoji, group_id, sort_order, category_groups!inner(id, slug, name, sort_order, is_active, is_deleted)',
+          'id, slug, name, emoji, group_id, sort_order, is_other, category_groups!inner(id, slug, name, sort_order, is_active, is_deleted)',
         )
         .eq('is_active', true)
         .eq('is_deleted', false)
+        .eq('is_other', false)
         .eq('category_groups.is_active', true)
         .eq('category_groups.is_deleted', false)
+        .neq('category_groups.slug', 'other')
         .order('sort_order');
 
     final byGroup = <String, CategoryGroup>{};
@@ -74,7 +76,7 @@ class SanyujRepository {
     if (uid == null) return null;
     final row = await visible(
       _db.from('businesses').select(
-            'id, name, owner_id, photo_url, response_rate, categories(id, name, slug, emoji, group_id)',
+            'id, name, owner_id, photo_url, response_rate, categories(id, name, slug, emoji, group_id, is_other)',
           ),
     ).eq('owner_id', uid).maybeSingle();
     if (row == null) return null;
@@ -91,7 +93,7 @@ class SanyujRepository {
   }) async {
     var q = visible(
       _db.from('businesses').select(
-            'id, name, response_rate, owner_id, photo_url, created_at, categories(id, name, slug, emoji, group_id)',
+            'id, name, response_rate, owner_id, photo_url, created_at, categories(id, name, slug, emoji, group_id, is_other)',
           ),
     );
     if (categoryId != null) q = q.eq('category_id', categoryId);
@@ -154,7 +156,7 @@ class SanyujRepository {
   Future<List<Map<String, dynamic>>> fetchLiveSessions([String? pincode]) async {
     var q = visible(
       _db.from('live_sessions').select(
-            'id, started_at, ends_at, businesses(id, name, owner_id, categories(id, name, slug, emoji))',
+            'id, started_at, ends_at, businesses(id, name, owner_id, photo_url, categories(id, name, slug, emoji, group_id, is_other))',
           ),
     ).gt('ends_at', DateTime.now().toUtc().toIso8601String());
     if (pincode != null && pincode.isNotEmpty) {
@@ -174,7 +176,7 @@ class SanyujRepository {
     final owners = <String, Map<String, dynamic>>{};
     if (ownerIds.isNotEmpty) {
       final ownerRows = await visible(
-        _db.from('profiles').select('id, full_name, phone'),
+        _db.from('profiles').select('id, full_name, phone, address'),
       ).inFilter('id', ownerIds.toList());
       for (final raw in ownerRows as List) {
         final o = Map<String, dynamic>.from(raw as Map);
@@ -189,6 +191,9 @@ class SanyujRepository {
       final owner = owners[bizMap['owner_id'] as String?];
       bizMap['ownerName'] = owner?['full_name'];
       bizMap['ownerPhone'] = owner?['phone'];
+      bizMap['providerName'] = owner?['full_name'];
+      bizMap['phone'] = owner?['phone'];
+      bizMap['address'] = owner?['address'];
       return {...row, 'businesses': bizMap};
     }).toList();
   }
@@ -219,7 +224,7 @@ class SanyujRepository {
     if (ids.isEmpty) return [];
     var query = visible(
       _db.from('ads').select(
-        'id, brand_name, title, body, cta_label, cta_url, image_url, background, offer_starts_at, offer_ends_at, created_at',
+        'id, brand_name, title, body, cta_label, cta_url, image_url, background, offer_starts_at, offer_ends_at, created_at, category:content_categories(id, slug, name, emoji)',
       ),
     ).inFilter('id', ids);
     if (homeScreenOnly) {
@@ -255,10 +260,21 @@ class SanyujRepository {
         .toList();
     if (ids.isEmpty) return [];
     final data = await visible(
-      _db.from('notices').select('id, title, body, image_url, starts_at, ends_at, created_at'),
+      _db.from('notices').select(
+        'id, title, body, image_url, cta_label, cta_url, event_starts_at, event_ends_at, created_at, category:content_categories(id, slug, name, emoji)',
+      ),
     ).inFilter('id', ids).order('sort_order');
     return (data as List)
         .map((e) => AreaNotice.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
+  Future<List<ContentCategory>> fetchContentCategories(String kind) async {
+    final data = await visible(
+      _db.from('content_categories').select('id, kind, slug, name, emoji, sort_order'),
+    ).eq('kind', kind).order('sort_order');
+    return (data as List)
+        .map((e) => ContentCategory.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
   }
 
@@ -269,6 +285,19 @@ class SanyujRepository {
     } catch (_) {
       // Non-blocking analytics
     }
+  }
+
+  Future<String> resolveCategoryId({
+    required String selectedId,
+    required String customName,
+  }) async {
+    if (selectedId != kOtherCategoryId) return selectedId;
+    final name = customName.trim();
+    if (name.length < 2) throw Exception('Enter your category name');
+    final data = await _db.rpc('create_other_category', params: {'p_name': name});
+    final id = data is String ? data : null;
+    if (id == null || id.isEmpty) throw Exception('Could not save category');
+    return id;
   }
 
   Future<void> createBusiness({

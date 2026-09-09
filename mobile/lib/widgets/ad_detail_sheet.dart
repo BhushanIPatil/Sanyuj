@@ -44,7 +44,7 @@ class _AdDetailSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = ad.imageUrl?.trim();
-    final hasOfferDates = ad.offerStartsAt != null || ad.offerEndsAt != null;
+    final when = formatWhenRange(ad.offerStartsAt, ad.offerEndsAt);
 
     return Container(
       decoration: const BoxDecoration(
@@ -86,20 +86,27 @@ class _AdDetailSheet extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 18),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: AppColors.blueSoft,
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: Text(
-                    ad.brandName.isEmpty ? 'Sponsored' : ad.brandName,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.blueDeep,
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: AppColors.blueSoft,
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: Text(
+                        ad.brandName.isEmpty ? 'Sponsored' : ad.brandName,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.blueDeep,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (ad.category != null) CategoryTintChip(category: ad.category!),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 Text(
@@ -122,7 +129,7 @@ class _AdDetailSheet extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (hasOfferDates) ...[
+                if (when.isNotEmpty) ...[
                   const SizedBox(height: 18),
                   Container(
                     width: double.infinity,
@@ -135,11 +142,12 @@ class _AdDetailSheet extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Offer period', style: eyebrowStyle(color: AppColors.inkSoft)),
+                        Text('When', style: eyebrowStyle(color: AppColors.inkSoft)),
                         const SizedBox(height: 10),
-                        _DateRow(label: 'Starts', value: formatAdDate(ad.offerStartsAt)),
-                        const SizedBox(height: 8),
-                        _DateRow(label: 'Ends', value: formatAdDate(ad.offerEndsAt)),
+                        Text(
+                          when,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.ink),
+                        ),
                       ],
                     ),
                   ),
@@ -176,28 +184,6 @@ class _AdDetailSheet extends StatelessWidget {
   }
 }
 
-class _DateRow extends StatelessWidget {
-  const _DateRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 52,
-          child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.inkSoft)),
-        ),
-        Expanded(
-          child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.ink)),
-        ),
-      ],
-    );
-  }
-}
-
 class _BannerFallback extends StatelessWidget {
   const _BannerFallback({required this.ad});
 
@@ -223,8 +209,8 @@ class _BannerFallback extends StatelessWidget {
   }
 }
 
-Future<void> openAdCta(BuildContext context, AdBanner ad, {required void Function(String) goTo}) async {
-  final url = ad.ctaUrl?.trim();
+Future<void> openCtaUrl(BuildContext context, String? rawUrl, {required void Function(String) goTo}) async {
+  final url = rawUrl?.trim();
   if (url == null || url.isEmpty) return;
   try {
     if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -238,9 +224,17 @@ Future<void> openAdCta(BuildContext context, AdBanner ad, {required void Functio
     }
     if (url.contains('offerly')) {
       goTo('/offerly');
+      return;
+    }
+    if (url.contains('notifications')) {
+      goTo('/notifications');
     }
   } catch (e) {
     if (!context.mounted) return;
     showAppErrorSnack(context, e);
   }
+}
+
+Future<void> openAdCta(BuildContext context, AdBanner ad, {required void Function(String) goTo}) {
+  return openCtaUrl(context, ad.ctaUrl, goTo: goTo);
 }

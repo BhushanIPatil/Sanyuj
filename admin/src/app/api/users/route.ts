@@ -66,6 +66,7 @@ export async function POST(req: Request) {
         pincode: emptyToNull(body.pincode),
         locality: emptyToNull(body.locality),
         area: emptyToNull(body.area),
+        area_id: emptyToNull(body.area_id),
         address: emptyToNull(body.address),
         onboarding_complete: Boolean(body.onboarding_complete),
         is_active: body.is_active === false ? false : true,

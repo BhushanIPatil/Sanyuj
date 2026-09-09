@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { nestedContentCategory, type ContentCategoryRef } from "@/lib/contentCategories";
 
 export async function fetchCoveringAdIds(
   supabase: SupabaseClient,
@@ -28,10 +29,11 @@ export type AdDetail = {
   offer_starts_at: string | null;
   offer_ends_at: string | null;
   created_at: string | null;
+  category: ContentCategoryRef | null;
 };
 
 const AD_SELECT =
-  "id, brand_name, title, body, cta_label, cta_url, image_url, background, offer_starts_at, offer_ends_at, created_at";
+  "id, brand_name, title, body, cta_label, cta_url, image_url, background, offer_starts_at, offer_ends_at, created_at, category:content_categories(id, slug, name, emoji)";
 
 export async function fetchVisibleAds(
   supabase: SupabaseClient,
@@ -54,7 +56,10 @@ export async function fetchVisibleAds(
   if (opts.homeScreenOnly) query = query.eq("is_home_screen", true);
   const ordered = query.order("sort_order", { ascending: true });
   const { data } = await (opts.limit != null ? ordered.limit(opts.limit) : ordered);
-  return (data as AdDetail[] | null) ?? [];
+  return ((data as Array<Omit<AdDetail, "category"> & { category?: unknown }> | null) ?? []).map((row) => ({
+    ...row,
+    category: nestedContentCategory(row.category),
+  }));
 }
 
 export async function recordAdClick(adId: string) {

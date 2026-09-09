@@ -1,8 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect } from "react";
 import { X } from "lucide-react";
-import { formatNoticeDate, type NoticeDetail } from "@/lib/geo/notices";
+import { formatWhenRange } from "@/lib/formatWhen";
+import { type NoticeDetail } from "@/lib/geo/notices";
+import { CategoryTintBadge } from "@/components/CategoryFilterRow";
+
+function isExternalUrl(url: string) {
+  return /^https?:\/\//i.test(url);
+}
 
 export function NoticeDetailSheet({
   notice,
@@ -24,7 +31,9 @@ export function NoticeDetailSheet({
 
   if (!open || !notice) return null;
 
-  const hasWindow = notice.starts_at || notice.ends_at;
+  const when = formatWhenRange(notice.event_starts_at, notice.event_ends_at);
+  const ctaUrl = notice.cta_url?.trim() ?? "";
+  const cta = notice.cta_label?.trim() || (ctaUrl ? "Open link" : "");
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/40 p-0 sm:p-4" onClick={onClose}>
@@ -56,28 +65,44 @@ export function NoticeDetailSheet({
             </div>
           ) : null}
 
+          {notice.category ? (
+            <div className={notice.image_url ? "mt-4" : "mt-2"}>
+              <CategoryTintBadge category={notice.category} />
+            </div>
+          ) : null}
+
           <h2
             id="notice-detail-title"
-            className={`font-display text-2xl font-extrabold leading-snug text-ink ${notice.image_url ? "mt-4" : "mt-2"}`}
+            className={`font-display text-2xl font-extrabold leading-snug text-ink ${notice.image_url || notice.category ? "mt-3" : "mt-2"}`}
           >
             {notice.title}
           </h2>
 
           {notice.body ? <p className="mt-2.5 text-sm leading-relaxed text-ink-soft">{notice.body}</p> : null}
 
-          {hasWindow ? (
+          {when ? (
             <div className="mt-5 rounded-[18px] border border-line bg-surface p-4">
               <p className="text-[10px] font-bold uppercase tracking-wide text-ink-soft">When</p>
-              <dl className="mt-3 space-y-2 text-sm">
-                <div className="flex gap-3">
-                  <dt className="w-12 shrink-0 font-bold text-ink-soft">Starts</dt>
-                  <dd className="font-bold text-ink">{formatNoticeDate(notice.starts_at)}</dd>
-                </div>
-                <div className="flex gap-3">
-                  <dt className="w-12 shrink-0 font-bold text-ink-soft">Ends</dt>
-                  <dd className="font-bold text-ink">{formatNoticeDate(notice.ends_at)}</dd>
-                </div>
-              </dl>
+              <p className="mt-3 text-sm font-bold text-ink">{when}</p>
+            </div>
+          ) : null}
+
+          {cta && ctaUrl ? (
+            <div className="mt-6">
+              {isExternalUrl(ctaUrl) ? (
+                <a
+                  href={ctaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-primary block w-full text-center"
+                >
+                  {cta}
+                </a>
+              ) : (
+                <Link href={ctaUrl} className="btn-primary block w-full text-center">
+                  {cta}
+                </Link>
+              )}
             </div>
           ) : null}
         </div>

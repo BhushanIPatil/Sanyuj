@@ -87,15 +87,7 @@ class _LocalityPickerState extends State<LocalityPicker> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.pincode.length != 6) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 6),
-        child: Text(
-          'Enter your 6-digit pincode to see localities.',
-          style: TextStyle(fontSize: 12, color: AppColors.inkSoft),
-        ),
-      );
-    }
+    if (widget.pincode.length != 6) return const SizedBox.shrink();
 
     if (_loading) {
       return const Padding(

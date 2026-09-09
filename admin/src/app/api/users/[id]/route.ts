@@ -63,9 +63,19 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       pincode: emptyToNull(body.pincode),
       locality: emptyToNull(body.locality),
       area: emptyToNull(body.area),
+      area_id: emptyToNull(body.area_id),
       address: emptyToNull(body.address),
       onboarding_complete: Boolean(body.onboarding_complete),
     };
+
+    const password = String(body.password ?? "");
+    if (password) {
+      if (password.length < 6) {
+        return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
+      }
+      const { error: passwordErr } = await admin.auth.admin.updateUserById(id, { password });
+      if (passwordErr) return NextResponse.json({ error: passwordErr.message }, { status: 500 });
+    }
 
     const { error: profileErr } = await admin.from("profiles").update(patch).eq("id", id);
     if (profileErr) return NextResponse.json({ error: profileErr.message }, { status: 500 });

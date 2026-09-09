@@ -14,13 +14,13 @@ import '../../widgets/filters.dart';
 const _sortOptions = [
   SortOption(value: 'featured', label: 'Featured', icon: Icons.workspace_premium_rounded),
   SortOption(value: 'newest', label: 'Newest first', short: 'Newest', icon: Icons.fiber_new_rounded),
+  SortOption(value: 'oldest', label: 'Oldest first', short: 'Oldest', icon: Icons.history_rounded),
   SortOption(
     value: 'ending',
     label: 'Ending soonest',
     short: 'Ending soon',
     icon: Icons.hourglass_bottom_rounded,
   ),
-  SortOption(value: 'oldest', label: 'Oldest first', short: 'Oldest', icon: Icons.history_rounded),
   SortOption(value: 'brand', label: 'Brand: A to Z', short: 'Brand A–Z', icon: Icons.sort_by_alpha_rounded),
 ];
 
@@ -55,6 +55,7 @@ class OfferlyScreen extends ConsumerStatefulWidget {
 class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
   final _query = TextEditingController();
   List<AdBanner> _ads = [];
+  List<ContentCategory> _categories = [];
   FilterState _filters = const FilterState();
   GeoFilter _defaultGeo = GeoFilter.empty;
   GeoFilter _appliedGeo = GeoFilter.empty;
@@ -77,6 +78,10 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
     setState(() => _loading = true);
     try {
       final profile = await ref.read(repoProvider).fetchProfile();
+      List<ContentCategory> cats = [];
+      try {
+        cats = await ref.read(repoProvider).fetchContentCategories('offer');
+      } catch (_) {}
       final geo = GeoFilter(
         pincode: profile?.pincode ?? '',
         locality: profile?.locality ?? '',
@@ -88,6 +93,7 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
       setState(() {
         _defaultGeo = geo;
         _filters = _filters.withGeo(geo);
+        _categories = cats;
       });
       await _load(geo);
     } catch (e) {
@@ -141,13 +147,27 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
     );
   }
 
-  List<FilterGroup> get _filterGroups => [_brandGroup, _statusGroup, _extraGroup];
+  List<FilterGroup> get _filterGroups => [
+        if (_categories.isNotEmpty)
+          FilterGroup(
+            id: 'category',
+            label: 'Category',
+            searchable: _categories.length > 8,
+            options: [
+              for (final c in _categories) FilterOption(value: c.id, label: c.name, icon: c.emoji),
+            ],
+          ),
+        _brandGroup,
+        _statusGroup,
+        _extraGroup,
+      ];
 
   List<AdBanner> _results(FilterState state) {
     final needle = _query.text.trim().toLowerCase();
     final brands = state.valuesOf('brand');
     final statuses = state.valuesOf('status');
     final extras = state.valuesOf('extras');
+    final categoryIds = state.valuesOf('category');
     final now = DateTime.now();
 
     bool matchesStatus(AdBanner ad) {
@@ -170,6 +190,7 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
     }
 
     final matched = _ads.where((ad) {
+      if (categoryIds.isNotEmpty && !categoryIds.contains(ad.category?.id)) return false;
       if (brands.isNotEmpty && !brands.contains(ad.brandName.trim())) return false;
       if (statuses.isNotEmpty && !matchesStatus(ad)) return false;
       if (extras.contains('new')) {
@@ -179,7 +200,7 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
       if (extras.contains('cta') && (ad.ctaUrl ?? '').trim().isEmpty) return false;
       if (extras.contains('photo') && (ad.imageUrl ?? '').trim().isEmpty) return false;
       if (needle.isEmpty) return true;
-      return '${ad.brandName} ${ad.title} ${ad.body ?? ''}'.toLowerCase().contains(needle);
+      return '${ad.brandName} ${ad.title} ${ad.body ?? ''} ${ad.category?.name ?? ''}'.toLowerCase().contains(needle);
     }).toList();
 
     switch (_sort) {
@@ -228,6 +249,21 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
     final geoChanged = _filters.geo != _defaultGeo;
     setState(() => _filters = FilterState(geo: _defaultGeo));
     if (geoChanged) _load(_defaultGeo);
+  }
+
+  void _clearCategories() {
+    setState(() => _filters = _filters.clearGroup('category'));
+  }
+
+  void _pickListingCategory(String id) {
+    setState(() {
+      final selected = _filters.valuesOf('category');
+      if (selected.length == 1 && selected.first == id) {
+        _filters = _filters.clearGroup('category');
+      } else {
+        _filters = _filters.selectOnly('category', id);
+      }
+    });
   }
 
   Future<void> _showAd(AdBanner ad) async {
@@ -288,6 +324,12 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
           resultCount: results.length,
           resultNoun: results.length == 1 ? 'offer' : 'offers',
         ),
+        CategoryFilterRow(
+          categories: [for (final c in _categories) c.asChip],
+          selectedIds: _filters.valuesOf('category'),
+          onToggle: _pickListingCategory,
+          onClear: _clearCategories,
+        ),
         Expanded(
           child: _loading
               ? const Center(child: CircularProgressIndicator(color: AppColors.blueDeep))
@@ -303,7 +345,7 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
                           icon: Icons.local_offer_outlined,
                           title: filtered ? 'No offers match these filters' : 'No offers nearby',
                           message: filtered
-                              ? 'Try clearing the offer status or brand filters, or widening the location.'
+                              ? 'Try clearing the offer status, category, or brand filters, or widening the location.'
                               : 'Featured offers for your area will show up here. Check back soon.',
                           padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 8),
                           action: filtered
@@ -339,25 +381,25 @@ class _OfferlyCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = ad.imageUrl?.trim();
-    final hasOffer = ad.offerStartsAt != null || ad.offerEndsAt != null;
+    final when = formatWhenRange(ad.offerStartsAt, ad.offerEndsAt);
 
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.line),
-            boxShadow: AppColors.cardShadow,
-          ),
+        border: Border.all(color: AppColors.line),
+        boxShadow: AppColors.cardShadow,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.white,
+        child: InkWell(
+          onTap: onTap,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+              ColoredBox(
+                color: AppColors.surface,
                 child: AspectRatio(
                   aspectRatio: adBannerAspectRatio,
                   child: imageUrl != null && imageUrl.isNotEmpty
@@ -376,30 +418,37 @@ class _OfferlyCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.blueSoft,
-                        borderRadius: BorderRadius.circular(100),
-                      ),
-                      child: Text(
-                        ad.brandName.isEmpty ? 'Sponsored' : ad.brandName,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.blueDeep,
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.blueSoft,
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                          child: Text(
+                            ad.brandName.isEmpty ? 'Sponsored' : ad.brandName,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.blueDeep,
+                            ),
+                          ),
                         ),
-                      ),
+                        if (ad.category != null) CategoryTintChip(category: ad.category!),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     Text(
                       ad.title,
                       style: GoogleFonts.nunito(fontSize: 16, fontWeight: FontWeight.w800, height: 1.25),
                     ),
-                    if (hasOffer) ...[
+                    if (when.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(
-                        'Offer ${formatAdDate(ad.offerStartsAt)} → ${formatAdDate(ad.offerEndsAt)}',
+                        when,
                         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.inkFaint),
                       ),
                     ],

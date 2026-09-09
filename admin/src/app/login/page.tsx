@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { SanyujBrand } from "@/components/SanyujLogo";
+import { PasswordInput } from "@/components/PasswordInput";
 
 function LoginForm() {
   const router = useRouter();
@@ -78,13 +79,12 @@ function LoginForm() {
           </label>
           <label className="block">
             <span className="mb-1.5 block text-xs font-bold text-ink-soft">Password</span>
-            <input
-              type="password"
+            <PasswordInput
+              value={password}
+              onChange={setPassword}
               required
               autoComplete="current-password"
-              className="input-box"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              className="input-box pr-12"
             />
           </label>
           {error ? (

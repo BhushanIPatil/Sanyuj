@@ -4,7 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { fetchCategoryTree, type CategoryTreeGroup } from "@/lib/categories";
+import {
+  OTHER_CATEGORY_VALUE,
+  fetchCategoryTree,
+  resolveCategoryId,
+  type CategoryTreeGroup,
+} from "@/lib/categories";
 import { CategoryPicker } from "@/components/CategoryPicker";
 import { BusinessPhotoPicker } from "@/components/BusinessPhotoPicker";
 import { GuestCta } from "@/components/GuestCta";
@@ -25,6 +30,7 @@ type ExistingBusiness = {
   name: string;
   photo_url: string | null;
   category_id: string;
+  categories: { id: string; name: string; is_other: boolean } | null;
 };
 
 export default function BusinessSetupPage() {
@@ -36,6 +42,7 @@ export default function BusinessSetupPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [customCategoryName, setCustomCategoryName] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreview, setPendingPreview] = useState<string | null>(null);
@@ -65,7 +72,9 @@ export default function BusinessSetupPage() {
         const [{ data: prof }, { data: biz }, groups] = await Promise.all([
           visible(supabase.from("profiles").select("phone")).eq("id", user.id).maybeSingle(),
           visible(
-            supabase.from("businesses").select("id, name, photo_url, category_id"),
+            supabase
+              .from("businesses")
+              .select("id, name, photo_url, category_id, categories(id, name, is_other)"),
           )
             .eq("owner_id", user.id)
             .maybeSingle(),
@@ -80,7 +89,12 @@ export default function BusinessSetupPage() {
           setBusiness(existing);
           setName(existing.name);
           setPhotoUrl(existing.photo_url);
-          setCategoryId(existing.category_id);
+          if (existing.categories?.is_other) {
+            setCategoryId(OTHER_CATEGORY_VALUE);
+            setCustomCategoryName(existing.categories.name);
+          } else {
+            setCategoryId(existing.category_id);
+          }
         } else {
           const first = groups[0]?.categories[0];
           if (first) setCategoryId(first.id);
@@ -188,7 +202,7 @@ export default function BusinessSetupPage() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
       if (!name.trim()) throw new Error("Enter a business name");
-      if (!categoryId) throw new Error("Select a category");
+      const resolvedCategoryId = await resolveCategoryId(supabase, categoryId, customCategoryName);
       await savePhone(supabase, user.id);
 
       const { data: created, error } = await supabase
@@ -196,7 +210,7 @@ export default function BusinessSetupPage() {
         .insert({
           owner_id: user.id,
           name: name.trim(),
-          category_id: categoryId,
+          category_id: resolvedCategoryId,
           is_active: true,
           is_deleted: false,
         })
@@ -233,19 +247,19 @@ export default function BusinessSetupPage() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in");
       if (!name.trim()) throw new Error("Enter a business name");
-      if (!categoryId) throw new Error("Select a category");
+      const resolvedCategoryId = await resolveCategoryId(supabase, categoryId, customCategoryName);
       await savePhone(supabase, user.id);
 
       const { error } = await supabase
         .from("businesses")
         .update({
           name: name.trim(),
-          category_id: categoryId,
+          category_id: resolvedCategoryId,
         })
         .eq("id", business.id)
         .eq("owner_id", user.id);
       if (error) throw error;
-      setBusiness({ ...business, name: name.trim(), category_id: categoryId });
+      setBusiness({ ...business, name: name.trim(), category_id: resolvedCategoryId });
       showToast("Business details saved");
       router.push("/app/business");
     } catch (err) {
@@ -340,7 +354,23 @@ export default function BusinessSetupPage() {
         value={categoryId}
         onChange={setCategoryId}
         loading={categoriesLoading}
+        allowOther
       />
+      {categoryId === OTHER_CATEGORY_VALUE ? (
+        <div className="mt-3">
+          <label className="mb-2 block text-xs font-bold">Your category name</label>
+          <input
+            className="input-box"
+            placeholder="e.g. AC repair, Pet grooming"
+            value={customCategoryName}
+            onChange={(e) => setCustomCategoryName(e.target.value.slice(0, 60))}
+            maxLength={60}
+          />
+          <p className="mt-1.5 text-[11px] text-ink-faint">
+            We&apos;ll list you under this name. Our team may match it to a standard category later.
+          </p>
+        </div>
+      ) : null}
 
       {editing ? (
         <>

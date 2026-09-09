@@ -10,6 +10,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/go_live_card.dart';
 import '../../widgets/live_provider_card.dart';
+import '../../widgets/provider_detail_sheet.dart';
 
 class LiveNearbyScreen extends ConsumerStatefulWidget {
   const LiveNearbyScreen({super.key});
@@ -53,6 +54,17 @@ class _LiveNearbyScreenState extends ConsumerState<LiveNearbyScreen> {
     } finally {
       if (mounted) setState(() => _refreshing = false);
     }
+  }
+
+  Future<void> _openDetails(Map<String, dynamic> row) async {
+    final business = businessFromLiveRow(row);
+    if (business == null) return;
+    await showProviderDetailSheet(
+      context,
+      business: business,
+      repo: ref.read(repoProvider),
+      onCall: (b) => _callPhone(b.phone, b.providerName ?? b.name),
+    );
   }
 
   Future<void> _callPhone(String? phone, String name) async {
@@ -157,6 +169,7 @@ class _LiveNearbyScreenState extends ConsumerState<LiveNearbyScreen> {
                                     row['businesses'] is Map &&
                                     (row['businesses'] as Map)['owner_id'] == userId,
                                 onCall: _callPhone,
+                                onTap: () => _openDetails(row),
                               ),
                         ],
                       ),

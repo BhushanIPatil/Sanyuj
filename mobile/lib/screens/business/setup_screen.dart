@@ -25,6 +25,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   final _phone = TextEditingController();
   List<Category> _categories = [];
   String? _categoryId;
+  final _customCategory = TextEditingController();
   Business? _business;
   String? _photoUrl;
   File? _pendingFile;
@@ -58,7 +59,12 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
       }
       if (business != null) {
         _name.text = business.name;
-        _categoryId = business.category?.id ?? (cats.isNotEmpty ? cats.first.id : null);
+        if (business.category?.isOther == true) {
+          _categoryId = kOtherCategoryId;
+          _customCategory.text = business.category!.name;
+        } else {
+          _categoryId = business.category?.id ?? (cats.isNotEmpty ? cats.first.id : null);
+        }
       } else {
         _categoryId = cats.isNotEmpty ? cats.first.id : null;
       }
@@ -81,6 +87,7 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
   void dispose() {
     _name.dispose();
     _phone.dispose();
+    _customCategory.dispose();
     super.dispose();
   }
 
@@ -142,13 +149,17 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
       final phone = normalizePhone(digitsFromPhone(_phone.text));
       if (phone == null) throw Exception('Enter a valid 10-digit Indian mobile number');
       final repo = ref.read(repoProvider);
+      final categoryId = await repo.resolveCategoryId(
+        selectedId: _categoryId!,
+        customName: _customCategory.text,
+      );
       String? photoUrl;
       if (_pendingFile != null) {
         photoUrl = await repo.uploadBusinessPhoto(XFile(_pendingFile!.path));
       }
       await repo.createBusiness(
         name: _name.text.trim(),
-        categoryId: _categoryId!,
+        categoryId: categoryId,
         phone: phone,
         photoUrl: photoUrl,
       );
@@ -172,10 +183,15 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
       if (_categoryId == null) throw Exception('Select a category');
       final phone = normalizePhone(digitsFromPhone(_phone.text));
       if (phone == null) throw Exception('Enter a valid 10-digit Indian mobile number');
-      await ref.read(repoProvider).updateBusiness(
+      final repo = ref.read(repoProvider);
+      final categoryId = await repo.resolveCategoryId(
+        selectedId: _categoryId!,
+        customName: _customCategory.text,
+      );
+      await repo.updateBusiness(
             id: biz.id,
             name: _name.text.trim(),
-            categoryId: _categoryId!,
+            categoryId: categoryId,
             phone: phone,
           );
       if (!mounted) return;
@@ -270,8 +286,31 @@ class _BusinessSetupScreenState extends ConsumerState<BusinessSetupScreen> {
                                     selected: _categoryId == c.id,
                                     onTap: () => setState(() => _categoryId = c.id),
                                   ),
+                                CategoryChipPill(
+                                  label: 'Other',
+                                  iconValue: '✨',
+                                  selected: _categoryId == kOtherCategoryId,
+                                  onTap: () => setState(() => _categoryId = kOtherCategoryId),
+                                ),
                               ],
                             ),
+                            if (_categoryId == kOtherCategoryId) ...[
+                              const SizedBox(height: 14),
+                              const FieldLabel('Your category name'),
+                              TextField(
+                                controller: _customCategory,
+                                maxLength: 60,
+                                decoration: const InputDecoration(
+                                  hintText: 'e.g. AC repair, Pet grooming',
+                                  counterText: '',
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text(
+                                "We'll list you under this name. Our team may match it to a standard category later.",
+                                style: TextStyle(fontSize: 11, color: AppColors.inkFaint),
+                              ),
+                            ],
                             const SizedBox(height: 26),
                             if (_editing) ...[
                               PrimaryButton(

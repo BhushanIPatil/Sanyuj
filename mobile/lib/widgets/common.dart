@@ -592,6 +592,37 @@ CategoryTint categoryTint(String seed) {
   return _categoryTints[hash % _categoryTints.length];
 }
 
+class CategoryTintChip extends StatelessWidget {
+  const CategoryTintChip({super.key, required this.category});
+
+  final ContentCategory category;
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = categoryTint(category.slug.isEmpty ? category.id : category.slug);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: tint.background,
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if ((category.emoji ?? '').trim().isNotEmpty) ...[
+            CategoryIcon(value: category.emoji, size: 14, radius: 4, fallback: '•'),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            category.name,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: tint.foreground),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Horizontal "All + category" strip mirroring the category group in the filter
 /// sheet, so both stay in step.
 class CategoryFilterRow extends StatelessWidget {

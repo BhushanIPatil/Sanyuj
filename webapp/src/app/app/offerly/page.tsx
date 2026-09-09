@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Tag } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { AdDetailSheet } from "@/components/AdDetailSheet";
+import { CategoryFilterRow, CategoryTintBadge } from "@/components/CategoryFilterRow";
 import { EmptyState } from "@/components/EmptyState";
 import {
   OfferlyPageSkeleton,
@@ -14,11 +15,12 @@ import {
 import {
   AD_BANNER_ASPECT,
   fetchVisibleAds,
-  formatAdDate,
   recordAdClick,
   type AdDetail,
 } from "@/lib/geo/ads";
+import { formatWhenRange } from "@/lib/formatWhen";
 import { fetchProfileGeo } from "@/lib/geo/notices";
+import { fetchContentCategories, type ContentCategory } from "@/lib/contentCategories";
 import {
   ActiveFilterChips,
   FilterDrawer,
@@ -70,7 +72,7 @@ const EXTRA_GROUP: FilterGroup = {
 
 function OfferlyCard({ ad, onOpen }: { ad: AdDetail; onOpen: (ad: AdDetail) => void }) {
   const hasImage = Boolean(ad.image_url?.trim());
-  const hasOffer = ad.offer_starts_at || ad.offer_ends_at;
+  const when = formatWhenRange(ad.offer_starts_at, ad.offer_ends_at);
 
   return (
     <button
@@ -93,15 +95,14 @@ function OfferlyCard({ ad, onOpen }: { ad: AdDetail; onOpen: (ad: AdDetail) => v
         )}
       </div>
       <div className="p-4">
-        <span className="inline-flex rounded-full bg-blue-soft px-2.5 py-1 text-[11px] font-bold text-blue-deep">
-          {ad.brand_name || "Sponsored"}
-        </span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="inline-flex rounded-full bg-blue-soft px-2.5 py-1 text-[11px] font-bold text-blue-deep">
+            {ad.brand_name || "Sponsored"}
+          </span>
+          {ad.category ? <CategoryTintBadge category={ad.category} /> : null}
+        </div>
         <h2 className="mt-2 font-display text-base font-extrabold leading-snug text-ink">{ad.title}</h2>
-        {hasOffer ? (
-          <p className="mt-2 text-[11px] font-semibold text-ink-faint">
-            Offer {formatAdDate(ad.offer_starts_at)} → {formatAdDate(ad.offer_ends_at)}
-          </p>
-        ) : null}
+        {when ? <p className="mt-2 text-[11px] font-semibold text-ink-faint">{when}</p> : null}
       </div>
     </button>
   );
@@ -128,13 +129,18 @@ export default function OfferlyPage() {
   const { state, defaultGeo, sort, query, geoKey } = filters;
 
   const [ads, setAds] = useState<AdDetail[]>([]);
+  const [categories, setCategories] = useState<ContentCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
   const [detailAd, setDetailAd] = useState<AdDetail | null>(null);
 
   useEffect(() => {
     const load = async () => {
-      const geo = await fetchProfileGeo(createClient());
+      const supabase = createClient();
+      const [geo, cats] = await Promise.all([
+        fetchProfileGeo(supabase),
+        fetchContentCategories(supabase, "offer").catch(() => [] as ContentCategory[]),
+      ]);
       filters.adoptDefaultGeo(
         makeGeo({
           pincode: geo.pincode ?? "",
@@ -144,6 +150,7 @@ export default function OfferlyPage() {
           areaName: geo.area ?? "",
         }),
       );
+      setCategories(cats);
       setReady(true);
     };
     void load().catch(() => setReady(true));
@@ -173,6 +180,20 @@ export default function OfferlyPage() {
     };
   }, [ready, geoKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const categoryGroup: FilterGroup | null = useMemo(
+    () =>
+      categories.length
+        ? {
+            id: "category",
+            label: "Category",
+            searchable: categories.length > 8,
+            collapseAfter: 8,
+            options: categories.map((c) => ({ value: c.slug, label: c.name, icon: c.emoji })),
+          }
+        : null,
+    [categories],
+  );
+
   const brandGroup: FilterGroup = useMemo(() => {
     const counts = new Map<string, number>();
     for (const ad of ads) {
@@ -191,13 +212,17 @@ export default function OfferlyPage() {
     };
   }, [ads]);
 
-  const groups = useMemo(() => [brandGroup, STATUS_GROUP, EXTRA_GROUP], [brandGroup]);
+  const groups = useMemo(
+    () => [categoryGroup, brandGroup, STATUS_GROUP, EXTRA_GROUP].filter((g): g is FilterGroup => g != null),
+    [categoryGroup, brandGroup],
+  );
 
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const brands = selectedValues(state, "brand");
     const statuses = selectedValues(state, "status");
     const extras = selectedValues(state, "extras");
+    const categorySlugs = selectedValues(state, "category");
 
     const matchesStatus = (ad: AdDetail) =>
       statuses.some((status) => {
@@ -209,13 +234,14 @@ export default function OfferlyPage() {
       });
 
     const matched = ads.filter((ad) => {
+      if (categorySlugs.length && !categorySlugs.includes(ad.category?.slug ?? "")) return false;
       if (brands.length && !brands.includes(ad.brand_name?.trim() ?? "")) return false;
       if (statuses.length && !matchesStatus(ad)) return false;
       if (extras.includes("new") && !withinPastDays(ad.created_at, 7)) return false;
       if (extras.includes("cta") && !ad.cta_url?.trim()) return false;
       if (extras.includes("photo") && !ad.image_url?.trim()) return false;
       if (!needle) return true;
-      return `${ad.brand_name} ${ad.title} ${ad.body ?? ""}`.toLowerCase().includes(needle);
+      return `${ad.brand_name} ${ad.title} ${ad.body ?? ""} ${ad.category?.name ?? ""}`.toLowerCase().includes(needle);
     });
 
     const far = "9999-12-31";
@@ -248,6 +274,14 @@ export default function OfferlyPage() {
   );
 
   const noun = results.length === 1 ? "offer" : "offers";
+  const selectedCategories = selectedValues(state, "category");
+  const pickListingCategory = (slug: string) => {
+    if (selectedCategories.length === 1 && selectedCategories[0] === slug) {
+      filters.clearGroup("category");
+      return;
+    }
+    filters.selectOnly("category", slug);
+  };
 
   return (
     <div className="page-pad">
@@ -266,6 +300,12 @@ export default function OfferlyPage() {
           onSortChange={filters.setSort}
           filterCount={filters.filterCount}
           onOpenFilters={() => filters.setDrawerOpen(true)}
+        />
+        <CategoryFilterRow
+          categories={categories}
+          selected={selectedCategories}
+          onToggle={pickListingCategory}
+          onClear={() => filters.clearGroup("category")}
         />
         <ActiveFilterChips
           groups={groups}
@@ -298,7 +338,7 @@ export default function OfferlyPage() {
           <EmptyState
             icon={Tag}
             title="No offers match these filters"
-            message="Try clearing the offer status or brand filters, or widening the location."
+            message="Try clearing the offer status, category, or brand filters, or widening the location."
             actionLabel="Clear all filters"
             onAction={filters.clear}
           />

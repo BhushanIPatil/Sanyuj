@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { NoticeDetailSheet } from "@/components/NoticeDetailSheet";
+import { CategoryFilterRow, CategoryTintBadge } from "@/components/CategoryFilterRow";
 import { EmptyState } from "@/components/EmptyState";
 import {
   OfferlyPageSkeleton,
@@ -14,9 +15,10 @@ import {
 import {
   fetchProfileGeo,
   fetchVisibleNotices,
-  formatNoticeDate,
   type NoticeDetail,
 } from "@/lib/geo/notices";
+import { fetchContentCategories, type ContentCategory } from "@/lib/contentCategories";
+import { formatWhenRange } from "@/lib/formatWhen";
 import {
   ActiveFilterChips,
   FilterDrawer,
@@ -62,7 +64,7 @@ const EXTRA_GROUP: FilterGroup = {
 };
 
 function NoticeCard({ notice, onOpen }: { notice: NoticeDetail; onOpen: (notice: NoticeDetail) => void }) {
-  const hasWindow = notice.starts_at || notice.ends_at;
+  const when = formatWhenRange(notice.event_starts_at, notice.event_ends_at);
 
   return (
     <button
@@ -77,13 +79,14 @@ function NoticeCard({ notice, onOpen }: { notice: NoticeDetail; onOpen: (notice:
         </div>
       ) : null}
       <div className="p-4">
+        {notice.category ? (
+          <div className="mb-2">
+            <CategoryTintBadge category={notice.category} />
+          </div>
+        ) : null}
         <h2 className="font-display text-base font-extrabold leading-snug text-ink">{notice.title}</h2>
         {notice.body ? <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-ink-soft">{notice.body}</p> : null}
-        {hasWindow ? (
-          <p className="mt-2 text-[11px] font-semibold text-ink-faint">
-            {formatNoticeDate(notice.starts_at)} → {formatNoticeDate(notice.ends_at)}
-          </p>
-        ) : null}
+        {when ? <p className="mt-2 text-[11px] font-semibold text-ink-faint">{when}</p> : null}
       </div>
     </button>
   );
@@ -110,13 +113,18 @@ export default function NotificationsPage() {
   const { state, defaultGeo, sort, query, geoKey } = filters;
 
   const [notices, setNotices] = useState<NoticeDetail[]>([]);
+  const [categories, setCategories] = useState<ContentCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(false);
   const [detail, setDetail] = useState<NoticeDetail | null>(null);
 
   useEffect(() => {
     const load = async () => {
-      const geo = await fetchProfileGeo(createClient());
+      const supabase = createClient();
+      const [geo, cats] = await Promise.all([
+        fetchProfileGeo(supabase),
+        fetchContentCategories(supabase, "notice").catch(() => [] as ContentCategory[]),
+      ]);
       filters.adoptDefaultGeo(
         makeGeo({
           pincode: geo.pincode ?? "",
@@ -126,6 +134,7 @@ export default function NotificationsPage() {
           areaName: geo.area ?? "",
         }),
       );
+      setCategories(cats);
       setReady(true);
     };
     void load().catch(() => setReady(true));
@@ -155,28 +164,47 @@ export default function NotificationsPage() {
     };
   }, [ready, geoKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const groups = useMemo(() => [TIMING_GROUP, EXTRA_GROUP], []);
+  const categoryGroup: FilterGroup | null = useMemo(
+    () =>
+      categories.length
+        ? {
+            id: "category",
+            label: "Category",
+            searchable: categories.length > 8,
+            collapseAfter: 8,
+            options: categories.map((c) => ({ value: c.slug, label: c.name, icon: c.emoji })),
+          }
+        : null,
+    [categories],
+  );
+
+  const groups = useMemo(
+    () => [categoryGroup, TIMING_GROUP, EXTRA_GROUP].filter((g): g is FilterGroup => g != null),
+    [categoryGroup],
+  );
 
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const timing = selectedValues(state, "timing");
     const extras = selectedValues(state, "extras");
+    const categorySlugs = selectedValues(state, "category");
 
     const matchesTiming = (notice: NoticeDetail) =>
       timing.some((value) => {
-        if (value === "ending-3") return withinNextDays(notice.ends_at, 3);
-        if (value === "ending-7") return withinNextDays(notice.ends_at, 7);
-        if (value === "ongoing") return !notice.ends_at;
+        if (value === "ending-3") return withinNextDays(notice.event_ends_at, 3);
+        if (value === "ending-7") return withinNextDays(notice.event_ends_at, 7);
+        if (value === "ongoing") return !notice.event_ends_at;
         if (value === "new") return withinPastDays(notice.created_at, 7);
         return false;
       });
 
     const matched = notices.filter((notice) => {
+      if (categorySlugs.length && !categorySlugs.includes(notice.category?.slug ?? "")) return false;
       if (timing.length && !matchesTiming(notice)) return false;
       if (extras.includes("photo") && !notice.image_url?.trim()) return false;
       if (extras.includes("details") && !notice.body?.trim()) return false;
       if (!needle) return true;
-      return `${notice.title} ${notice.body ?? ""}`.toLowerCase().includes(needle);
+      return `${notice.title} ${notice.body ?? ""} ${notice.category?.name ?? ""}`.toLowerCase().includes(needle);
     });
 
     const far = "9999-12-31";
@@ -184,13 +212,13 @@ export default function NotificationsPage() {
       featured: () => 0,
       newest: (a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""),
       oldest: (a, b) => (a.created_at ?? "").localeCompare(b.created_at ?? ""),
-      ending: (a, b) => (a.ends_at ?? far).localeCompare(b.ends_at ?? far),
+      ending: (a, b) => (a.event_ends_at ?? far).localeCompare(b.event_ends_at ?? far),
       title: (a, b) => a.title.localeCompare(b.title),
     };
     return [...matched].sort(sorters[sort] ?? sorters.featured);
   }, [notices, query, sort, state]);
 
-  if (!ready) return <OfferlyPageSkeleton label="Loading notifications" />;
+  if (!ready) return <OfferlyPageSkeleton label="Loading Notify" />;
 
   const panel = (
     <FilterPanel
@@ -203,12 +231,20 @@ export default function NotificationsPage() {
     />
   );
 
-  const noun = results.length === 1 ? "notice" : "notices";
+  const noun = results.length === 1 ? "update" : "updates";
+  const selectedCategories = selectedValues(state, "category");
+  const pickListingCategory = (slug: string) => {
+    if (selectedCategories.length === 1 && selectedCategories[0] === slug) {
+      filters.clearGroup("category");
+      return;
+    }
+    filters.selectOnly("category", slug);
+  };
 
   return (
     <div className="page-pad">
       <header className="mb-4">
-        <h1 className="font-display text-[19px] font-bold">Notifications</h1>
+        <h1 className="font-display text-[19px] font-bold">Notify</h1>
         <p className="mt-1 text-sm text-ink-soft">Events and updates for your area.</p>
       </header>
 
@@ -216,12 +252,18 @@ export default function NotificationsPage() {
         <FilterToolbar
           query={query}
           onQueryChange={filters.setQuery}
-          searchPlaceholder="Search notices, events…"
+          searchPlaceholder="Search events, functions…"
           sortOptions={SORTS}
           sort={sort}
           onSortChange={filters.setSort}
           filterCount={filters.filterCount}
           onOpenFilters={() => filters.setDrawerOpen(true)}
+        />
+        <CategoryFilterRow
+          categories={categories}
+          selected={selectedCategories}
+          onToggle={pickListingCategory}
+          onClear={() => filters.clearGroup("category")}
         />
         <ActiveFilterChips
           groups={groups}
@@ -253,15 +295,15 @@ export default function NotificationsPage() {
         ) : filters.filterCount || query.trim() ? (
           <EmptyState
             icon={Bell}
-            title="No notices match these filters"
-            message="Try clearing the timing filters or widening the location."
+            title="No updates match these filters"
+            message="Try clearing the category or timing filters, or widening the location."
             actionLabel="Clear all filters"
             onAction={filters.clear}
           />
         ) : (
           <EmptyState
             icon={Bell}
-            title="No notices nearby"
+            title="No updates nearby"
             message="Events and local updates for your area will show up here."
           />
         )}

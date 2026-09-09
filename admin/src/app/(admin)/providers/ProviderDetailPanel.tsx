@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDateTime, initials, locationLabel } from "@/lib/format";
 import { accountStatusBadge, accountStatusLabel } from "@/lib/status";
 import { Badge } from "@/components/ui/Badge";
+import { ImagePreview } from "@/components/ui/ImageOrEmoji";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { Skeleton, SkeletonLine } from "@/components/ui/Skeleton";
 
@@ -22,10 +24,12 @@ export type ProviderRow = {
   id: string;
   owner_id: string;
   name: string;
+  photo_url: string | null;
+  category_id: string;
   is_active: boolean;
   is_deleted: boolean;
   created_at: string;
-  categories: { name: string; slug: string } | null;
+  categories: { name: string; slug: string; is_other?: boolean } | null;
   profiles: ProviderProfile | null;
   coverage: string;
   liveNow: boolean;
@@ -43,9 +47,15 @@ type LiveSession = {
 export function ProviderDetailPanel({
   provider,
   onClose,
+  onEdit,
+  onDelete,
+  onRestore,
 }: {
   provider: ProviderRow;
   onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onRestore: () => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
@@ -90,7 +100,36 @@ export function ProviderDetailPanel({
         </div>
       }
       onClose={onClose}
+      footer={
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-secondary inline-flex w-auto items-center gap-1.5 py-2 text-sm" onClick={onEdit}>
+            <Pencil size={14} />
+            Edit
+          </button>
+          {provider.is_deleted ? (
+            <button type="button" className="btn-secondary inline-flex w-auto items-center gap-1.5 py-2 text-sm" onClick={onRestore}>
+              <RotateCcw size={14} />
+              Restore
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-[18px] border border-rose/30 bg-rose-soft px-3 py-2 text-sm font-bold text-rose"
+              onClick={onDelete}
+            >
+              <Trash2 size={14} />
+              Delete
+            </button>
+          )}
+        </div>
+      }
     >
+      {provider.photo_url ? (
+        <div className="mb-4 overflow-hidden rounded-[16px] border border-line">
+          <ImagePreview src={provider.photo_url} alt={provider.name} height={160} className="rounded-none border-0" />
+        </div>
+      ) : null}
+
       <div className="flex items-center gap-3 rounded-[16px] border border-line bg-surface/60 p-3">
         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-soft text-sm font-bold text-indigo">
           {initials(provider.name)}
@@ -105,7 +144,12 @@ export function ProviderDetailPanel({
       <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div>
           <dt className="text-xs font-bold text-ink-soft">Category</dt>
-          <dd className="mt-0.5">{provider.categories?.name ?? "—"}</dd>
+          <dd className="mt-0.5">
+            {provider.categories?.name ?? "—"}
+            {provider.categories?.is_other ? (
+              <Badge className="ml-1.5 bg-amber-soft text-amber">Other</Badge>
+            ) : null}
+          </dd>
         </div>
         <div>
           <dt className="text-xs font-bold text-ink-soft">Owner location</dt>

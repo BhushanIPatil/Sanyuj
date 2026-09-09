@@ -35,8 +35,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) setState(() => _loading = true);
     try {
       final repo = ref.read(repoProvider);
       final profile = await repo.fetchProfile();
@@ -52,6 +52,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       setState(() => _loading = false);
       showAppErrorAlert(context, e, actionLabel: 'Retry', onAction: _load);
     }
+  }
+
+  /// `/business` is pushed on the root navigator, so this screen stays alive
+  /// while the listing may be created or deleted there.
+  Future<void> _openBusiness() async {
+    await context.push('/business');
+    if (!mounted) return;
+    await _load(silent: true);
+  }
+
+  Future<void> _openProfileEdit() async {
+    await context.push('/profile/edit');
+    if (!mounted) return;
+    await _load(silent: true);
   }
 
   Future<void> _openUrl(String url) async {
@@ -183,7 +197,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 10),
               SoftCard(
                 padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-                onTap: () => context.push('/profile/edit'),
+                onTap: _openProfileEdit,
                 child: Row(
                   children: [
                     Expanded(
@@ -293,7 +307,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: () => context.push('/business'),
+                        onTap: _openBusiness,
                         borderRadius: BorderRadius.circular(100),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -365,7 +379,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: () => context.push('/business'),
+                        onTap: _openBusiness,
                         borderRadius: BorderRadius.circular(100),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -391,7 +405,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 icon: Icons.storefront_outlined,
                 iconColor: AppColors.greenDeep,
                 label: 'Your Business',
-                onTap: () => context.push('/business'),
+                onTap: _openBusiness,
               ),
               const Divider(height: 1, color: AppColors.line),
               _MenuItem(

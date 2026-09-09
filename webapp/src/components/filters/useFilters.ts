@@ -7,6 +7,8 @@ import {
   makeFilterState,
   sameGeo,
   toggleFilter,
+  selectOnlyFilter,
+  clearFilterGroup,
   type FilterState,
   type GeoFilter,
 } from "./types";
@@ -37,6 +39,14 @@ export function useFilters(defaultSort: string) {
     setState((prev) => toggleFilter(prev, groupId, value));
   }, []);
 
+  const selectOnly = useCallback((groupId: string, value: string) => {
+    setState((prev) => selectOnlyFilter(prev, groupId, value));
+  }, []);
+
+  const clearGroup = useCallback((groupId: string) => {
+    setState((prev) => clearFilterGroup(prev, groupId));
+  }, []);
+
   const setGeo = useCallback((updater: (prev: GeoFilter) => GeoFilter) => {
     setState((prev) => {
       const geo = updater(prev.geo);
@@ -62,6 +72,8 @@ export function useFilters(defaultSort: string) {
     setDrawerOpen,
     adoptDefaultGeo,
     toggle,
+    selectOnly,
+    clearGroup,
     setGeo,
     clear,
     filterCount: activeFilterCount(state, defaultGeo),

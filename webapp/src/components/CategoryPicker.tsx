@@ -2,7 +2,12 @@
 
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { CategoryPickerSkeleton } from "@/components/ui/Skeleton";
-import { isCategoryImageUrl, type Category, type CategoryTreeGroup } from "@/lib/categories";
+import {
+  OTHER_CATEGORY_VALUE,
+  isCategoryImageUrl,
+  type Category,
+  type CategoryTreeGroup,
+} from "@/lib/categories";
 
 type Props = {
   tree: CategoryTreeGroup[];
@@ -12,16 +17,41 @@ type Props = {
   flat?: boolean;
   /** When true, show skeleton instead of empty-state copy. */
   loading?: boolean;
+  /** Adds an Other chip for a custom category name. */
+  allowOther?: boolean;
 };
 
-export function CategoryPicker({ tree, value, onChange, flat = false, loading = false }: Props) {
+export function CategoryPicker({
+  tree,
+  value,
+  onChange,
+  flat = false,
+  loading = false,
+  allowOther = false,
+}: Props) {
   if (loading) {
     return <CategoryPickerSkeleton flat={flat} />;
   }
 
-  if (!tree.length) {
+  if (!tree.length && !allowOther) {
     return <p className="text-sm text-ink-soft">No categories yet. Add them in Supabase.</p>;
   }
+
+  const otherChip = allowOther ? (
+    <CategoryChip
+      category={{
+        id: OTHER_CATEGORY_VALUE,
+        slug: "other",
+        name: "Other",
+        emoji: "✨",
+        group_id: "",
+        sort_order: 999,
+        is_other: true,
+      }}
+      selected={value === OTHER_CATEGORY_VALUE}
+      onSelect={onChange}
+    />
+  ) : null;
 
   if (flat) {
     const all = tree.flatMap((g) => g.categories);
@@ -30,6 +60,7 @@ export function CategoryPicker({ tree, value, onChange, flat = false, loading = 
         {all.map((c) => (
           <CategoryChip key={c.id} category={c} selected={value === c.id} onSelect={onChange} />
         ))}
+        {otherChip}
       </div>
     );
   }
@@ -53,6 +84,14 @@ export function CategoryPicker({ tree, value, onChange, flat = false, loading = 
           </div>
         </div>
       ))}
+      {allowOther ? (
+        <div>
+          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-ink-faint">
+            Not listed
+          </p>
+          <div className="flex flex-wrap gap-2">{otherChip}</div>
+        </div>
+      ) : null}
     </div>
   );
 }

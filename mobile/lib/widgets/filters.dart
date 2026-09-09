@@ -178,6 +178,19 @@ class FilterState {
     return FilterState(selections: next, geo: geo);
   }
 
+  /// Listing chips pick one value. Filter sheets still use [toggle].
+  FilterState selectOnly(String groupId, String value) {
+    final next = Map<String, List<String>>.from(selections);
+    next[groupId] = [value];
+    return FilterState(selections: next, geo: geo);
+  }
+
+  FilterState clearGroup(String groupId) {
+    final next = Map<String, List<String>>.from(selections);
+    next.remove(groupId);
+    return FilterState(selections: next, geo: geo);
+  }
+
   FilterState withGeo(GeoFilter next) => FilterState(selections: selections, geo: next);
 
   int activeCount(GeoFilter defaultGeo) {

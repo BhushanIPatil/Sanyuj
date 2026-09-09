@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { AreaPicker } from "@/components/AreaPicker";
+import { LocalityPicker } from "@/components/LocalityPicker";
+import { PasswordInput } from "@/components/PasswordInput";
 
 export type UserFormValues = {
   full_name: string;
@@ -10,6 +13,7 @@ export type UserFormValues = {
   pincode: string;
   locality: string;
   area: string;
+  area_id: string;
   address: string;
   onboarding_complete: boolean;
   status: "active" | "inactive" | "deleted";
@@ -23,6 +27,7 @@ export const EMPTY_USER_FORM: UserFormValues = {
   pincode: "",
   locality: "",
   area: "",
+  area_id: "",
   address: "",
   onboarding_complete: false,
   status: "active",
@@ -83,45 +88,62 @@ export function UserFormModal({
             <span className="mb-1 block text-xs font-bold text-ink-soft">Phone</span>
             <input className="input-box py-3 text-sm" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
           </label>
-          {mode === "create" ? (
-            <label className="block">
-              <span className="mb-1 block text-xs font-bold text-ink-soft">Password</span>
-              <input
-                type="password"
-                required
-                minLength={6}
-                className="input-box py-3 text-sm"
-                value={form.password}
-                onChange={(e) => set("password", e.target.value)}
-              />
-            </label>
-          ) : null}
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="mb-1 block text-xs font-bold text-ink-soft">Pincode</span>
-              <input className="input-box py-3 text-sm" value={form.pincode} onChange={(e) => set("pincode", e.target.value)} />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-bold text-ink-soft">Locality</span>
-              <input className="input-box py-3 text-sm" value={form.locality} onChange={(e) => set("locality", e.target.value)} />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-bold text-ink-soft">Area</span>
-              <input className="input-box py-3 text-sm" value={form.area} onChange={(e) => set("area", e.target.value)} />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-bold text-ink-soft">Status</span>
-              <select
-                className="input-box py-3 text-sm"
-                value={form.status}
-                onChange={(e) => set("status", e.target.value as UserFormValues["status"])}
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                {mode === "edit" ? <option value="deleted">Deleted</option> : null}
-              </select>
-            </label>
-          </div>
+          <label className="block">
+            <span className="mb-1 block text-xs font-bold text-ink-soft">
+              {mode === "create" ? "Password" : "New password"}
+            </span>
+            <PasswordInput
+              value={form.password}
+              onChange={(value) => set("password", value)}
+              required={mode === "create"}
+              minLength={mode === "create" || form.password ? 6 : undefined}
+              autoComplete="new-password"
+              placeholder={mode === "edit" ? "Leave blank to keep current password" : undefined}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-bold text-ink-soft">Pincode</span>
+            <input
+              className="input-box py-3 font-mono text-sm font-bold tracking-wide"
+              inputMode="numeric"
+              maxLength={6}
+              placeholder="425001"
+              value={form.pincode}
+              onChange={(e) => {
+                const next = e.target.value.replace(/\D/g, "").slice(0, 6);
+                setForm((f) => ({ ...f, pincode: next, locality: "", area: "", area_id: "" }));
+              }}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-bold text-ink-soft">Locality</span>
+            <LocalityPicker
+              pincode={form.pincode}
+              value={form.locality}
+              onChange={(next) => setForm((f) => ({ ...f, locality: next, area: "", area_id: "" }))}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-bold text-ink-soft">Area</span>
+            <AreaPicker
+              pincode={form.pincode}
+              locality={form.locality}
+              value={form.area_id || form.area}
+              onChange={(id, name) => setForm((f) => ({ ...f, area_id: id, area: name }))}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-bold text-ink-soft">Status</span>
+            <select
+              className="input-box py-3 text-sm"
+              value={form.status}
+              onChange={(e) => set("status", e.target.value as UserFormValues["status"])}
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              {mode === "edit" ? <option value="deleted">Deleted</option> : null}
+            </select>
+          </label>
           <label className="block">
             <span className="mb-1 block text-xs font-bold text-ink-soft">Address</span>
             <input className="input-box py-3 text-sm" value={form.address} onChange={(e) => set("address", e.target.value)} />
@@ -180,24 +202,22 @@ export function PasswordModal({
         <p className="mt-1 text-sm text-ink-soft">Set a new password for {name}.</p>
         <label className="mt-4 block">
           <span className="mb-1 block text-xs font-bold text-ink-soft">New password</span>
-          <input
-            type="password"
+          <PasswordInput
+            value={password}
+            onChange={setPassword}
             required
             minLength={6}
-            className="input-box py-3 text-sm"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
           />
         </label>
         <label className="mt-3 block">
           <span className="mb-1 block text-xs font-bold text-ink-soft">Confirm password</span>
-          <input
-            type="password"
+          <PasswordInput
+            value={confirm}
+            onChange={setConfirm}
             required
             minLength={6}
-            className="input-box py-3 text-sm"
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
+            autoComplete="new-password"
           />
         </label>
         {mismatch ? <p className="mt-2 text-sm font-semibold text-rose">Passwords do not match.</p> : null}

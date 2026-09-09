@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import { X } from "lucide-react";
-import { formatAdDate, type AdDetail } from "@/lib/geo/ads";
+import { formatWhenRange } from "@/lib/formatWhen";
+import { type AdDetail } from "@/lib/geo/ads";
+import { CategoryTintBadge } from "@/components/CategoryFilterRow";
 
 const DEFAULT_BG = "linear-gradient(135deg,#2E86D6,#3B5BDB)";
 
@@ -33,8 +35,8 @@ export function AdDetailSheet({
 
   if (!open || !ad) return null;
 
-  const hasOffer = ad.offer_starts_at || ad.offer_ends_at;
-  const cta = ad.cta_label?.trim();
+  const when = formatWhenRange(ad.offer_starts_at, ad.offer_ends_at);
+  const cta = ad.cta_label?.trim() || (ad.cta_url?.trim() ? "Open link" : "");
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/40 p-0 sm:p-4" onClick={onClose}>
@@ -80,9 +82,12 @@ export function AdDetailSheet({
             )}
           </div>
 
-          <span className="mt-4 inline-flex rounded-full bg-blue-soft px-2.5 py-1 text-[11px] font-bold text-blue-deep">
-            {ad.brand_name || "Sponsored"}
-          </span>
+          <div className="mt-4 flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex rounded-full bg-blue-soft px-2.5 py-1 text-[11px] font-bold text-blue-deep">
+              {ad.brand_name || "Sponsored"}
+            </span>
+            {ad.category ? <CategoryTintBadge category={ad.category} /> : null}
+          </div>
 
           <h2 id="ad-detail-title" className="mt-2.5 font-display text-2xl font-extrabold leading-snug text-ink">
             {ad.title}
@@ -92,19 +97,10 @@ export function AdDetailSheet({
             <p className="mt-2.5 text-sm leading-relaxed text-ink-soft">{ad.body}</p>
           ) : null}
 
-          {hasOffer ? (
+          {when ? (
             <div className="mt-5 rounded-[18px] border border-line bg-surface p-4">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-ink-soft">Offer period</p>
-              <dl className="mt-3 space-y-2 text-sm">
-                <div className="flex gap-3">
-                  <dt className="w-12 shrink-0 font-bold text-ink-soft">Starts</dt>
-                  <dd className="font-bold text-ink">{formatAdDate(ad.offer_starts_at)}</dd>
-                </div>
-                <div className="flex gap-3">
-                  <dt className="w-12 shrink-0 font-bold text-ink-soft">Ends</dt>
-                  <dd className="font-bold text-ink">{formatAdDate(ad.offer_ends_at)}</dd>
-                </div>
-              </dl>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-ink-soft">When</p>
+              <p className="mt-3 text-sm font-bold text-ink">{when}</p>
             </div>
           ) : null}
 

@@ -78,7 +78,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     final next = widget.initialCategoryId;
     if (oldWidget.initialCategoryId != next && next != null) {
       setState(() {
-        _filters = const FilterState().withGeo(_filters.geo).toggle('category', next);
+        _filters = _filters.withGeo(_filters.geo).selectOnly('category', next);
       });
     }
   }
@@ -105,11 +105,14 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
       if (!mounted) return;
       final initial = widget.initialCategoryId;
       setState(() {
-        _categories = groups.expand((g) => g.categories).toList();
+        _categories = [
+          ...groups.expand((g) => g.categories),
+          kOtherBrowseCategory,
+        ];
         _defaultGeo = geo;
         _filters = _filters.withGeo(geo);
         if (initial != null && !_filters.isSelected('category', initial)) {
-          _filters = _filters.toggle('category', initial);
+          _filters = _filters.selectOnly('category', initial);
         }
       });
       await _load(geo);
@@ -165,7 +168,13 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
     final details = state.valuesOf('details');
 
     final matched = _items.where((b) {
-      if (categoryIds.isNotEmpty && !categoryIds.contains(b.category?.id)) return false;
+      if (categoryIds.isNotEmpty) {
+        final wantsOther = categoryIds.contains(kOtherCategoryId);
+        final official = categoryIds.where((id) => id != kOtherCategoryId);
+        final matchOfficial = official.contains(b.category?.id);
+        final matchOther = wantsOther && (b.category?.isOther ?? false);
+        if (!matchOfficial && !matchOther) return false;
+      }
       if (details.contains('phone') && (b.phone ?? '').trim().isEmpty) return false;
       if (details.contains('photo') && (b.photoUrl ?? '').trim().isEmpty) return false;
       if (details.contains('address') && (b.address ?? '').trim().isEmpty) return false;
@@ -230,9 +239,16 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
   }
 
   void _clearCategories() {
+    setState(() => _filters = _filters.clearGroup('category'));
+  }
+
+  void _pickListingCategory(String id) {
     setState(() {
-      for (final id in _filters.valuesOf('category')) {
-        _filters = _filters.toggle('category', id);
+      final selected = _filters.valuesOf('category');
+      if (selected.length == 1 && selected.first == id) {
+        _filters = _filters.clearGroup('category');
+      } else {
+        _filters = _filters.selectOnly('category', id);
       }
     });
   }
@@ -298,7 +314,7 @@ class _ExploreScreenState extends ConsumerState<ExploreScreen> {
         CategoryFilterRow(
           categories: _categories,
           selectedIds: _filters.valuesOf('category'),
-          onToggle: (id) => setState(() => _filters = _filters.toggle('category', id)),
+          onToggle: _pickListingCategory,
           onClear: _clearCategories,
         ),
         Expanded(

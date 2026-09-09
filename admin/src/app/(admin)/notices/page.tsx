@@ -21,6 +21,7 @@ import {
   summarizeNoticePin,
   type NoticePinDraft,
 } from "@/lib/geo/noticeCoverage";
+import { nestedContentCategory, type ContentCategory } from "@/lib/contentCategories";
 import {
   NoticeDetailPanel,
   noticeRunState,
@@ -33,26 +34,37 @@ type NoticeForm = {
   title: string;
   body: string;
   image_url: string;
+  cta_label: string;
+  cta_url: string;
   sort_order: number;
   is_active: boolean;
   starts_at: string | null;
   ends_at: string | null;
+  event_starts_at: string | null;
+  event_ends_at: string | null;
+  category_id: string;
 };
 
 const EMPTY_FILTERS = {
   search: "",
   status: "all",
   coverage: "all",
+  category: "all",
 };
 
 const EMPTY_NOTICE: NoticeForm = {
   title: "",
   body: "",
   image_url: "",
+  cta_label: "",
+  cta_url: "",
   sort_order: 0,
   is_active: true,
   starts_at: null,
   ends_at: null,
+  event_starts_at: null,
+  event_ends_at: null,
+  category_id: "",
 };
 
 function toDatetimeLocal(iso: string | null) {
@@ -67,10 +79,15 @@ function formFromNotice(row: NoticeRow): NoticeForm {
     title: row.title,
     body: row.body ?? "",
     image_url: row.image_url ?? "",
+    cta_label: row.cta_label ?? "",
+    cta_url: row.cta_url ?? "",
     sort_order: row.sort_order,
     is_active: row.is_active,
     starts_at: row.starts_at,
     ends_at: row.ends_at,
+    event_starts_at: row.event_starts_at,
+    event_ends_at: row.event_ends_at,
+    category_id: row.category_id ?? "",
   };
 }
 
@@ -83,6 +100,8 @@ export default function NoticesPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [coverage, setCoverage] = useState("all");
+  const [category, setCategory] = useState("all");
+  const [categories, setCategories] = useState<ContentCategory[]>([]);
   const [selected, setSelected] = useState<NoticeRow | null>(null);
   const [editing, setEditing] = useState<NoticeRow | null>(null);
   const [creating, setCreating] = useState(false);
@@ -94,14 +113,25 @@ export default function NoticesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const { data, error } = await supabase.from("notices").select("*").order("sort_order", { ascending: true });
+    const { data, error } = await supabase
+      .from("notices")
+      .select("*, category:content_categories(id, name, slug, emoji)")
+      .order("sort_order", { ascending: true });
     if (error) {
       showToast(error.message);
       setLoading(false);
       return;
     }
 
-    const list = (data as Array<Omit<NoticeRow, "coverage">>) ?? [];
+    const { data: catRows } = await supabase
+      .from("content_categories")
+      .select("*")
+      .eq("kind", "notice")
+      .eq("is_deleted", false)
+      .order("sort_order");
+    setCategories((catRows as ContentCategory[]) ?? []);
+
+    const list = (data as Array<Omit<NoticeRow, "coverage" | "category"> & { category?: unknown }>) ?? [];
     const ids = list.map((n) => n.id);
     const labels: Record<string, string> = {};
 
@@ -149,6 +179,8 @@ export default function NoticesPage() {
 
     const mapped: NoticeRow[] = list.map((n) => ({
       ...n,
+      category_id: n.category_id ?? null,
+      category: nestedContentCategory(n.category),
       coverage: labels[n.id] || "Everywhere",
     }));
 
@@ -161,7 +193,7 @@ export default function NoticesPage() {
     void load();
   }, [load]);
 
-  const activeFilterCount = [search.trim() ? 1 : 0, status !== "all" ? 1 : 0, coverage !== "all" ? 1 : 0].reduce(
+  const activeFilterCount = [search.trim() ? 1 : 0, status !== "all" ? 1 : 0, coverage !== "all" ? 1 : 0, category !== "all" ? 1 : 0].reduce(
     (a, b) => a + b,
     0,
   );
@@ -170,6 +202,7 @@ export default function NoticesPage() {
     setSearch(EMPTY_FILTERS.search);
     setStatus(EMPTY_FILTERS.status);
     setCoverage(EMPTY_FILTERS.coverage);
+    setCategory(EMPTY_FILTERS.category);
   };
 
   const filtered = useMemo(() => {
@@ -179,13 +212,15 @@ export default function NoticesPage() {
       if (status !== "all" && run !== status) return false;
       if (coverage === "everywhere" && r.coverage !== "Everywhere") return false;
       if (coverage === "targeted" && r.coverage === "Everywhere") return false;
+      if (category === "none" && r.category_id) return false;
+      if (category !== "all" && category !== "none" && r.category_id !== category) return false;
       if (q) {
-        const hay = `${r.title} ${r.body ?? ""}`.toLowerCase();
+        const hay = `${r.title} ${r.body ?? ""} ${r.category?.name ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [rows, search, status, coverage]);
+  }, [rows, search, status, coverage, category]);
 
   const pageStats = useMemo(() => {
     const live = rows.filter((r) => noticeRunState(r) === "live").length;
@@ -225,6 +260,10 @@ export default function NoticesPage() {
       showToast("Title is required");
       return;
     }
+    if (!form.category_id) {
+      showToast("Pick a category");
+      return;
+    }
     if (!nationwide && pins.length === 0) {
       showToast("Add at least one pincode, or show everywhere");
       return;
@@ -235,10 +274,15 @@ export default function NoticesPage() {
       title: form.title.trim(),
       body: form.body.trim() || null,
       image_url: form.image_url.trim() || null,
+      cta_label: form.cta_label.trim() || null,
+      cta_url: form.cta_url.trim() || null,
       sort_order: form.sort_order,
       is_active: form.is_active,
       starts_at: form.starts_at || null,
       ends_at: form.ends_at || null,
+      event_starts_at: form.event_starts_at || null,
+      event_ends_at: form.event_ends_at || null,
+      category_id: form.category_id || null,
     };
 
     try {
@@ -290,7 +334,7 @@ export default function NoticesPage() {
   return (
     <div className="page-pad">
       <PageHeader
-        title="Notices"
+        title="Notify"
         action={
           <div className="flex items-center gap-2">
             <button type="button" onClick={openCreate} className="btn-secondary inline-flex w-auto items-center gap-2 py-2.5">
@@ -338,6 +382,17 @@ export default function NoticesPage() {
                 <option value="targeted">Targeted</option>
               </FilterSelect>
             </FilterField>
+            <FilterField label="Category">
+              <FilterSelect value={category} onChange={setCategory}>
+                <option value="all">All</option>
+                <option value="none">Uncategorized</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </FilterSelect>
+            </FilterField>
             {activeFilterCount > 0 ? (
               <div className="flex items-end">
                 <button type="button" onClick={clearFilters} className="h-[46px] text-sm font-bold text-blue-deep hover:underline">
@@ -350,7 +405,7 @@ export default function NoticesPage() {
       ) : null}
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <StatCard label="Total notices" value={pageStats.total} icon={Newspaper} tone="blue" />
+        <StatCard label="Total" value={pageStats.total} icon={Newspaper} tone="blue" />
         <StatCard
           label="Live now"
           value={pageStats.live}
@@ -388,6 +443,17 @@ export default function NoticesPage() {
               ),
             },
             {
+              key: "category",
+              header: "Category",
+              sortValue: (row) => row.category?.name ?? "",
+              render: (row) =>
+                row.category ? (
+                  <Badge className="bg-indigo-soft text-indigo">{row.category.name}</Badge>
+                ) : (
+                  <span className="text-xs text-ink-faint">—</span>
+                ),
+            },
+            {
               key: "status",
               header: "Status",
               sortValue: (row) => noticeRunState(row),
@@ -407,8 +473,8 @@ export default function NoticesPage() {
               ),
             },
             {
-              key: "schedule",
-              header: "Schedule",
+              key: "shows",
+              header: "Shows",
               sortValue: (row) => row.starts_at || "",
               render: (row) => (
                 <span className="text-xs text-ink-soft">
@@ -417,6 +483,21 @@ export default function NoticesPage() {
                   {row.ends_at ? formatDateTime(row.ends_at) : "No end"}
                 </span>
               ),
+            },
+            {
+              key: "event",
+              header: "Event",
+              sortValue: (row) => row.event_starts_at || row.event_ends_at || "",
+              render: (row) =>
+                row.event_starts_at || row.event_ends_at ? (
+                  <span className="text-xs text-ink-soft">
+                    {row.event_starts_at ? formatDateTime(row.event_starts_at) : "Not set"}
+                    {" → "}
+                    {row.event_ends_at ? formatDateTime(row.event_ends_at) : "Not set"}
+                  </span>
+                ) : (
+                  <span className="text-xs text-ink-faint">—</span>
+                ),
             },
             {
               key: "order",
@@ -469,7 +550,7 @@ export default function NoticesPage() {
             <div className="border-b border-line px-6 py-5">
               <h2 className="font-display text-xl font-bold">{editing ? "Edit notice" : "New notice"}</h2>
               <p className="mt-1 text-sm text-ink-soft">
-                Area events and announcements. Shown in the app Notifications menu — no click tracking.
+                Area events and announcements. Shown in Notify. Optional link — no click tracking.
               </p>
             </div>
 
@@ -482,6 +563,24 @@ export default function NoticesPage() {
                     value={form.title}
                     onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                   />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-bold text-ink-soft">Category</span>
+                  <select
+                    className="input-box py-3 text-sm"
+                    value={form.category_id}
+                    onChange={(e) => setForm((f) => ({ ...f, category_id: e.target.value }))}
+                  >
+                    <option value="">Select category</option>
+                    {categories
+                      .filter((c) => c.is_active || c.id === form.category_id)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                  </select>
                 </label>
 
                 <label className="block">
@@ -505,6 +604,26 @@ export default function NoticesPage() {
                 </label>
 
                 <label className="block">
+                  <span className="mb-1 block text-xs font-bold text-ink-soft">Link label</span>
+                  <input
+                    className="input-box py-3 text-sm"
+                    value={form.cta_label}
+                    onChange={(e) => setForm((f) => ({ ...f, cta_label: e.target.value }))}
+                    placeholder="Open link"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-1 block text-xs font-bold text-ink-soft">Link URL</span>
+                  <input
+                    className="input-box py-3 text-sm"
+                    value={form.cta_url}
+                    onChange={(e) => setForm((f) => ({ ...f, cta_url: e.target.value }))}
+                    placeholder="https://..."
+                  />
+                </label>
+
+                <label className="block">
                   <span className="mb-1 block text-xs font-bold text-ink-soft">Sort order</span>
                   <input
                     type="number"
@@ -516,7 +635,7 @@ export default function NoticesPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <label className="block">
-                    <span className="mb-1 block text-xs font-bold text-ink-soft">Starts at</span>
+                    <span className="mb-1 block text-xs font-bold text-ink-soft">Show from</span>
                     <input
                       type="datetime-local"
                       className="input-box py-3 text-sm"
@@ -530,7 +649,7 @@ export default function NoticesPage() {
                     />
                   </label>
                   <label className="block">
-                    <span className="mb-1 block text-xs font-bold text-ink-soft">Ends at</span>
+                    <span className="mb-1 block text-xs font-bold text-ink-soft">Show until</span>
                     <input
                       type="datetime-local"
                       className="input-box py-3 text-sm"
@@ -544,6 +663,39 @@ export default function NoticesPage() {
                     />
                   </label>
                 </div>
+                <p className="text-[11px] font-medium text-ink-faint">When this notice appears in the app. Neighbours never see these dates.</p>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-bold text-ink-soft">Event starts</span>
+                    <input
+                      type="datetime-local"
+                      className="input-box py-3 text-sm"
+                      value={toDatetimeLocal(form.event_starts_at)}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          event_starts_at: e.target.value ? new Date(e.target.value).toISOString() : null,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-bold text-ink-soft">Event ends</span>
+                    <input
+                      type="datetime-local"
+                      className="input-box py-3 text-sm"
+                      value={toDatetimeLocal(form.event_ends_at)}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          event_ends_at: e.target.value ? new Date(e.target.value).toISOString() : null,
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+                <p className="text-[11px] font-medium text-ink-faint">Optional. Shown to neighbours if you set them.</p>
 
                 <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
                   <input

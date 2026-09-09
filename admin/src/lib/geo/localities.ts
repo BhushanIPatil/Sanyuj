@@ -54,3 +54,19 @@ export async function fetchCachedLocalities(
   if (error) throw error;
   return (data as CachedLocality[]) ?? [];
 }
+
+export async function resolveLocalityId(
+  supabase: SupabaseClient,
+  pincode: string,
+  name: string,
+): Promise<string | null> {
+  if (!pincode || !name.trim()) return null;
+  const { data } = await supabase
+    .from("localities")
+    .select("id")
+    .eq("pincode", pincode)
+    .ilike("name", name.trim())
+    .eq("is_deleted", false)
+    .maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}

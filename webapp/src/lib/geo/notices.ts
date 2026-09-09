@@ -1,14 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { visible } from "@/lib/db/visible";
+import { nestedContentCategory, type ContentCategoryRef } from "@/lib/contentCategories";
 
 export type NoticeDetail = {
   id: string;
   title: string;
   body: string | null;
   image_url: string | null;
-  starts_at: string | null;
-  ends_at: string | null;
+  cta_label: string | null;
+  cta_url: string | null;
+  event_starts_at: string | null;
+  event_ends_at: string | null;
   created_at: string | null;
+  category: ContentCategoryRef | null;
 };
 
 export async function fetchCoveringNoticeIds(
@@ -33,11 +37,18 @@ export async function fetchVisibleNotices(
   const covering = await fetchCoveringNoticeIds(supabase, opts);
   if (!covering.length) return [];
   const { data } = await visible(
-    supabase.from("notices").select("id, title, body, image_url, starts_at, ends_at, created_at"),
+    supabase
+      .from("notices")
+      .select(
+        "id, title, body, image_url, cta_label, cta_url, event_starts_at, event_ends_at, created_at, category:content_categories(id, slug, name, emoji)",
+      ),
   )
     .in("id", covering)
     .order("sort_order", { ascending: true });
-  return (data as NoticeDetail[] | null) ?? [];
+  return ((data as Array<Omit<NoticeDetail, "category"> & { category?: unknown }> | null) ?? []).map((row) => ({
+    ...row,
+    category: nestedContentCategory(row.category),
+  }));
 }
 
 export type ProfileGeo = {

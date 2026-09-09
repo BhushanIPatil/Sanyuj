@@ -6,6 +6,7 @@ import { formatDateTime } from "@/lib/format";
 import { Badge } from "@/components/ui/Badge";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { ImagePreview } from "@/components/ui/ImageOrEmoji";
+import type { ContentCategoryRef } from "@/lib/contentCategories";
 
 export type NoticeRunState = "live" | "scheduled" | "ended" | "inactive" | "deleted";
 
@@ -14,11 +15,17 @@ export type NoticeRow = {
   title: string;
   body: string | null;
   image_url: string | null;
+  cta_label: string | null;
+  cta_url: string | null;
   sort_order: number;
   is_active: boolean;
   is_deleted: boolean;
   starts_at: string | null;
   ends_at: string | null;
+  event_starts_at: string | null;
+  event_ends_at: string | null;
+  category_id: string | null;
+  category: ContentCategoryRef | null;
   created_at: string;
   coverage: string;
 };
@@ -89,7 +96,12 @@ export function NoticeDetailPanel({
   return (
     <SlideOver
       title={notice.title}
-      subtitle={<Badge className={noticeRunStateBadge(run)}>{noticeRunStateLabel(run)}</Badge>}
+      subtitle={
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge className={noticeRunStateBadge(run)}>{noticeRunStateLabel(run)}</Badge>
+          {notice.category ? <Badge className="bg-indigo-soft text-indigo">{notice.category.name}</Badge> : null}
+        </div>
+      }
       onClose={onClose}
       footer={
         <div className="flex flex-wrap gap-2">
@@ -119,11 +131,25 @@ export function NoticeDetailPanel({
       {notice.body ? <p className="mt-4 text-sm leading-relaxed text-ink-soft">{notice.body}</p> : null}
 
       <dl className="mt-4 grid grid-cols-2 gap-3">
-        <Detail label="Starts" value={notice.starts_at ? formatDateTime(notice.starts_at) : "Anytime"} />
-        <Detail label="Ends" value={notice.ends_at ? formatDateTime(notice.ends_at) : "No end"} />
+        <Detail label="Show from" value={notice.starts_at ? formatDateTime(notice.starts_at) : "Anytime"} />
+        <Detail label="Show until" value={notice.ends_at ? formatDateTime(notice.ends_at) : "No end"} />
+        <Detail
+          label="Event starts"
+          value={notice.event_starts_at ? formatDateTime(notice.event_starts_at) : "Not set"}
+        />
+        <Detail label="Event ends" value={notice.event_ends_at ? formatDateTime(notice.event_ends_at) : "Not set"} />
+        <Detail label="Category" value={notice.category?.name || "Not set"} />
+        <Detail label="Link label" value={notice.cta_url ? notice.cta_label || "Open link" : "—"} />
         <Detail label="Sort order" value={notice.sort_order} />
         <Detail label="Created" value={formatDateTime(notice.created_at)} />
       </dl>
+
+      {notice.cta_url ? (
+        <section className="mt-5">
+          <h3 className="mb-1.5 text-sm font-bold">Link</h3>
+          <p className="break-all text-sm text-blue-deep">{notice.cta_url}</p>
+        </section>
+      ) : null}
 
       <section className="mt-5">
         <h3 className="mb-1.5 text-sm font-bold">Coverage</h3>

@@ -4,8 +4,13 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
+import '../widgets/common.dart';
 
-Future<void> showNoticeDetailSheet(BuildContext context, {required AreaNotice notice}) {
+Future<void> showNoticeDetailSheet(
+  BuildContext context, {
+  required AreaNotice notice,
+  Future<void> Function()? onCta,
+}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -17,6 +22,7 @@ Future<void> showNoticeDetailSheet(BuildContext context, {required AreaNotice no
       builder: (_, scrollController) => _NoticeDetailSheet(
         notice: notice,
         scrollController: scrollController,
+        onCta: onCta,
       ),
     ),
   );
@@ -26,15 +32,19 @@ class _NoticeDetailSheet extends StatelessWidget {
   const _NoticeDetailSheet({
     required this.notice,
     required this.scrollController,
+    this.onCta,
   });
 
   final AreaNotice notice;
   final ScrollController scrollController;
+  final Future<void> Function()? onCta;
 
   @override
   Widget build(BuildContext context) {
     final imageUrl = notice.imageUrl?.trim();
-    final hasWindow = notice.startsAt != null || notice.endsAt != null;
+    final when = formatWhenRange(notice.eventStartsAt, notice.eventEndsAt);
+    final ctaUrl = notice.ctaUrl?.trim() ?? '';
+    final ctaLabel = (notice.ctaLabel ?? '').trim().isNotEmpty ? notice.ctaLabel!.trim() : 'Open link';
 
     return Container(
       decoration: const BoxDecoration(
@@ -74,6 +84,10 @@ class _NoticeDetailSheet extends StatelessWidget {
                     ),
                   ),
                 SizedBox(height: imageUrl != null && imageUrl.isNotEmpty ? 16 : 4),
+                if (notice.category != null) ...[
+                  CategoryTintChip(category: notice.category!),
+                  const SizedBox(height: 10),
+                ],
                 Text(
                   notice.title,
                   style: GoogleFonts.nunito(fontSize: 22, fontWeight: FontWeight.w800, height: 1.25),
@@ -85,7 +99,7 @@ class _NoticeDetailSheet extends StatelessWidget {
                     style: const TextStyle(fontSize: 14, height: 1.5, color: AppColors.inkSoft),
                   ),
                 ],
-                if (hasWindow) ...[
+                if (when.isNotEmpty) ...[
                   const SizedBox(height: 18),
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -107,10 +121,34 @@ class _NoticeDetailSheet extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        _DateRow(label: 'Starts', value: formatAdDate(notice.startsAt)),
-                        const SizedBox(height: 8),
-                        _DateRow(label: 'Ends', value: formatAdDate(notice.endsAt)),
+                        Text(
+                          when,
+                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                        ),
                       ],
+                    ),
+                  ),
+                ],
+                if (ctaUrl.isNotEmpty && onCta != null) ...[
+                  const SizedBox(height: 22),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () async {
+                        await onCta!();
+                        if (context.mounted) Navigator.pop(context);
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.blueDeep,
+                        minimumSize: const Size.fromHeight(50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                        ),
+                      ),
+                      child: Text(
+                        ctaLabel,
+                        style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 15),
+                      ),
                     ),
                   ),
                 ],
@@ -119,28 +157,6 @@ class _NoticeDetailSheet extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _DateRow extends StatelessWidget {
-  const _DateRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 52,
-          child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.inkSoft)),
-        ),
-        Expanded(
-          child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-        ),
-      ],
     );
   }
 }

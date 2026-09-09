@@ -6,6 +6,7 @@ import { formatDateTime, formatMoney } from "@/lib/format";
 import { Badge } from "@/components/ui/Badge";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { ImagePreview } from "@/components/ui/ImageOrEmoji";
+import type { ContentCategoryRef } from "@/lib/contentCategories";
 
 export type AdPaymentStatus = "paid" | "unpaid";
 
@@ -30,6 +31,8 @@ export type AdRow = {
   price: number | null;
   payment_status: AdPaymentStatus;
   is_home_screen: boolean;
+  category_id: string | null;
+  category: ContentCategoryRef | null;
   created_at: string;
   coverage: string;
   totalClicks: number;
@@ -113,6 +116,7 @@ export function AdDetailPanel({
           <Badge className={ad.is_home_screen ? "bg-blue-soft text-blue-deep" : "bg-surface text-ink-soft"}>
             {ad.is_home_screen ? "Home + Offerly" : "Offerly only"}
           </Badge>
+          {ad.category ? <Badge className="bg-indigo-soft text-indigo">{ad.category.name}</Badge> : null}
         </div>
       }
       onClose={onClose}
@@ -167,11 +171,12 @@ export function AdDetailPanel({
           label="Unique users"
           value={`${ad.uniqueUsers.toLocaleString()} user${ad.uniqueUsers === 1 ? "" : "s"}`}
         />
-        <Detail label="Banner starts" value={ad.starts_at ? formatDateTime(ad.starts_at) : "Anytime"} />
-        <Detail label="Banner ends" value={ad.ends_at ? formatDateTime(ad.ends_at) : "No end"} />
+        <Detail label="Show from" value={ad.starts_at ? formatDateTime(ad.starts_at) : "Anytime"} />
+        <Detail label="Show until" value={ad.ends_at ? formatDateTime(ad.ends_at) : "No end"} />
         <Detail label="Offer starts" value={ad.offer_starts_at ? formatDateTime(ad.offer_starts_at) : "Not set"} />
         <Detail label="Offer ends" value={ad.offer_ends_at ? formatDateTime(ad.offer_ends_at) : "Not set"} />
         <Detail label="Home screen" value={ad.is_home_screen ? "Yes — carousel + Offerly" : "Offerly only"} />
+        <Detail label="Category" value={ad.category?.name || "Not set"} />
         <Detail label="Sort order" value={ad.sort_order} />
         <Detail label="Created" value={formatDateTime(ad.created_at)} />
       </dl>

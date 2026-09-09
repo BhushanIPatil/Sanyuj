@@ -15,7 +15,7 @@ class AppShell extends StatelessWidget {
     ('/explore', 'Explore', Icons.search_rounded),
     ('/offerly', 'Offerly', Icons.local_offer_rounded),
     ('/home', 'Home', Icons.home_rounded),
-    ('/notifications', 'Notices', Icons.notifications_rounded),
+    ('/notifications', 'Notify', Icons.notifications_rounded),
     ('/profile', 'Profile', Icons.person_outline_rounded),
   ];
 

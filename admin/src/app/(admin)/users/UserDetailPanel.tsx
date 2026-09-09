@@ -15,7 +15,7 @@ export type UserBusiness = {
   name: string;
   is_active: boolean;
   is_deleted: boolean;
-  categories: { name: string } | null;
+  categories: { name: string; is_other?: boolean } | null;
 };
 
 export type UserRow = {
@@ -26,6 +26,7 @@ export type UserRow = {
   pincode: string | null;
   locality: string | null;
   area: string | null;
+  area_id: string | null;
   address: string | null;
   onboarding_complete: boolean;
   is_active: boolean;
@@ -181,7 +182,10 @@ export function UserDetailPanel({
         <section className="mt-5 rounded-[16px] border border-line p-3">
           <p className="text-xs font-bold uppercase tracking-wide text-ink-soft">Business</p>
           <p className="mt-1 font-semibold">{user.business.name}</p>
-          <p className="text-xs text-ink-soft">{user.business.categories?.name ?? "—"}</p>
+          <p className="text-xs text-ink-soft">
+            {user.business.categories?.name ?? "—"}
+            {user.business.categories?.is_other ? " · Other" : ""}
+          </p>
           <p className="mt-1 text-xs text-ink-faint">
             Business {accountStatusLabel(user.business.is_active, user.business.is_deleted)}
           </p>

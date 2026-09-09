@@ -77,3 +77,43 @@ String formatAdDate(DateTime? dt) {
   if (dt == null) return 'Not set';
   return DateFormat('d MMM yyyy').format(dt.toLocal());
 }
+
+bool _isMidnight(DateTime d) => d.hour == 0 && d.minute == 0;
+
+bool _sameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+String _day(DateTime d) => DateFormat('d MMM yyyy').format(d);
+String _time(DateTime d) => DateFormat('h:mm a').format(d);
+
+/// Neighbour-facing event/offer window. Empty when neither date is set.
+String formatWhenRange(DateTime? startUtc, DateTime? endUtc) {
+  final start = startUtc?.toLocal();
+  final end = endUtc?.toLocal();
+  if (start == null && end == null) return '';
+
+  if (start != null && end != null && _sameDay(start, end)) {
+    final showStartTime = !_isMidnight(start);
+    final showEndTime = !_isMidnight(end);
+    if (!showStartTime && !showEndTime) return 'on ${_day(start)}';
+    if (showStartTime && showEndTime) {
+      if (start.hour == end.hour && start.minute == end.minute) {
+        return 'on ${_day(start)} at ${_time(start)}';
+      }
+      return 'on ${_day(start)} from ${_time(start)} to ${_time(end)}';
+    }
+    if (showStartTime) return 'on ${_day(start)} from ${_time(start)}';
+    return 'on ${_day(start)} until ${_time(end)}';
+  }
+
+  if (start != null && end != null) {
+    final left = _isMidnight(start) ? _day(start) : '${_day(start)}, ${_time(start)}';
+    final right = _isMidnight(end) ? _day(end) : '${_day(end)}, ${_time(end)}';
+    return '$left → $right';
+  }
+
+  if (start != null) {
+    return _isMidnight(start) ? 'on ${_day(start)}' : 'on ${_day(start)} from ${_time(start)}';
+  }
+  return _isMidnight(end!) ? 'until ${_day(end)}' : 'until ${_day(end)}, ${_time(end)}';
+}

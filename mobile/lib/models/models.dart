@@ -57,6 +57,7 @@ class Category {
     this.emoji,
     required this.groupId,
     this.sortOrder = 0,
+    this.isOther = false,
   });
 
   final String id;
@@ -65,16 +66,31 @@ class Category {
   final String? emoji;
   final String groupId;
   final int sortOrder;
+  final bool isOther;
 
   factory Category.fromJson(Map<String, dynamic> json) => Category(
         id: json['id'] as String,
-        slug: json['slug'] as String,
-        name: json['name'] as String,
+        slug: json['slug'] as String? ?? '',
+        name: json['name'] as String? ?? '',
         emoji: json['emoji'] as String?,
-        groupId: json['group_id'] as String,
+        groupId: json['group_id'] as String? ?? '',
         sortOrder: json['sort_order'] as int? ?? 0,
+        isOther: json['is_other'] as bool? ?? false,
       );
 }
+
+const kOtherCategoryId = '__other__';
+const kOtherCategorySlug = 'other';
+
+final kOtherBrowseCategory = Category(
+  id: kOtherCategoryId,
+  slug: kOtherCategorySlug,
+  name: 'Other',
+  emoji: '✨',
+  groupId: '',
+  sortOrder: 999,
+  isOther: true,
+);
 
 class CategoryGroup {
   CategoryGroup({
@@ -144,6 +160,7 @@ class Business {
               name: cat['name'] as String? ?? '',
               emoji: cat['emoji'] as String?,
               groupId: cat['group_id'] as String? ?? '',
+              isOther: cat['is_other'] as bool? ?? false,
             )
           : null,
     );
@@ -177,6 +194,52 @@ class Business {
   }
 }
 
+class ContentCategory {
+  ContentCategory({
+    required this.id,
+    required this.kind,
+    required this.slug,
+    required this.name,
+    this.emoji,
+    this.sortOrder = 0,
+  });
+
+  final String id;
+  final String kind;
+  final String slug;
+  final String name;
+  final String? emoji;
+  final int sortOrder;
+
+  Category get asChip => Category(
+        id: id,
+        slug: slug,
+        name: name,
+        emoji: emoji,
+        groupId: '',
+        sortOrder: sortOrder,
+      );
+
+  static ContentCategory? tryParse(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is List) {
+      if (raw.isEmpty) return null;
+      return ContentCategory.fromJson(Map<String, dynamic>.from(raw.first as Map));
+    }
+    if (raw is Map) return ContentCategory.fromJson(Map<String, dynamic>.from(raw));
+    return null;
+  }
+
+  factory ContentCategory.fromJson(Map<String, dynamic> json) => ContentCategory(
+        id: json['id'] as String,
+        kind: json['kind'] as String? ?? '',
+        slug: json['slug'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        emoji: json['emoji'] as String?,
+        sortOrder: json['sort_order'] as int? ?? 0,
+      );
+}
+
 class AdBanner {
   AdBanner({
     required this.id,
@@ -190,6 +253,7 @@ class AdBanner {
     this.offerStartsAt,
     this.offerEndsAt,
     this.createdAt,
+    this.category,
   });
 
   final String id;
@@ -203,6 +267,7 @@ class AdBanner {
   final DateTime? offerStartsAt;
   final DateTime? offerEndsAt;
   final DateTime? createdAt;
+  final ContentCategory? category;
 
   factory AdBanner.fromJson(Map<String, dynamic> json) => AdBanner(
         id: json['id'] as String,
@@ -222,6 +287,7 @@ class AdBanner {
         createdAt: json['created_at'] != null
             ? DateTime.tryParse(json['created_at'] as String)
             : null,
+        category: ContentCategory.tryParse(json['category'] ?? json['content_categories']),
       );
 }
 
@@ -231,29 +297,42 @@ class AreaNotice {
     required this.title,
     this.body,
     this.imageUrl,
-    this.startsAt,
-    this.endsAt,
+    this.ctaLabel,
+    this.ctaUrl,
+    this.eventStartsAt,
+    this.eventEndsAt,
     this.createdAt,
+    this.category,
   });
 
   final String id;
   final String title;
   final String? body;
   final String? imageUrl;
-  final DateTime? startsAt;
-  final DateTime? endsAt;
+  final String? ctaLabel;
+  final String? ctaUrl;
+  final DateTime? eventStartsAt;
+  final DateTime? eventEndsAt;
   final DateTime? createdAt;
+  final ContentCategory? category;
 
   factory AreaNotice.fromJson(Map<String, dynamic> json) => AreaNotice(
         id: json['id'] as String,
         title: json['title'] as String? ?? '',
         body: json['body'] as String?,
         imageUrl: json['image_url'] as String?,
-        startsAt: json['starts_at'] != null ? DateTime.tryParse(json['starts_at'] as String) : null,
-        endsAt: json['ends_at'] != null ? DateTime.tryParse(json['ends_at'] as String) : null,
+        ctaLabel: json['cta_label'] as String?,
+        ctaUrl: json['cta_url'] as String?,
+        eventStartsAt: json['event_starts_at'] != null
+            ? DateTime.tryParse(json['event_starts_at'] as String)
+            : null,
+        eventEndsAt: json['event_ends_at'] != null
+            ? DateTime.tryParse(json['event_ends_at'] as String)
+            : null,
         createdAt: json['created_at'] != null
             ? DateTime.tryParse(json['created_at'] as String)
             : null,
+        category: ContentCategory.tryParse(json['category'] ?? json['content_categories']),
       );
 }
 

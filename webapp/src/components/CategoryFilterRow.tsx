@@ -1,7 +1,13 @@
 "use client";
 
 import { CategoryIcon } from "@/components/CategoryIcon";
-import type { Category } from "@/lib/categories";
+
+export type CategoryChipItem = {
+  id: string;
+  slug: string;
+  name: string;
+  emoji?: string | null;
+};
 
 /** Written out in full so Tailwind keeps every tint in the build. */
 const TINTS = [
@@ -23,6 +29,23 @@ export function categoryTint(seed: string): string {
   return TINTS[hash % TINTS.length];
 }
 
+export function CategoryTintBadge({
+  category,
+  className = "",
+}: {
+  category: CategoryChipItem;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ${categoryTint(category.slug || category.id)} ${className}`}
+    >
+      {category.emoji ? <CategoryIcon value={category.emoji} size="chip" alt="" /> : null}
+      {category.name}
+    </span>
+  );
+}
+
 /** Mirrors the category group in the filter panel, so both stay in step. */
 export function CategoryFilterRow({
   categories,
@@ -31,7 +54,7 @@ export function CategoryFilterRow({
   onClear,
   className = "",
 }: {
-  categories: Category[];
+  categories: CategoryChipItem[];
   /** Slugs of the active categories. */
   selected: string[];
   onToggle: (slug: string) => void;

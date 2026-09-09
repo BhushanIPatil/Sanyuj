@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import { ArrowDown, ArrowUp, ChevronsUpDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export type SortDir = "asc" | "desc";
 
@@ -123,6 +123,8 @@ export function DataTable<T extends { id: string }>({
   defaultPageSize = 10,
   defaultSortKey,
   defaultSortDir = "desc",
+  selectedIds,
+  onSelectionChange,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -132,11 +134,14 @@ export function DataTable<T extends { id: string }>({
   defaultPageSize?: number;
   defaultSortKey?: string;
   defaultSortDir?: SortDir;
+  selectedIds?: ReadonlySet<string>;
+  onSelectionChange?: (next: Set<string>) => void;
 }) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(defaultPageSize);
   const [sortKey, setSortKey] = useState<string | null>(defaultSortKey ?? null);
   const [sortDir, setSortDir] = useState<SortDir>(defaultSortDir);
+  const selectAllRef = useRef<HTMLInputElement>(null);
 
   const rowSignature = `${rows.length}:${rows[0]?.id ?? ""}:${rows[rows.length - 1]?.id ?? ""}`;
   useEffect(() => {
@@ -158,6 +163,35 @@ export function DataTable<T extends { id: string }>({
   const pageCount = Math.max(1, Math.ceil(sorted.length / pageSize));
   const safePage = Math.min(page, pageCount);
   const pageRows = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const selectable = Boolean(onSelectionChange);
+  const pageSelectedCount = selectable
+    ? pageRows.filter((r) => selectedIds?.has(r.id)).length
+    : 0;
+  const allPageSelected = selectable && pageRows.length > 0 && pageSelectedCount === pageRows.length;
+  const somePageSelected = pageSelectedCount > 0 && !allPageSelected;
+
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = somePageSelected;
+  }, [somePageSelected]);
+
+  const toggleRow = (id: string) => {
+    if (!onSelectionChange) return;
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onSelectionChange(next);
+  };
+
+  const togglePage = () => {
+    if (!onSelectionChange) return;
+    const next = new Set(selectedIds);
+    if (allPageSelected) {
+      for (const row of pageRows) next.delete(row.id);
+    } else {
+      for (const row of pageRows) next.add(row.id);
+    }
+    onSelectionChange(next);
+  };
 
   const toggleSort = (col: Column<T>) => {
     if (!isSortable(col)) return;
@@ -197,6 +231,18 @@ export function DataTable<T extends { id: string }>({
         <table className="min-w-full text-left text-sm">
           <thead>
             <tr className="border-b border-line bg-surface/80">
+              {selectable ? (
+                <th className="w-10 px-4 py-3">
+                  <input
+                    ref={selectAllRef}
+                    type="checkbox"
+                    className="cursor-pointer"
+                    checked={allPageSelected}
+                    onChange={togglePage}
+                    aria-label="Select all on this page"
+                  />
+                </th>
+              ) : null}
               {columns.map((col) => {
                 const sortable = isSortable(col);
                 const active = sortKey === col.key;
@@ -240,7 +286,7 @@ export function DataTable<T extends { id: string }>({
                 className={clsx(
                   "border-b border-line last:border-0",
                   onRowClick ? "cursor-pointer hover:bg-surface/60" : "hover:bg-surface/40",
-                  selectedId === row.id && "bg-blue-soft/60",
+                  (selectedId === row.id || selectedIds?.has(row.id)) && "bg-blue-soft/60",
                 )}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 onKeyDown={
@@ -255,6 +301,17 @@ export function DataTable<T extends { id: string }>({
                 }
                 tabIndex={onRowClick ? 0 : undefined}
               >
+                {selectable ? (
+                  <td className="w-10 px-4 py-3 align-middle" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="cursor-pointer"
+                      checked={selectedIds?.has(row.id) ?? false}
+                      onChange={() => toggleRow(row.id)}
+                      aria-label="Select row"
+                    />
+                  </td>
+                ) : null}
                 {columns.map((col) => {
                   const stop = col.stopRowClick || col.key === "actions";
                   return (

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { visible } from "@/lib/db/visible";
 import { useToast } from "@/components/Toast";
 import {
+  OTHER_BROWSE_CATEGORY,
   categoryDisplayName,
   fetchCategoryTree,
   flattenCategories,
@@ -211,7 +212,7 @@ export default function HomePage() {
 
         try {
           const tree = await fetchCategoryTree(supabase);
-          setCategories(flattenCategories(tree));
+          setCategories([...flattenCategories(tree), OTHER_BROWSE_CATEGORY]);
         } catch {
           setCategories([]);
         }

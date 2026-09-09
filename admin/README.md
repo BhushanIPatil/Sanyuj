@@ -37,7 +37,11 @@ Open [http://localhost:3001](http://localhost:3001).
 ## Deploy (Vercel)
 
 1. Import the `admin` directory as a new Vercel project
-2. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+2. Set every variable from `.env.example`:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY` — required for create/update/delete user, provider, ad and category routes
+   - `NEXT_PUBLIC_WEBAPP_URL` — webapp origin used to call the FCM send API
 3. Deploy
 
 ## Scripts

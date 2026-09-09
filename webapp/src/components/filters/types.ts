@@ -1,4 +1,4 @@
-/** Shared filter/sort model used by Explore, Offerly and Notifications. */
+/** Shared filter/sort model used by Explore, Offerly and Notify. */
 
 export type FilterOption = {
   value: string;
@@ -70,6 +70,17 @@ export function toggleFilter(state: FilterState, groupId: string, value: string)
   const selections = { ...state.selections };
   if (next.length) selections[groupId] = next;
   else delete selections[groupId];
+  return { ...state, selections };
+}
+
+/** Listing chips pick one value. Filter panels still use [toggleFilter]. */
+export function selectOnlyFilter(state: FilterState, groupId: string, value: string): FilterState {
+  return { ...state, selections: { ...state.selections, [groupId]: [value] } };
+}
+
+export function clearFilterGroup(state: FilterState, groupId: string): FilterState {
+  const selections = { ...state.selections };
+  delete selections[groupId];
   return { ...state, selections };
 }
 

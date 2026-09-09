@@ -324,7 +324,7 @@ function LoginForm() {
       : step === "new-password"
         ? "Enter and confirm your new password."
         : mode === "restore"
-          ? "An account already exists with this email. Set a new password to restore it — we’ll email a verification code."
+          ? ""
           : mode === "forgot"
             ? "Enter your email and we’ll send a 6-digit code to reset your password."
             : mode === "register"

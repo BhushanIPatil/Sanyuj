@@ -21,14 +21,14 @@ export async function fetchNoticeCoverage(
     .order("pincode");
   if (error) throw error;
   const raw =
-    (data as Array<{
+    (data as unknown as Array<{
       id: string;
       notice_id: string;
       pincode: string;
       locality_id: string | null;
       area_id: string | null;
-      localities: { id: string; name: string } | null;
-      areas: { id: string; name: string } | null;
+      localities: { id: string; name: string } | { id: string; name: string }[] | null;
+      areas: { id: string; name: string } | { id: string; name: string }[] | null;
     }> | null) ?? [];
   return raw.map((r) => ({
     id: r.id,
@@ -36,8 +36,8 @@ export async function fetchNoticeCoverage(
     pincode: r.pincode,
     locality_id: r.locality_id,
     area_id: r.area_id,
-    localities: r.localities,
-    areas: r.areas,
+    localities: Array.isArray(r.localities) ? (r.localities[0] ?? null) : r.localities,
+    areas: Array.isArray(r.areas) ? (r.areas[0] ?? null) : r.areas,
   }));
 }
 

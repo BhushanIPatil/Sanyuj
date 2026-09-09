@@ -27,7 +27,7 @@ import { SanyujBrand } from "@/components/SanyujLogo";
 export const APP_NAV = [
   { href: "/app", label: "Home", icon: Home, match: "/app", exact: true },
   { href: "/app/offerly", label: "Offerly", icon: Tag, match: "/app/offerly" },
-  { href: "/app/notifications", label: "Notifications", icon: Bell, match: "/app/notifications" },
+  { href: "/app/notifications", label: "Notify", icon: Bell, match: "/app/notifications" },
   { href: "/app/explore", label: "Explore", icon: Search, match: "/app/explore" },
   { href: "/app/profile", label: "Profile", icon: User, match: "/app/profile" },
 ] as const;

@@ -30,6 +30,7 @@ import {
   summarizeAdPin,
   type AdPinDraft,
 } from "@/lib/geo/adCoverage";
+import { nestedContentCategory, type ContentCategory } from "@/lib/contentCategories";
 import {
   AdDetailPanel,
   adRunState,
@@ -58,6 +59,7 @@ type AdForm = {
   price: string;
   payment_status: AdPaymentStatus;
   is_home_screen: boolean;
+  category_id: string;
 };
 
 const EMPTY_FILTERS = {
@@ -66,6 +68,7 @@ const EMPTY_FILTERS = {
   payment: "all",
   coverage: "all",
   placement: "all",
+  category: "all",
 };
 
 const EMPTY_AD: AdForm = {
@@ -86,6 +89,7 @@ const EMPTY_AD: AdForm = {
   price: "",
   payment_status: "unpaid",
   is_home_screen: true,
+  category_id: "",
 };
 
 function toDatetimeLocal(iso: string | null) {
@@ -114,6 +118,7 @@ function formFromAd(ad: AdRow): AdForm {
     price: ad.price != null ? String(ad.price) : "",
     payment_status: ad.payment_status,
     is_home_screen: ad.is_home_screen,
+    category_id: ad.category_id ?? "",
   };
 }
 
@@ -136,6 +141,8 @@ export default function AdsPage() {
   const [payment, setPayment] = useState("all");
   const [coverage, setCoverage] = useState("all");
   const [placement, setPlacement] = useState("all");
+  const [category, setCategory] = useState("all");
+  const [categories, setCategories] = useState<ContentCategory[]>([]);
   const [selected, setSelected] = useState<AdRow | null>(null);
   const [editing, setEditing] = useState<AdRow | null>(null);
   const [creating, setCreating] = useState(false);
@@ -147,14 +154,25 @@ export default function AdsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const { data, error } = await supabase.from("ads").select("*").order("sort_order", { ascending: true });
+    const { data, error } = await supabase
+      .from("ads")
+      .select("*, category:content_categories(id, name, slug, emoji)")
+      .order("sort_order", { ascending: true });
     if (error) {
       showToast(error.message);
       setLoading(false);
       return;
     }
 
-    const list = (data as Array<Omit<AdRow, "coverage" | "totalClicks" | "uniqueUsers">>) ?? [];
+    const { data: catRows } = await supabase
+      .from("content_categories")
+      .select("*")
+      .eq("kind", "offer")
+      .eq("is_deleted", false)
+      .order("sort_order");
+    setCategories((catRows as ContentCategory[]) ?? []);
+
+    const list = (data as Array<Omit<AdRow, "coverage" | "totalClicks" | "uniqueUsers" | "category"> & { category?: unknown }>) ?? [];
     const ids = list.map((a) => a.id);
     const labels: Record<string, string> = {};
     const stats: Record<string, { totalClicks: number; uniqueUsers: number }> = {};
@@ -217,6 +235,8 @@ export default function AdsPage() {
       price: typeof ad.price === "number" ? ad.price : null,
       payment_status: ad.payment_status === "paid" ? "paid" : "unpaid",
       is_home_screen: ad.is_home_screen !== false,
+      category_id: ad.category_id ?? null,
+      category: nestedContentCategory(ad.category),
       coverage: labels[ad.id] || "Everywhere",
       totalClicks: stats[ad.id]?.totalClicks ?? 0,
       uniqueUsers: stats[ad.id]?.uniqueUsers ?? 0,
@@ -237,6 +257,7 @@ export default function AdsPage() {
     payment !== "all" ? 1 : 0,
     coverage !== "all" ? 1 : 0,
     placement !== "all" ? 1 : 0,
+    category !== "all" ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
   const clearFilters = () => {
@@ -245,6 +266,7 @@ export default function AdsPage() {
     setPayment(EMPTY_FILTERS.payment);
     setCoverage(EMPTY_FILTERS.coverage);
     setPlacement(EMPTY_FILTERS.placement);
+    setCategory(EMPTY_FILTERS.category);
   };
 
   const filtered = useMemo(() => {
@@ -257,13 +279,15 @@ export default function AdsPage() {
       if (coverage === "targeted" && r.coverage === "Everywhere") return false;
       if (placement === "home" && !r.is_home_screen) return false;
       if (placement === "offerly" && r.is_home_screen) return false;
+      if (category === "none" && r.category_id) return false;
+      if (category !== "all" && category !== "none" && r.category_id !== category) return false;
       if (q) {
-        const hay = `${r.brand_name} ${r.title} ${r.body ?? ""} ${r.cta_label ?? ""}`.toLowerCase();
+        const hay = `${r.brand_name} ${r.title} ${r.body ?? ""} ${r.cta_label ?? ""} ${r.category?.name ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [rows, search, status, payment, coverage, placement]);
+  }, [rows, search, status, payment, coverage, placement, category]);
 
   const pageStats = useMemo(() => {
     const total = rows.length;
@@ -323,6 +347,10 @@ export default function AdsPage() {
       showToast("Brand name and title are required");
       return;
     }
+    if (!form.category_id) {
+      showToast("Pick a category");
+      return;
+    }
     if (form.price.trim() && parsePrice(form.price) == null) {
       showToast("Enter a valid price of 0 or more");
       return;
@@ -351,6 +379,7 @@ export default function AdsPage() {
       price: parsePrice(form.price),
       payment_status: form.payment_status,
       is_home_screen: form.is_home_screen,
+      category_id: form.category_id || null,
     };
 
     try {
@@ -464,6 +493,17 @@ export default function AdsPage() {
                 <option value="offerly">Offerly only</option>
               </FilterSelect>
             </FilterField>
+            <FilterField label="Category">
+              <FilterSelect value={category} onChange={setCategory}>
+                <option value="all">All</option>
+                <option value="none">Uncategorized</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </FilterSelect>
+            </FilterField>
             {activeFilterCount > 0 ? (
               <div className="flex items-end">
                 <button type="button" onClick={clearFilters} className="h-[46px] text-sm font-bold text-blue-deep hover:underline">
@@ -534,6 +574,17 @@ export default function AdsPage() {
               ),
             },
             {
+              key: "category",
+              header: "Category",
+              sortValue: (row) => row.category?.name ?? "",
+              render: (row) =>
+                row.category ? (
+                  <Badge className="bg-indigo-soft text-indigo">{row.category.name}</Badge>
+                ) : (
+                  <span className="text-xs text-ink-faint">—</span>
+                ),
+            },
+            {
               key: "price",
               header: "Price",
               sortValue: (row) => row.price ?? -1,
@@ -592,8 +643,8 @@ export default function AdsPage() {
               ),
             },
             {
-              key: "schedule",
-              header: "Schedule",
+              key: "shows",
+              header: "Shows",
               sortValue: (row) => row.starts_at || "",
               render: (row) => (
                 <span className="text-xs text-ink-soft">
@@ -602,6 +653,21 @@ export default function AdsPage() {
                   {row.ends_at ? formatDateTime(row.ends_at) : "No end"}
                 </span>
               ),
+            },
+            {
+              key: "offer",
+              header: "Offer",
+              sortValue: (row) => row.offer_starts_at || row.offer_ends_at || "",
+              render: (row) =>
+                row.offer_starts_at || row.offer_ends_at ? (
+                  <span className="text-xs text-ink-soft">
+                    {row.offer_starts_at ? formatDateTime(row.offer_starts_at) : "Not set"}
+                    {" → "}
+                    {row.offer_ends_at ? formatDateTime(row.offer_ends_at) : "Not set"}
+                  </span>
+                ) : (
+                  <span className="text-xs text-ink-faint">—</span>
+                ),
             },
             {
               key: "order",
@@ -691,6 +757,24 @@ export default function AdsPage() {
                     <ImagePreview src={form.image_url} alt={form.brand_name} className="mt-3" height={180} />
                   </label>
 
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-bold text-ink-soft">Category</span>
+                    <select
+                      className="input-box py-3 text-sm"
+                      value={form.category_id}
+                      onChange={(e) => setForm((f) => ({ ...f, category_id: e.target.value }))}
+                    >
+                      <option value="">Select category</option>
+                      {categories
+                        .filter((c) => c.is_active || c.id === form.category_id)
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+
                   <div className="grid grid-cols-2 gap-3">
                     <label className="block">
                       <span className="mb-1 block text-xs font-bold text-ink-soft">Price (₹)</span>
@@ -730,7 +814,7 @@ export default function AdsPage() {
 
                   <div className="grid grid-cols-2 gap-3">
                     <label className="block">
-                      <span className="mb-1 block text-xs font-bold text-ink-soft">Banner starts at</span>
+                      <span className="mb-1 block text-xs font-bold text-ink-soft">Show from</span>
                       <input
                         type="datetime-local"
                         className="input-box py-3 text-sm"
@@ -744,7 +828,7 @@ export default function AdsPage() {
                       />
                     </label>
                     <label className="block">
-                      <span className="mb-1 block text-xs font-bold text-ink-soft">Banner ends at</span>
+                      <span className="mb-1 block text-xs font-bold text-ink-soft">Show until</span>
                       <input
                         type="datetime-local"
                         className="input-box py-3 text-sm"
@@ -758,10 +842,11 @@ export default function AdsPage() {
                       />
                     </label>
                   </div>
+                  <p className="text-[11px] font-medium text-ink-faint">When this ad appears in the app. Neighbours never see these dates.</p>
 
                   <div className="grid grid-cols-2 gap-3">
                     <label className="block">
-                      <span className="mb-1 block text-xs font-bold text-ink-soft">Offer starts at</span>
+                      <span className="mb-1 block text-xs font-bold text-ink-soft">Offer starts</span>
                       <input
                         type="datetime-local"
                         className="input-box py-3 text-sm"
@@ -775,7 +860,7 @@ export default function AdsPage() {
                       />
                     </label>
                     <label className="block">
-                      <span className="mb-1 block text-xs font-bold text-ink-soft">Offer ends at</span>
+                      <span className="mb-1 block text-xs font-bold text-ink-soft">Offer ends</span>
                       <input
                         type="datetime-local"
                         className="input-box py-3 text-sm"
@@ -789,6 +874,7 @@ export default function AdsPage() {
                       />
                     </label>
                   </div>
+                  <p className="text-[11px] font-medium text-ink-faint">Optional. Shown to neighbours if you set them.</p>
 
                   <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
                     <input

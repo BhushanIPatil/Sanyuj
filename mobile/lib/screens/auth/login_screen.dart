@@ -348,8 +348,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         _AuthStep.otp => 'Enter the 6-digit code sent to ${_email.text.trim().toLowerCase()}.',
         _AuthStep.newPassword => 'Enter and confirm your new password.',
         _AuthStep.form => switch (_mode) {
-            _AuthMode.restore =>
-              'Set a new password to restore your deleted account — we will email a verification code.',
+            _AuthMode.restore => '',
             _AuthMode.forgot =>
               'Enter your email and we will send a 6-digit code to reset your password.',
             _AuthMode.register => 'One account for everything — find help or list your business.',

@@ -5,8 +5,11 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { visible } from "@/lib/db/visible";
 import {
+  OTHER_BROWSE_CATEGORY,
+  OTHER_CATEGORY_SLUG,
   categoryDisplayName,
   fetchCategoryTree,
+  matchesCategoryFilter,
   type Category,
   type CategoryTreeGroup,
 } from "@/lib/categories";
@@ -51,7 +54,7 @@ type Biz = {
   created_at: string | null;
   providerName: string | null;
   phone: string | null;
-  categories: { id: string; name: string; slug: string; emoji: string | null } | null;
+  categories: { id: string; name: string; slug: string; emoji: string | null; is_other?: boolean } | null;
   address: string | null;
   lat: number | null;
   lng: number | null;
@@ -86,7 +89,10 @@ function ExploreInner() {
   const [treeLoaded, setTreeLoaded] = useState(false);
   const [detailProvider, setDetailProvider] = useState<ProviderDetail | null>(null);
 
-  const categories = useMemo<Category[]>(() => tree.flatMap((g) => g.categories), [tree]);
+  const categories = useMemo<Category[]>(
+    () => [...tree.flatMap((g) => g.categories), OTHER_BROWSE_CATEGORY],
+    [tree],
+  );
 
   // One flat category list, shared by the horizontal strip and the filter panel.
   const groups = useMemo<FilterGroup[]>(
@@ -144,8 +150,10 @@ function ExploreInner() {
         }),
       );
       // Preselect the category passed in from the home screen tiles.
-      const known = categoryTree.some((g) => g.categories.some((c) => c.slug === initialSlug));
-      if (initialSlug && known) filters.toggle("category", initialSlug);
+      const known =
+        initialSlug === OTHER_CATEGORY_SLUG ||
+        categoryTree.some((g) => g.categories.some((c) => c.slug === initialSlug));
+      if (initialSlug && known) filters.selectOnly("category", initialSlug);
       setTree(categoryTree);
       setTreeLoaded(true);
     };
@@ -167,7 +175,7 @@ function ExploreInner() {
         let rows = visible(
           supabase
             .from("businesses")
-            .select("id, name, owner_id, photo_url, created_at, categories(id, name, slug, emoji)"),
+            .select("id, name, owner_id, photo_url, created_at, categories(id, name, slug, emoji, is_other)"),
         );
 
         if (state.geo.pincode.length === 6) {
@@ -231,7 +239,7 @@ function ExploreInner() {
     const details = selectedValues(state, "details");
 
     const matched = items.filter((b) => {
-      if (slugs.length && !slugs.includes(b.categories?.slug ?? "")) return false;
+      if (slugs.length && !matchesCategoryFilter(b.categories, slugs)) return false;
       if (details.includes("phone") && !b.phone?.trim()) return false;
       if (details.includes("photo") && !b.photo_url?.trim()) return false;
       if (!needle) return true;
@@ -262,8 +270,14 @@ function ExploreInner() {
       address: b.address,
     });
 
-  const clearCategories = () =>
-    selectedCategories.forEach((slug) => filters.toggle("category", slug));
+  const clearCategories = () => filters.clearGroup("category");
+  const pickListingCategory = (slug: string) => {
+    if (selectedCategories.length === 1 && selectedCategories[0] === slug) {
+      filters.clearGroup("category");
+      return;
+    }
+    filters.selectOnly("category", slug);
+  };
 
   if (!treeLoaded) return <ExplorePageSkeleton />;
 
@@ -305,7 +319,7 @@ function ExploreInner() {
         <CategoryFilterRow
           categories={categories}
           selected={selectedCategories}
-          onToggle={(slug) => filters.toggle("category", slug)}
+          onToggle={pickListingCategory}
           onClear={clearCategories}
         />
         <ActiveFilterChips

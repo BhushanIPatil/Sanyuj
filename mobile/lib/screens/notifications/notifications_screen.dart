@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
+import '../../widgets/ad_detail_sheet.dart';
 import '../../widgets/common.dart';
 import '../../widgets/filters.dart';
 import '../../widgets/notice_detail_sheet.dart';
@@ -13,13 +15,13 @@ import '../../widgets/notice_detail_sheet.dart';
 const _sortOptions = [
   SortOption(value: 'featured', label: 'Featured', icon: Icons.workspace_premium_rounded),
   SortOption(value: 'newest', label: 'Newest first', short: 'Newest', icon: Icons.fiber_new_rounded),
+  SortOption(value: 'oldest', label: 'Oldest first', short: 'Oldest', icon: Icons.history_rounded),
   SortOption(
     value: 'ending',
     label: 'Ending soonest',
     short: 'Ending soon',
     icon: Icons.hourglass_bottom_rounded,
   ),
-  SortOption(value: 'oldest', label: 'Oldest first', short: 'Oldest', icon: Icons.history_rounded),
   SortOption(value: 'title', label: 'Title: A to Z', short: 'Title A–Z', icon: Icons.sort_by_alpha_rounded),
 ];
 
@@ -53,6 +55,7 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   final _query = TextEditingController();
   List<AreaNotice> _notices = [];
+  List<ContentCategory> _categories = [];
   FilterState _filters = const FilterState();
   GeoFilter _defaultGeo = GeoFilter.empty;
   GeoFilter _appliedGeo = GeoFilter.empty;
@@ -75,6 +78,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     setState(() => _loading = true);
     try {
       final profile = await ref.read(repoProvider).fetchProfile();
+      List<ContentCategory> cats = [];
+      try {
+        cats = await ref.read(repoProvider).fetchContentCategories('notice');
+      } catch (_) {}
       final geo = GeoFilter(
         pincode: profile?.pincode ?? '',
         locality: profile?.locality ?? '',
@@ -86,6 +93,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       setState(() {
         _defaultGeo = geo;
         _filters = _filters.withGeo(geo);
+        _categories = cats;
       });
       await _load(geo);
     } catch (e) {
@@ -118,16 +126,29 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   Future<void> _refresh() => _load(_filters.geo);
 
-  List<FilterGroup> get _filterGroups => const [_timingGroup, _extraGroup];
+  List<FilterGroup> get _filterGroups => [
+        if (_categories.isNotEmpty)
+          FilterGroup(
+            id: 'category',
+            label: 'Category',
+            searchable: _categories.length > 8,
+            options: [
+              for (final c in _categories) FilterOption(value: c.id, label: c.name, icon: c.emoji),
+            ],
+          ),
+        _timingGroup,
+        _extraGroup,
+      ];
 
   List<AreaNotice> _results(FilterState state) {
     final needle = _query.text.trim().toLowerCase();
     final timing = state.valuesOf('timing');
     final extras = state.valuesOf('extras');
+    final categoryIds = state.valuesOf('category');
     final now = DateTime.now();
 
     bool endsWithin(AreaNotice notice, int days) {
-      final end = notice.endsAt;
+      final end = notice.eventEndsAt;
       return end != null && end.isAfter(now) && end.difference(now).inDays <= days;
     }
 
@@ -139,7 +160,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           case 'ending-7':
             if (endsWithin(notice, 7)) return true;
           case 'ongoing':
-            if (notice.endsAt == null) return true;
+            if (notice.eventEndsAt == null) return true;
           case 'new':
             final created = notice.createdAt;
             if (created != null && now.difference(created).inDays <= 7) return true;
@@ -149,11 +170,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
 
     final matched = _notices.where((notice) {
+      if (categoryIds.isNotEmpty && !categoryIds.contains(notice.category?.id)) return false;
       if (timing.isNotEmpty && !matchesTiming(notice)) return false;
       if (extras.contains('photo') && (notice.imageUrl ?? '').trim().isEmpty) return false;
       if (extras.contains('details') && (notice.body ?? '').trim().isEmpty) return false;
       if (needle.isEmpty) return true;
-      return '${notice.title} ${notice.body ?? ''}'.toLowerCase().contains(needle);
+      return '${notice.title} ${notice.body ?? ''} ${notice.category?.name ?? ''}'.toLowerCase().contains(needle);
     }).toList();
 
     switch (_sort) {
@@ -162,7 +184,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       case 'oldest':
         matched.sort((a, b) => compareDatesAsc(a.createdAt, b.createdAt));
       case 'ending':
-        matched.sort((a, b) => compareDatesAsc(a.endsAt, b.endsAt));
+        matched.sort((a, b) => compareDatesAsc(a.eventEndsAt, b.eventEndsAt));
       case 'title':
         matched.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
       default:
@@ -177,7 +199,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       groups: _filterGroups,
       value: _filters,
       defaultGeo: _defaultGeo,
-      resultNoun: 'notices',
+      resultNoun: 'updates',
       previewCount: (state) => state.geo == _appliedGeo ? _results(state).length : null,
     );
     if (result == null || !mounted) return;
@@ -204,6 +226,44 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     if (geoChanged) _load(_defaultGeo);
   }
 
+  void _clearCategories() {
+    setState(() => _filters = _filters.clearGroup('category'));
+  }
+
+  void _pickListingCategory(String id) {
+    setState(() {
+      final selected = _filters.valuesOf('category');
+      if (selected.length == 1 && selected.first == id) {
+        _filters = _filters.clearGroup('category');
+      } else {
+        _filters = _filters.selectOnly('category', id);
+      }
+    });
+  }
+
+  Future<void> _showNotice(AreaNotice notice) async {
+    final url = (notice.ctaUrl ?? '').trim();
+    await showNoticeDetailSheet(
+      context,
+      notice: notice,
+      onCta: url.isEmpty
+          ? null
+          : () => openCtaUrl(
+                context,
+                url,
+                goTo: (path) {
+                  if (path.startsWith('/login')) {
+                    context.push(path);
+                  } else if (path == '/explore' || path == '/offerly' || path == '/home' || path == '/notifications') {
+                    context.go(path);
+                  } else {
+                    context.push(path);
+                  }
+                },
+              ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final results = _results(_filters);
@@ -213,14 +273,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         FilterToolbar(
-          title: 'Notices',
+          title: 'Notify',
           subtitle: _filters.geo.isEverywhere ? 'across all areas' : 'for ${_filters.geo.label}',
           searchController: _query,
           onSearchChanged: (_) => setState(() {}),
-          searchHint: 'Search notices, events…',
+          searchHint: 'Search events, functions…',
           searchResultLabel: () {
             final count = _results(_filters).length;
-            return '$count ${count == 1 ? 'notice' : 'notices'}';
+            return '$count ${count == 1 ? 'update' : 'updates'}';
           },
           sortLabel: sortLabelFor(_sortOptions, _sort),
           onOpenSort: _openSort,
@@ -235,7 +295,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           ),
           onClearAll: _clearAll,
           resultCount: results.length,
-          resultNoun: results.length == 1 ? 'notice' : 'notices',
+          resultNoun: results.length == 1 ? 'update' : 'updates',
+        ),
+        CategoryFilterRow(
+          categories: [for (final c in _categories) c.asChip],
+          selectedIds: _filters.valuesOf('category'),
+          onToggle: _pickListingCategory,
+          onClear: _clearCategories,
         ),
         Expanded(
           child: _loading
@@ -250,9 +316,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       if (results.isEmpty) {
                         return EmptyState(
                           icon: Icons.notifications_none_rounded,
-                          title: filtered ? 'No notices match these filters' : 'No notices nearby',
+                          title: filtered ? 'No updates match these filters' : 'No updates nearby',
                           message: filtered
-                              ? 'Try clearing the timing filters or widening the location.'
+                              ? 'Try clearing the category or timing filters, or widening the location.'
                               : 'Events and local updates for your area will show up here.',
                           padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 8),
                           action: filtered
@@ -270,7 +336,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         padding: const EdgeInsets.only(bottom: 14),
                         child: _NoticeCard(
                           notice: results[i],
-                          onTap: () => showNoticeDetailSheet(context, notice: results[i]),
+                          onTap: () => _showNotice(results[i]),
                         ),
                       );
                     },
@@ -291,26 +357,26 @@ class _NoticeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = notice.imageUrl?.trim();
-    final hasWindow = notice.startsAt != null || notice.endsAt != null;
+    final when = formatWhenRange(notice.eventStartsAt, notice.eventEndsAt);
 
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        child: Ink(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.line),
-            boxShadow: AppColors.cardShadow,
-          ),
+        border: Border.all(color: AppColors.line),
+        boxShadow: AppColors.cardShadow,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.white,
+        child: InkWell(
+          onTap: onTap,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (imageUrl != null && imageUrl.isNotEmpty)
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                ColoredBox(
+                  color: AppColors.surface,
                   child: AspectRatio(
                     aspectRatio: adBannerAspectRatio,
                     child: Image.network(
@@ -318,7 +384,7 @@ class _NoticeCard extends StatelessWidget {
                       fit: BoxFit.contain,
                       width: double.infinity,
                       alignment: Alignment.center,
-                      errorBuilder: (_, _, _) => const SizedBox(height: 0),
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
                     ),
                   ),
                 ),
@@ -327,6 +393,10 @@ class _NoticeCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (notice.category != null) ...[
+                      CategoryTintChip(category: notice.category!),
+                      const SizedBox(height: 8),
+                    ],
                     Text(
                       notice.title,
                       style: GoogleFonts.nunito(fontSize: 16, fontWeight: FontWeight.w800, height: 1.25),
@@ -340,10 +410,10 @@ class _NoticeCard extends StatelessWidget {
                         style: const TextStyle(fontSize: 13, height: 1.4, color: AppColors.inkSoft),
                       ),
                     ],
-                    if (hasWindow) ...[
+                    if (when.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(
-                        '${formatAdDate(notice.startsAt)} → ${formatAdDate(notice.endsAt)}',
+                        when,
                         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.inkFaint),
                       ),
                     ],

@@ -233,7 +233,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return const Center(child: CircularProgressIndicator(color: AppColors.blueDeep));
     }
 
-    final cats = _groups.expand((g) => g.categories).take(9).toList();
+    final cats = [
+      ..._groups.expand((g) => g.categories).take(8),
+      kOtherBrowseCategory,
+    ];
     final userId = ref.read(repoProvider).userId;
     final isGuest = userId == null;
     final firstName = isGuest ? 'there' : (_profile?.fullName?.split(' ').first ?? 'there');
