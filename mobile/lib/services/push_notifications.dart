@@ -1,7 +1,6 @@
 import 'dart:io' show File, Platform;
 import 'dart:typed_data';
 
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -9,7 +8,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'device_token_api.dart';
 
@@ -20,8 +18,7 @@ int _trayNotificationId(RemoteMessage message) {
   final sendId = message.data['send_id'];
   final raw = (sendId != null && sendId.isNotEmpty)
       ? sendId.hashCode
-      : message.messageId?.hashCode ??
-          DateTime.now().millisecondsSinceEpoch;
+      : message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch;
   final id = raw.abs() % 0x7fffffff;
   return id == 0 ? 1 : id;
 }
@@ -72,7 +69,15 @@ class PushNotifications {
       }
 
       final messaging = FirebaseMessaging.instance;
-      await messaging.requestPermission(alert: true, badge: true, sound: true);
+      final permission = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      if (permission.authorizationStatus == AuthorizationStatus.denied ||
+          permission.authorizationStatus == AuthorizationStatus.notDetermined) {
+        return;
+      }
 
       if (Platform.isIOS) {
         await messaging.setForegroundNotificationPresentationOptions(
@@ -97,13 +102,6 @@ class PushNotifications {
 
       _ready = true;
       await syncTokenToServer();
-      Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-        if (data.event == AuthChangeEvent.signedIn ||
-            data.event == AuthChangeEvent.tokenRefreshed ||
-            data.event == AuthChangeEvent.initialSession) {
-          syncTokenToServer();
-        }
-      });
     } catch (e) {
       // Missing google-services.json / APNs / etc. — fail open.
       // ignore: avoid_print
@@ -115,7 +113,9 @@ class PushNotifications {
   static Future<void> ensureLocalNotificationsInitialized() async {
     if (_localReady) return;
 
-    const androidInit = AndroidInitializationSettings('@drawable/ic_notification');
+    const androidInit = AndroidInitializationSettings(
+      '@drawable/ic_notification',
+    );
     const iosInit = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -123,11 +123,16 @@ class PushNotifications {
     );
 
     await _localNotifications.initialize(
-      settings: const InitializationSettings(android: androidInit, iOS: iosInit),
+      settings: const InitializationSettings(
+        android: androidInit,
+        iOS: iosInit,
+      ),
     );
 
     final androidPlugin = _localNotifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     await androidPlugin?.createNotificationChannel(
       const AndroidNotificationChannel(
         _channelId,
@@ -153,12 +158,7 @@ class PushNotifications {
 
     // Show text immediately. Waiting on a large/slow image can delay or drop
     // the tray item (this campaign image is over FCM's 1MB cap).
-    await _showTray(
-      id: id,
-      title: title,
-      body: body,
-      payload: payload,
-    );
+    await _showTray(id: id, title: title, body: body, payload: payload);
 
     final imageUrl =
         message.data['image'] ??
@@ -260,26 +260,20 @@ class PushNotifications {
     }
   }
 
-  /// Call after sign-in (or on cold start with an existing session).
+  /// Register this installation for broadcast notifications.
   static Future<void> syncTokenToServer() async {
     if (!_ready) return;
-    final session = Supabase.instance.client.auth.currentSession;
     final token = _currentToken ?? await FirebaseMessaging.instance.getToken();
-    if (session == null || token == null || token.isEmpty) return;
+    if (token == null || token.isEmpty) return;
 
     _currentToken = token;
-    final meta = await _deviceMeta();
     final pkg = await PackageInfo.fromPlatform();
     final appVersion = '${pkg.version} (${pkg.buildNumber})';
 
     try {
       await DeviceTokenApi().register(
-        accessToken: session.accessToken,
         deviceToken: token,
-        deviceId: meta.deviceId,
-        deviceName: meta.deviceName,
-        deviceOs: meta.deviceOs,
-        osVersion: meta.osVersion,
+        deviceOs: Platform.isIOS ? 'iOS' : 'Android',
         appVersion: appVersion,
       );
     } catch (e) {
@@ -288,58 +282,12 @@ class PushNotifications {
     }
   }
 
-  /// Best-effort deactivate before logout / account delete.
+  /// Best-effort disable notifications for this installation.
   static Future<void> deactivateCurrentDevice() async {
-    final session = Supabase.instance.client.auth.currentSession;
     final token = _currentToken;
-    if (session == null || token == null || token.isEmpty) return;
+    if (token == null || token.isEmpty) return;
     try {
-      await DeviceTokenApi().deactivate(
-        accessToken: session.accessToken,
-        deviceToken: token,
-      );
+      await DeviceTokenApi().deactivate(deviceToken: token);
     } catch (_) {}
   }
-
-  static Future<_DeviceMeta> _deviceMeta() async {
-    final info = DeviceInfoPlugin();
-    if (Platform.isAndroid) {
-      final a = await info.androidInfo;
-      return _DeviceMeta(
-        deviceId: a.id,
-        deviceName: '${a.brand} ${a.model}'.trim(),
-        deviceOs: 'Android',
-        osVersion: 'Android ${a.version.release} (SDK ${a.version.sdkInt})',
-      );
-    }
-    if (Platform.isIOS) {
-      final i = await info.iosInfo;
-      return _DeviceMeta(
-        deviceId: i.identifierForVendor,
-        deviceName: i.name,
-        deviceOs: 'iOS',
-        osVersion: '${i.systemName} ${i.systemVersion}',
-      );
-    }
-    return const _DeviceMeta(
-      deviceId: null,
-      deviceName: null,
-      deviceOs: null,
-      osVersion: null,
-    );
-  }
-}
-
-class _DeviceMeta {
-  const _DeviceMeta({
-    required this.deviceId,
-    required this.deviceName,
-    required this.deviceOs,
-    required this.osVersion,
-  });
-
-  final String? deviceId;
-  final String? deviceName;
-  final String? deviceOs;
-  final String? osVersion;
 }

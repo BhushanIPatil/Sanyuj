@@ -1,0 +1,10 @@
+{
+  "name": "sanyuj-backend-tests",
+  "private": true,
+  "scripts": {
+    "test": "node tests/offers-notifications.cjs && node --test tests/retirement-script.cjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8"
+  }
+}

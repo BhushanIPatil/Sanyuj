@@ -11,9 +11,6 @@ import {
   Menu,
   Bell,
   Newspaper,
-  Radio,
-  Store,
-  Users,
   X,
   MapPinned,
   Smartphone,
@@ -26,10 +23,7 @@ import { useToast } from "@/components/Toast";
 
 export const ADMIN_NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, match: "/dashboard", exact: true },
-  { href: "/users", label: "Users", icon: Users, match: "/users" },
-  { href: "/providers", label: "Providers", icon: Store, match: "/providers" },
-  { href: "/live", label: "Live", icon: Radio, match: "/live" },
-  { href: "/ads", label: "Ads", icon: Megaphone, match: "/ads" },
+  { href: "/ads", label: "Offerly", icon: Megaphone, match: "/ads" },
   { href: "/notices", label: "Notify", icon: Newspaper, match: "/notices", exact: true },
   { href: "/notifications", label: "Push", icon: Bell, match: "/notifications" },
   { href: "/categories", label: "Categories", icon: FolderTree, match: "/categories" },

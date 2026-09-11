@@ -32,7 +32,7 @@ export default function AreasPage() {
   const { confirm } = useConfirm();
   const [localities, setLocalities] = useState<LocalityRow[]>([]);
   const [areas, setAreas] = useState<AreaRow[]>([]);
-  const [profileCounts, setProfileCounts] = useState<Record<string, number>>({});
+  const [coverageCounts, setCoverageCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [pincode, setPincode] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -45,25 +45,26 @@ export default function AreasPage() {
   const load = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const [locRes, areaRes, profRes] = await Promise.all([
+    const [locRes, areaRes, adRes, noticeRes] = await Promise.all([
       supabase
         .from("localities")
         .select("id, pincode, name, is_active, is_deleted")
         .order("pincode", { ascending: true })
         .order("name", { ascending: true }),
       supabase.from("areas").select("id, locality_id, name, is_active, is_deleted").order("name"),
-      supabase.from("profiles").select("locality_id").not("locality_id", "is", null),
+      supabase.from("ad_service_areas").select("locality_id").eq("is_deleted", false),
+      supabase.from("notice_service_areas").select("locality_id").eq("is_deleted", false),
     ]);
     const locs = (locRes.data as LocalityRow[]) ?? [];
     const areaRows = (areaRes.data as AreaRow[]) ?? [];
     const counts: Record<string, number> = {};
-    for (const row of (profRes.data as Array<{ locality_id: string | null }> | null) ?? []) {
+    for (const row of [...(adRes.data ?? []), ...(noticeRes.data ?? [])] as Array<{ locality_id: string | null }>) {
       if (!row.locality_id) continue;
       counts[row.locality_id] = (counts[row.locality_id] ?? 0) + 1;
     }
     setLocalities(locs);
     setAreas(areaRows);
-    setProfileCounts(counts);
+    setCoverageCounts(counts);
     setLoading(false);
   }, []);
 
@@ -80,11 +81,11 @@ export default function AreasPage() {
   const uncovered = useMemo(
     () =>
       filteredLocalities.filter((l) => {
-        const used = (profileCounts[l.id] ?? 0) > 0;
+        const used = (coverageCounts[l.id] ?? 0) > 0;
         const hasAreas = areas.some((a) => a.locality_id === l.id && !a.is_deleted);
         return used && !hasAreas;
       }),
-    [filteredLocalities, profileCounts, areas],
+    [filteredLocalities, coverageCounts, areas],
   );
 
   const selected = localities.find((l) => l.id === selectedId) ?? null;
@@ -153,7 +154,7 @@ export default function AreasPage() {
 
       {uncovered.length > 0 ? (
         <section className="mt-6 rounded-[18px] border border-line bg-white p-4 shadow-card">
-          <h2 className="font-display text-base font-bold">Localities used by users, no areas yet</h2>
+          <h2 className="font-display text-base font-bold">Localities used by coverage entries, no areas yet</h2>
           <p className="mt-1 text-xs text-ink-soft">Seed these first so customers can pick a colony.</p>
           <ul className="mt-3 space-y-2">
             {uncovered.map((l) => (
@@ -163,7 +164,7 @@ export default function AreasPage() {
                   className="text-sm font-semibold text-blue-deep"
                   onClick={() => setSelectedId(l.id)}
                 >
-                  {l.name} · {l.pincode} ({profileCounts[l.id] ?? 0} users)
+                  {l.name} · {l.pincode} ({coverageCounts[l.id] ?? 0} coverage entries)
                 </button>
               </li>
             ))}
@@ -176,7 +177,7 @@ export default function AreasPage() {
           <h2 className="mb-3 font-display text-lg font-bold">Cached localities</h2>
           <DataTable
             rows={filteredLocalities}
-            emptyMessage="No saved localities yet. They appear when a user saves a locality on their profile."
+            emptyMessage="No saved localities yet. Add a locality through offer or notification coverage."
             defaultSortKey="name"
             defaultSortDir="asc"
             columns={[
@@ -206,10 +207,10 @@ export default function AreasPage() {
                 ),
               },
               {
-                key: "users",
-                header: "Users",
-                sortValue: (r) => profileCounts[r.id] ?? 0,
-                render: (r) => <span className="text-ink-soft">{profileCounts[r.id] ?? 0}</span>,
+                key: "coverage entries",
+                header: "Coverage entries",
+                sortValue: (r) => coverageCounts[r.id] ?? 0,
+                render: (r) => <span className="text-ink-soft">{coverageCounts[r.id] ?? 0}</span>,
               },
             ]}
           />

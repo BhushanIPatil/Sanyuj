@@ -16,8 +16,8 @@ import {
 /**
  * Filter/sort/search state for a listing page.
  *
- * The member's saved location seeds the location filter, so call
- * `adoptDefaultGeo` once the profile resolves — it only overwrites the current
+ * An optional default area seeds the location filter. Call
+ * `adoptDefaultGeo` when a default area is available — it only overwrites the current
  * selection while the visitor is still on the default location.
  */
 export function useFilters(defaultSort: string) {

@@ -1,5 +1,4 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/client";
 import { nestedContentCategory, type ContentCategoryRef } from "@/lib/contentCategories";
 
 export async function fetchCoveringAdIds(
@@ -41,19 +40,17 @@ export async function fetchVisibleAds(
     pincode?: string | null;
     localityId?: string | null;
     areaId?: string | null;
-    homeScreenOnly?: boolean;
     limit?: number;
   },
 ): Promise<AdDetail[]> {
   const covering = await fetchCoveringAdIds(supabase, opts);
   if (!covering.length) return [];
-  let query = supabase
+  const query = supabase
     .from("ads")
     .select(AD_SELECT)
     .eq("is_active", true)
     .eq("is_deleted", false)
     .in("id", covering);
-  if (opts.homeScreenOnly) query = query.eq("is_home_screen", true);
   const ordered = query.order("sort_order", { ascending: true });
   const { data } = await (opts.limit != null ? ordered.limit(opts.limit) : ordered);
   return ((data as Array<Omit<AdDetail, "category"> & { category?: unknown }> | null) ?? []).map((row) => ({
@@ -62,20 +59,7 @@ export async function fetchVisibleAds(
   }));
 }
 
-export async function recordAdClick(adId: string) {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
-  try {
-    await supabase.rpc("record_ad_click", { p_ad_id: adId });
-  } catch {
-    /* non-blocking */
-  }
-}
-
-/** Home carousel: ~220px tall — use images that fit fully (object-contain). */
+/** Offer image: ~220px tall — use images that fit fully (object-contain). */
 export const AD_BANNER_HEIGHT = 220;
 export const AD_BANNER_RADIUS = 12;
 export const AD_BANNER_ASPECT = "2.4 / 1";

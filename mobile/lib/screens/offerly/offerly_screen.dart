@@ -77,18 +77,11 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
   Future<void> _bootstrap() async {
     setState(() => _loading = true);
     try {
-      final profile = await ref.read(repoProvider).fetchProfile();
       List<ContentCategory> cats = [];
       try {
         cats = await ref.read(repoProvider).fetchContentCategories('offer');
       } catch (_) {}
-      final geo = GeoFilter(
-        pincode: profile?.pincode ?? '',
-        locality: profile?.locality ?? '',
-        localityId: profile?.localityId,
-        areaId: profile?.areaId ?? '',
-        areaName: profile?.area ?? '',
-      );
+      const geo = GeoFilter();
       if (!mounted) return;
       setState(() {
         _defaultGeo = geo;
@@ -267,7 +260,6 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
   }
 
   Future<void> _showAd(AdBanner ad) async {
-    await ref.read(repoProvider).recordAdClick(ad.id);
     if (!mounted) return;
     await showAdDetailSheet(
       context,
@@ -277,15 +269,7 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
           : () => openAdCta(
                 context,
                 ad,
-                goTo: (path) {
-                  if (path.startsWith('/login')) {
-                    context.push(path);
-                  } else if (path == '/explore' || path == '/offerly' || path == '/home' || path == '/notifications') {
-                    context.go(path);
-                  } else {
-                    context.push(path);
-                  }
-                },
+                goTo: (path) => context.go(path),
               ),
     );
   }
@@ -325,7 +309,7 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
           resultNoun: results.length == 1 ? 'offer' : 'offers',
         ),
         CategoryFilterRow(
-          categories: [for (final c in _categories) c.asChip],
+          categories: _categories,
           selectedIds: _filters.valuesOf('category'),
           onToggle: _pickListingCategory,
           onClear: _clearCategories,

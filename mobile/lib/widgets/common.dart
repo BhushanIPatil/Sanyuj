@@ -635,7 +635,7 @@ class CategoryFilterRow extends StatelessWidget {
     this.padding = const EdgeInsets.fromLTRB(20, 2, 20, 12),
   });
 
-  final List<Category> categories;
+  final List<ContentCategory> categories;
   final List<String> selectedIds;
   final ValueChanged<String> onToggle;
 
@@ -905,52 +905,6 @@ class EmptyState extends StatelessWidget {
             action!,
           ],
         ],
-      ),
-    );
-  }
-}
-
-class GuestPrompt extends StatelessWidget {
-  const GuestPrompt({
-    super.key,
-    required this.title,
-    required this.body,
-    required this.onLogin,
-    this.buttonLabel = 'Log in to continue',
-  });
-
-  final String title;
-  final String body;
-  final String buttonLabel;
-  final VoidCallback onLogin;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      child: SoftCard(
-        padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
-        child: Column(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: AppColors.blueSoft,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Center(child: Text('👋', style: TextStyle(fontSize: 22))),
-            ),
-            const SizedBox(height: 14),
-            Text(title, textAlign: TextAlign.center, style: GoogleFonts.nunito(fontSize: 17, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            Text(body, textAlign: TextAlign.center, style: const TextStyle(fontSize: 13, color: AppColors.inkSoft, height: 1.45)),
-            const SizedBox(height: 20),
-            PrimaryButton(label: buttonLabel, onPressed: onLogin),
-            const SizedBox(height: 10),
-            const Text('Free account · Email & password', style: TextStyle(fontSize: 11, color: AppColors.inkFaint)),
-          ],
-        ),
       ),
     );
   }

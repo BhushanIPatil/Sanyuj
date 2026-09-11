@@ -46,6 +46,9 @@ Those values are **baked into the binary** at build time. Users do not need your
 ## Play Store checklist
 
 - Package: `app.sanyuj`, targetSdk 35
-- In-app Delete account, Privacy / Terms links
+- Offerly and Notifications only; no public accounts, profiles, or directory
+- Help, Privacy, and Terms links in the app menu
 - Production `API_BASE_URL` must be HTTPS
 - Sign with your upload keystore (not debug)
+
+See [the retirement rollout](../backend/OFFERS_NOTIFICATIONS.md) before releasing. Push registration stores only token, platform, app version and timestamps. Device name/hardware identifiers and account-linked tracking are removed.

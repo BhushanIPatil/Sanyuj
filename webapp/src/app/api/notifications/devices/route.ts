@@ -1,118 +1,54 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/auth/admin";
+import { clientIp } from "@/lib/rate-limit";
 import { corsPreflight, withCors } from "@/lib/api/cors";
-import {
-  deactivateDeviceToken,
-  upsertDeviceToken,
-} from "@/lib/notifications";
-import {
-  ipSubject,
-  rejectIfRateLimited,
-  subjects,
-  userSubject,
-} from "@/lib/rate-limit";
-
-export const runtime = "nodejs";
-
-async function requireBearerUser(req: Request) {
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return { userId: null as string | null, error: NextResponse.json({ error: "Not signed in" }, { status: 401 }) };
-  }
-  const token = authHeader.slice(7);
-  const admin = createAdminClient();
-  const { data, error } = await admin.auth.getUser(token);
-  if (error || !data.user) {
-    return {
-      userId: null as string | null,
-      error: NextResponse.json({ error: "Not signed in" }, { status: 401 }),
-    };
-  }
-  return { userId: data.user.id, error: null as NextResponse | null, admin };
-}
-
-export async function OPTIONS(req: Request) {
-  return corsPreflight(req);
-}
-
-/** Register / refresh an FCM device token for the signed-in user. */
-export async function POST(req: Request) {
+export const OPTIONS = corsPreflight;
+async function handle(req: Request, active: boolean) {
+  const reply = (body: object, status = 200) => withCors(req, NextResponse.json(body, { status }));
   try {
-    const auth = await requireBearerUser(req);
-    if (auth.error || !auth.userId) {
-      return withCors(req, auth.error!);
-    }
-
-    const limited = await rejectIfRateLimited(
-      "register_device",
-      subjects(userSubject(auth.userId), ipSubject(req)),
-    );
-    if (limited) return withCors(req, limited);
-
-    const body = (await req.json()) as {
-      deviceToken?: string;
-      deviceId?: string;
-      deviceName?: string;
-      deviceOs?: string;
-      osVersion?: string;
-      appVersion?: string;
-    };
-
-    if (!body.deviceToken?.trim()) {
-      return withCors(
-        req,
-        NextResponse.json({ error: "deviceToken is required" }, { status: 400 }),
-      );
-    }
-
-    const row = await upsertDeviceToken(auth.admin!, auth.userId, {
-      deviceToken: body.deviceToken,
-      deviceId: body.deviceId,
-      deviceName: body.deviceName,
-      deviceOs: body.deviceOs,
-      osVersion: body.osVersion,
-      appVersion: body.appVersion,
+    const raw = await req.text();
+    if (raw.length > 5000) return reply({ error: "Request too large" }, 413);
+    const body = JSON.parse(raw);
+    if (
+      typeof body?.deviceToken !== "string" ||
+      body.deviceToken.length < 20 ||
+      body.deviceToken.length > 2048
+    )
+      return reply({ error: "Invalid device token" }, 400);
+    const admin = createAdminClient();
+    const { data: limit, error: limitError } = await admin.rpc("check_and_consume_rate_limit", {
+      p_action: "public_device_registration",
+      p_subject_type: "ip",
+      p_subject_key: clientIp(req) || "unknown",
+      p_limit: 60,
+      p_window_seconds: 3600,
     });
-
-    return withCors(req, NextResponse.json({ ok: true, device: row }));
-  } catch (e) {
-    console.error(e);
-    return withCors(
-      req,
-      NextResponse.json(
-        { error: e instanceof Error ? e.message : "Could not register device" },
-        { status: 500 },
-      ),
-    );
+    if (limitError) return reply({ error: "Try again later" }, 503);
+    if (!limit.allowed) return reply({ error: "Too many requests" }, 429);
+    const metadata = (key: string) => (typeof body[key] === "string" ? body[key].trim().slice(0, 200) : null);
+    const { error } = active
+      ? await admin
+          .from("device_tokens")
+          .upsert(
+            {
+              device_token: body.deviceToken,
+              device_os: metadata("deviceOs"),
+              app_version: metadata("appVersion"),
+              is_active: true,
+              last_active_at: new Date().toISOString(),
+            },
+            { onConflict: "device_token" },
+          )
+      : await admin.from("device_tokens").update({ is_active: false }).eq("device_token", body.deviceToken);
+    if (error) return reply({ error: "Could not update notification registration" }, 500);
+    return reply({ ok: true });
+  } catch {
+    return reply({ error: "Invalid registration request" }, 400);
   }
 }
-
-/** Mark a device token inactive (logout / uninstall). */
+export async function POST(req: Request) {
+  return handle(req, true);
+}
 export async function DELETE(req: Request) {
-  try {
-    const auth = await requireBearerUser(req);
-    if (auth.error || !auth.userId) {
-      return withCors(req, auth.error!);
-    }
-
-    const body = (await req.json().catch(() => ({}))) as { deviceToken?: string };
-    if (!body.deviceToken?.trim()) {
-      return withCors(
-        req,
-        NextResponse.json({ error: "deviceToken is required" }, { status: 400 }),
-      );
-    }
-
-    await deactivateDeviceToken(auth.admin!, auth.userId, body.deviceToken);
-    return withCors(req, NextResponse.json({ ok: true }));
-  } catch (e) {
-    console.error(e);
-    return withCors(
-      req,
-      NextResponse.json(
-        { error: e instanceof Error ? e.message : "Could not deactivate device" },
-        { status: 500 },
-      ),
-    );
-  }
+  return handle(req, false);
 }

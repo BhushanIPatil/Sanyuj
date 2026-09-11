@@ -218,15 +218,12 @@ Future<void> openCtaUrl(BuildContext context, String? rawUrl, {required void Fun
       if (!ok && context.mounted) showAppErrorSnack(context, 'Could not open link');
       return;
     }
-    if (url.contains('explore')) {
-      goTo('/explore');
-      return;
-    }
-    if (url.contains('offerly')) {
+    final path = Uri.parse(url).path.replaceFirst(RegExp(r'^/app'), '');
+    if (path == '/offerly') {
       goTo('/offerly');
       return;
     }
-    if (url.contains('notifications')) {
+    if (path == '/notifications') {
       goTo('/notifications');
     }
   } catch (e) {

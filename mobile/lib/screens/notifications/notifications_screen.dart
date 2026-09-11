@@ -77,18 +77,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   Future<void> _bootstrap() async {
     setState(() => _loading = true);
     try {
-      final profile = await ref.read(repoProvider).fetchProfile();
       List<ContentCategory> cats = [];
       try {
         cats = await ref.read(repoProvider).fetchContentCategories('notice');
       } catch (_) {}
-      final geo = GeoFilter(
-        pincode: profile?.pincode ?? '',
-        locality: profile?.locality ?? '',
-        localityId: profile?.localityId,
-        areaId: profile?.areaId ?? '',
-        areaName: profile?.area ?? '',
-      );
+      const geo = GeoFilter();
       if (!mounted) return;
       setState(() {
         _defaultGeo = geo;
@@ -251,15 +244,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           : () => openCtaUrl(
                 context,
                 url,
-                goTo: (path) {
-                  if (path.startsWith('/login')) {
-                    context.push(path);
-                  } else if (path == '/explore' || path == '/offerly' || path == '/home' || path == '/notifications') {
-                    context.go(path);
-                  } else {
-                    context.push(path);
-                  }
-                },
+                goTo: (path) => context.go(path),
               ),
     );
   }
@@ -298,7 +283,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           resultNoun: results.length == 1 ? 'update' : 'updates',
         ),
         CategoryFilterRow(
-          categories: [for (final c in _categories) c.asChip],
+          categories: _categories,
           selectedIds: _filters.valuesOf('category'),
           onToggle: _pickListingCategory,
           onClear: _clearCategories,

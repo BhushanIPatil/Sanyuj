@@ -1,26 +1,5 @@
 import 'package:intl/intl.dart';
 
-String? normalizePhone(String raw) {
-  final digits = raw.replaceAll(RegExp(r'\D'), '');
-  if (digits.length == 10) return '+91$digits';
-  if (digits.length == 12 && digits.startsWith('91')) return '+$digits';
-  return null;
-}
-
-String digitsFromPhone(String value) {
-  final digits = value.replaceAll(RegExp(r'\D'), '');
-  if (digits.length == 12 && digits.startsWith('91')) return digits.substring(2);
-  return digits.length > 10 ? digits.substring(0, 10) : digits;
-}
-
-String displayPhone(String phone) {
-  final d = phone.replaceAll(RegExp(r'\D'), '');
-  if (d.length == 12 && d.startsWith('91')) {
-    return '+91 ${d.substring(2, 7)} ${d.substring(7)}';
-  }
-  return phone;
-}
-
 String initials(String? name) {
   if (name == null || name.trim().isEmpty) return 'U';
   return name

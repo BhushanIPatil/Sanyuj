@@ -15,11 +15,9 @@ import {
 import {
   AD_BANNER_ASPECT,
   fetchVisibleAds,
-  recordAdClick,
   type AdDetail,
 } from "@/lib/geo/ads";
 import { formatWhenRange } from "@/lib/formatWhen";
-import { fetchProfileGeo } from "@/lib/geo/notices";
 import { fetchContentCategories, type ContentCategory } from "@/lib/contentCategories";
 import {
   ActiveFilterChips,
@@ -30,7 +28,6 @@ import {
   ResultsCount,
   isFuture,
   isRunningNow,
-  makeGeo,
   selectedValues,
   useFilters,
   withinNextDays,
@@ -137,24 +134,12 @@ export default function OfferlyPage() {
   useEffect(() => {
     const load = async () => {
       const supabase = createClient();
-      const [geo, cats] = await Promise.all([
-        fetchProfileGeo(supabase),
-        fetchContentCategories(supabase, "offer").catch(() => [] as ContentCategory[]),
-      ]);
-      filters.adoptDefaultGeo(
-        makeGeo({
-          pincode: geo.pincode ?? "",
-          locality: geo.locality ?? "",
-          localityId: geo.localityId,
-          areaId: geo.areaId ?? "",
-          areaName: geo.area ?? "",
-        }),
-      );
+      const cats = await fetchContentCategories(supabase, "offer").catch(() => [] as ContentCategory[]);
       setCategories(cats);
       setReady(true);
     };
     void load().catch(() => setReady(true));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- one-time bootstrap
+  }, []);
 
   useEffect(() => {
     if (!ready) return;
@@ -256,7 +241,6 @@ export default function OfferlyPage() {
   }, [ads, query, sort, state]);
 
   const openAd = (ad: AdDetail) => {
-    void recordAdClick(ad.id);
     setDetailAd(ad);
   };
 

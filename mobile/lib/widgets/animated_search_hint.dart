@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 
-/// Types "Search Category…" then "Search Providers…" character-by-character.
+/// Types "Search Category…" then "Search offers…" character-by-character.
 class AnimatedSearchHint extends StatefulWidget {
   const AnimatedSearchHint({
     super.key,
     this.first = 'Search Category…',
-    this.second = 'Search Providers…',
+    this.second = 'Search offers…',
     this.pause = const Duration(milliseconds: 1500),
     this.charDelay = const Duration(milliseconds: 55),
     this.style,

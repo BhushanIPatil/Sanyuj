@@ -51,41 +51,6 @@ export async function fetchVisibleNotices(
   }));
 }
 
-export type ProfileGeo = {
-  pincode: string | null;
-  locality: string | null;
-  localityId: string | null;
-  area: string | null;
-  areaId: string | null;
-};
-
-const EMPTY_PROFILE_GEO: ProfileGeo = {
-  pincode: null,
-  locality: null,
-  localityId: null,
-  area: null,
-  areaId: null,
-};
-
-export async function fetchProfileGeo(supabase: SupabaseClient): Promise<ProfileGeo> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return EMPTY_PROFILE_GEO;
-  const { data } = await visible(
-    supabase.from("profiles").select("pincode, locality, locality_id, area, area_id"),
-  )
-    .eq("id", user.id)
-    .maybeSingle();
-  return {
-    pincode: data?.pincode ?? null,
-    locality: data?.locality ?? null,
-    localityId: data?.locality_id ?? null,
-    area: data?.area ?? null,
-    areaId: data?.area_id ?? null,
-  };
-}
-
 export function formatNoticeDate(iso: string | null) {
   if (!iso) return "Not set";
   return new Date(iso).toLocaleDateString(undefined, {

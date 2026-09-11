@@ -1,8 +1,5 @@
-# Sanyuj Backend — Supabase project
-
-[project]
-id = "sanyuj"
-name = "sanyuj"
+# Public clients browse anonymously; only provisioned administrators sign in.
+project_id = "sanyuj"
 
 [api]
 enabled = true
@@ -10,5 +7,18 @@ enabled = true
 [db]
 major_version = 15
 
-[functions]
+[auth]
+enable_signup = false
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = false
+
+[auth.sms]
+enable_signup = false
+
+[functions.send-otp]
+verify_jwt = false
+
+[functions.verify-otp]
 verify_jwt = false

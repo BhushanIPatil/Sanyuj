@@ -1,12 +1,10 @@
 import 'dart:async';
 
-import 'package:supabase_flutter/supabase_flutter.dart' hide AuthApiException;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../services/auth_api.dart';
 
 /// Returns a short, user-facing message for any thrown error.
 String friendlyError(Object error) {
-  if (error is AuthApiException) return error.message;
   if (error is AuthException) return error.message;
   if (error is TimeoutException) {
     return 'This is taking longer than usual. Please try again.';

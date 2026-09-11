@@ -307,7 +307,7 @@ class FilterToolbar extends StatelessWidget {
   /// captured [resultCount] would go stale.
   final String Function()? searchResultLabel;
 
-  /// Cycles through example searches while the field is empty (Explore only).
+  /// Cycles through example searches while the field is empty (optional).
   final bool animatedHint;
 
   @override

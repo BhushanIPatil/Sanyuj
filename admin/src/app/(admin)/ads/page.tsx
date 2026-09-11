@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Banknote,
   Megaphone,
-  MousePointerClick,
   Pencil,
   Plus,
   Radio,
@@ -58,7 +57,6 @@ type AdForm = {
   offer_ends_at: string | null;
   price: string;
   payment_status: AdPaymentStatus;
-  is_home_screen: boolean;
   category_id: string;
 };
 
@@ -67,7 +65,6 @@ const EMPTY_FILTERS = {
   status: "all",
   payment: "all",
   coverage: "all",
-  placement: "all",
   category: "all",
 };
 
@@ -88,7 +85,6 @@ const EMPTY_AD: AdForm = {
   offer_ends_at: null,
   price: "",
   payment_status: "unpaid",
-  is_home_screen: true,
   category_id: "",
 };
 
@@ -117,7 +113,6 @@ function formFromAd(ad: AdRow): AdForm {
     offer_ends_at: ad.offer_ends_at,
     price: ad.price != null ? String(ad.price) : "",
     payment_status: ad.payment_status,
-    is_home_screen: ad.is_home_screen,
     category_id: ad.category_id ?? "",
   };
 }
@@ -140,7 +135,6 @@ export default function AdsPage() {
   const [status, setStatus] = useState("all");
   const [payment, setPayment] = useState("all");
   const [coverage, setCoverage] = useState("all");
-  const [placement, setPlacement] = useState("all");
   const [category, setCategory] = useState("all");
   const [categories, setCategories] = useState<ContentCategory[]>([]);
   const [selected, setSelected] = useState<AdRow | null>(null);
@@ -172,10 +166,9 @@ export default function AdsPage() {
       .order("sort_order");
     setCategories((catRows as ContentCategory[]) ?? []);
 
-    const list = (data as Array<Omit<AdRow, "coverage" | "totalClicks" | "uniqueUsers" | "category"> & { category?: unknown }>) ?? [];
+    const list = (data as Array<Omit<AdRow, "coverage" | "category"> & { category?: unknown }>) ?? [];
     const ids = list.map((a) => a.id);
     const labels: Record<string, string> = {};
-    const stats: Record<string, { totalClicks: number; uniqueUsers: number }> = {};
 
     if (ids.length) {
       const { data: asa } = await supabase
@@ -218,28 +211,15 @@ export default function AdsPage() {
         labels[ad.id] = drafts.map((p) => `${p.pincode} (${summarizeAdPin(p)})`).join(" · ");
       }
 
-      const { data: clickRows } = await supabase
-        .from("ad_user_clicks")
-        .select("ad_id, count, user_id")
-        .in("ad_id", ids);
-      for (const row of (clickRows as Array<{ ad_id: string; count: number; user_id: string }> | null) ?? []) {
-        const cur = stats[row.ad_id] ?? { totalClicks: 0, uniqueUsers: 0 };
-        cur.totalClicks += row.count;
-        cur.uniqueUsers += 1;
-        stats[row.ad_id] = cur;
-      }
     }
 
     const mapped: AdRow[] = list.map((ad) => ({
       ...ad,
       price: typeof ad.price === "number" ? ad.price : null,
       payment_status: ad.payment_status === "paid" ? "paid" : "unpaid",
-      is_home_screen: ad.is_home_screen !== false,
       category_id: ad.category_id ?? null,
       category: nestedContentCategory(ad.category),
       coverage: labels[ad.id] || "Everywhere",
-      totalClicks: stats[ad.id]?.totalClicks ?? 0,
-      uniqueUsers: stats[ad.id]?.uniqueUsers ?? 0,
     }));
 
     setRows(mapped);
@@ -256,7 +236,6 @@ export default function AdsPage() {
     status !== "all" ? 1 : 0,
     payment !== "all" ? 1 : 0,
     coverage !== "all" ? 1 : 0,
-    placement !== "all" ? 1 : 0,
     category !== "all" ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
@@ -265,7 +244,6 @@ export default function AdsPage() {
     setStatus(EMPTY_FILTERS.status);
     setPayment(EMPTY_FILTERS.payment);
     setCoverage(EMPTY_FILTERS.coverage);
-    setPlacement(EMPTY_FILTERS.placement);
     setCategory(EMPTY_FILTERS.category);
   };
 
@@ -277,8 +255,6 @@ export default function AdsPage() {
       if (payment !== "all" && r.payment_status !== payment) return false;
       if (coverage === "everywhere" && r.coverage !== "Everywhere") return false;
       if (coverage === "targeted" && r.coverage === "Everywhere") return false;
-      if (placement === "home" && !r.is_home_screen) return false;
-      if (placement === "offerly" && r.is_home_screen) return false;
       if (category === "none" && r.category_id) return false;
       if (category !== "all" && category !== "none" && r.category_id !== category) return false;
       if (q) {
@@ -287,7 +263,7 @@ export default function AdsPage() {
       }
       return true;
     });
-  }, [rows, search, status, payment, coverage, placement, category]);
+  }, [rows, search, status, payment, coverage, category]);
 
   const pageStats = useMemo(() => {
     const total = rows.length;
@@ -295,8 +271,6 @@ export default function AdsPage() {
     const live = rows.filter((r) => adRunState(r) === "live").length;
     const scheduled = rows.filter((r) => adRunState(r) === "scheduled").length;
     const ended = rows.filter((r) => adRunState(r) === "ended").length;
-    const clicks = rows.reduce((sum, r) => sum + r.totalClicks, 0);
-    const unique = rows.reduce((sum, r) => sum + r.uniqueUsers, 0);
     const paid = rows.filter((r) => r.payment_status === "paid" && !r.is_deleted);
     const unpaid = rows.filter((r) => r.payment_status === "unpaid" && !r.is_deleted);
     const paidAmount = paid.reduce((sum, r) => sum + (r.price ?? 0), 0);
@@ -307,8 +281,6 @@ export default function AdsPage() {
       live,
       scheduled,
       ended,
-      clicks,
-      unique,
       paidCount: paid.length,
       unpaidCount: unpaid.length,
       paidAmount,
@@ -378,7 +350,6 @@ export default function AdsPage() {
       offer_ends_at: form.offer_ends_at || null,
       price: parsePrice(form.price),
       payment_status: form.payment_status,
-      is_home_screen: form.is_home_screen,
       category_id: form.category_id || null,
     };
 
@@ -486,13 +457,6 @@ export default function AdsPage() {
                 <option value="targeted">Targeted</option>
               </FilterSelect>
             </FilterField>
-            <FilterField label="Placement">
-              <FilterSelect value={placement} onChange={setPlacement}>
-                <option value="all">All</option>
-                <option value="home">Home screen</option>
-                <option value="offerly">Offerly only</option>
-              </FilterSelect>
-            </FilterField>
             <FilterField label="Category">
               <FilterSelect value={category} onChange={setCategory}>
                 <option value="all">All</option>
@@ -515,7 +479,7 @@ export default function AdsPage() {
         </div>
       ) : null}
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard
           label="Total ads"
           value={pageStats.total}
@@ -529,13 +493,6 @@ export default function AdsPage() {
           hint={`${pageStats.scheduled} scheduled · ${pageStats.ended} ended`}
           icon={Radio}
           tone="green"
-        />
-        <StatCard
-          label="Clicks"
-          value={pageStats.clicks.toLocaleString()}
-          hint={`${pageStats.unique.toLocaleString()} unique users`}
-          icon={MousePointerClick}
-          tone="indigo"
         />
         <StatCard
           label="Paid"
@@ -601,16 +558,6 @@ export default function AdsPage() {
               ),
             },
             {
-              key: "placement",
-              header: "Placement",
-              sortValue: (row) => (row.is_home_screen ? 1 : 0),
-              render: (row) => (
-                <Badge className={row.is_home_screen ? "bg-blue-soft text-blue-deep" : "bg-surface text-ink-soft"}>
-                  {row.is_home_screen ? "Home + Offerly" : "Offerly only"}
-                </Badge>
-              ),
-            },
-            {
               key: "status",
               header: "Status",
               sortValue: (row) => adRunState(row),
@@ -618,19 +565,6 @@ export default function AdsPage() {
                 const run = adRunState(row);
                 return <Badge className={adRunStateBadge(run)}>{adRunStateLabel(run)}</Badge>;
               },
-            },
-            {
-              key: "clicks",
-              header: "Clicks",
-              sortValue: (row) => row.totalClicks,
-              render: (row) => (
-                <div>
-                  <p className="font-semibold">{row.totalClicks.toLocaleString()}</p>
-                  <p className="text-xs text-ink-soft">
-                    {row.uniqueUsers.toLocaleString()} user{row.uniqueUsers === 1 ? "" : "s"}
-                  </p>
-                </div>
-              ),
             },
             {
               key: "coverage",
@@ -752,7 +686,7 @@ export default function AdsPage() {
                       placeholder="https://..."
                     />
                     <p className="mt-1.5 text-[11px] text-ink-faint">
-                      Recommended banner size: <strong>1200 × 500 px</strong> (2.4:1 ratio) for best fit on home.
+                      Recommended banner size: <strong>1200 × 500 px</strong> (2.4:1 ratio) for best fit in Offerly.
                     </p>
                     <ImagePreview src={form.image_url} alt={form.brand_name} className="mt-3" height={180} />
                   </label>
@@ -886,20 +820,6 @@ export default function AdsPage() {
                     Active
                   </label>
 
-                  <label className="flex cursor-pointer items-start gap-2 text-sm font-semibold">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 cursor-pointer"
-                      checked={form.is_home_screen}
-                      onChange={(e) => setForm((f) => ({ ...f, is_home_screen: e.target.checked }))}
-                    />
-                    <span>
-                      Show on home screen
-                      <span className="mt-0.5 block text-xs font-medium text-ink-soft">
-                        All ads appear in Offerly. Check this to also show in the home carousel.
-                      </span>
-                    </span>
-                  </label>
                 </div>
 
                 <div className="space-y-4">

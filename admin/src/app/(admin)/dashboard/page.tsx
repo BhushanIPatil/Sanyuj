@@ -1,77 +1,32 @@
 "use client";
-
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import {
-  Radio,
-  Store,
-  UserCheck,
-  Users,
-} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { StatCard } from "@/components/ui/StatCard";
-import { DashboardSkeleton } from "@/components/ui/Skeleton";
-
-type DashboardStats = {
-  totalUsers: number;
-  activeUsers: number;
-  providers: number;
-  liveNow: number;
-};
-
+const cards = [["ads", "Offerly", "/ads"], ["notices", "Notifications", "/notices"], ["push_notifications", "Push campaigns", "/notifications"]] as const;
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-
+  const [counts, setCounts] = useState<number[]>([]);
+  const [error, setError] = useState("");
   useEffect(() => {
-    const load = async () => {
-      const supabase = createClient();
-
-      const [usersRes, activeUsersRes, providersRes, liveRes] = await Promise.all([
-        supabase.from("profiles").select("*", { count: "exact", head: true }),
-        supabase
-          .from("profiles")
-          .select("*", { count: "exact", head: true })
-          .eq("is_active", true)
-          .eq("is_deleted", false),
-        supabase.from("businesses").select("*", { count: "exact", head: true }),
-        supabase
-          .from("live_sessions")
-          .select("*", { count: "exact", head: true })
-          .eq("is_active", true)
-          .eq("is_deleted", false),
-      ]);
-
-      setStats({
-        totalUsers: usersRes.count ?? 0,
-        activeUsers: activeUsersRes.count ?? 0,
-        providers: providersRes.count ?? 0,
-        liveNow: liveRes.count ?? 0,
-      });
-      setLoading(false);
-    };
-
-    void load();
+    const db = createClient();
+    void Promise.all(cards.map(([table]) => {
+      const query = db.from(table).select("id", { count: "exact", head: true });
+      return table === "push_notifications" ? query : query.eq("is_deleted", false);
+    })).then(results => {
+      if (results.some(r => r.error))
+        setError("Could not load dashboard. Please refresh.");
+      else
+        setCounts(results.map(r => r.count ?? 0));
+    });
   }, []);
-
-  if (loading || !stats) return <DashboardSkeleton />;
-
-  return (
-    <div className="page-pad">
-      <PageHeader title="Dashboard" />
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total users" value={stats.totalUsers} icon={Users} tone="blue" />
-        <StatCard
-          label="Active users"
-          value={stats.activeUsers}
-          hint={`${stats.totalUsers - stats.activeUsers} inactive or deleted`}
-          icon={UserCheck}
-          tone="green"
-        />
-        <StatCard label="Providers" value={stats.providers} icon={Store} tone="indigo" />
-        <StatCard label="Live now" value={stats.liveNow} icon={Radio} tone="teal" />
-      </div>
+  return <div className="space-y-6">
+    <div>
+      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <p className="text-ink-soft">Manage offers and notifications.</p>
     </div>
-  );
+    {error && <p role="alert">{error}</p>}
+    <div className="grid gap-4 sm:grid-cols-3">{cards.map(([table, label, href], i) => <Link key={table} href={href} className="rounded-2xl border border-line bg-white p-6">
+      <h2 className="font-semibold">{label}</h2>
+      <p className="mt-3 text-3xl font-bold">{counts[i] ?? "..."}</p>
+    </Link>)}</div>
+  </div>;
 }

@@ -17,11 +17,11 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Sanyuj — Local help, right when you need it",
+    default: "Sanyuj - Offers and notifications",
     template: "%s · Sanyuj",
   },
   description:
-    "Find live local help nearby, or list your business free and get found by neighbours.",
+    "Discover offers and local notifications. Browse without an account.",
   applicationName: "Sanyuj",
   appleWebApp: {
     capable: true,

@@ -22,7 +22,7 @@ export function LegalShell({
         <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-4">
           <SanyujBrand href="/" size={44} priority />
           <Link
-            href="/auth/login"
+            href="/app"
             className="rounded-full border border-line bg-white px-4 py-2 text-xs font-bold text-ink shadow-card"
           >
             Open app

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { isCategoryImageUrl } from "@/lib/categories";
+import { isCategoryImageUrl } from "@/lib/contentCategories";
 
 type Size = "tile" | "chip" | "avatar";
 

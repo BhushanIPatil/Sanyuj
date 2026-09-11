@@ -1,50 +1,14 @@
 # Sanyuj
 
-Hyperlocal services marketplace - find trusted nearby help, or list your business for free.
+Offers and local notifications, available without a public account.
 
-## Repositories
+| Directory | Purpose |
+| --- | --- |
+| [webapp](webapp) | Public Offerly/Notifications website and notification APIs |
+| [mobile](mobile) | Flutter Offerly/Notifications app |
+| [admin](admin) | Admin-only login, offers, notices, push campaigns, content categories, area targeting and releases |
+| [backend](backend) | Supabase migrations, retirement tooling and database tests |
 
-| Folder | Purpose | Deploy |
-|--------|---------|--------|
-| [`backend/`](./backend) | Supabase (DB, Auth, Storage, Realtime, Edge Functions) | Supabase project |
-| [`webapp/`](./webapp) | Landing + authenticated web app (one Next.js app) | Vercel |
-| [`admin/`](./admin) | Admin dashboard (users, providers, ads, live) | Vercel |
-| [`mobile/`](./mobile) | Flutter Android/iOS app | Play Console / App Store |
+Public profiles, providers, live listings, business requests, and account-based click tracking are removed. Only administrators have accounts. Anonymous device registrations support push notifications.
 
-## Product summary
-
-One account for customers and providers:
-
-- **Customers** - browse nearby providers and call them when they share contact details
-- **Providers** - list a business, set service areas, Go Live
-
-Locale model: **pincode + landmark** (e.g. Jalgaon `425001`).
-
-## Cost posture (launch)
-
-- Supabase free tier, Vercel free tier, FCM free
-- SMS OTP (MSG91 / 2Factor) is the main variable cost
-- Play Console + domain when you ship mobile / custom domain
-
-## Getting started
-
-1. Create a free [Supabase](https://supabase.com) project
-2. Follow [`backend/README.md`](./backend/README.md) - run the SQL migrations
-3. Follow [`webapp/README.md`](./webapp/README.md) - copy `.env.example` to `.env.local` and run locally
-4. Deploy `webapp` to Vercel (set env vars in the **Vercel dashboard** yourself)
-5. Follow [`mobile/README.md`](./mobile/README.md) when working on the Flutter app
-
-### Separate repos
-
-Each of `backend/`, `webapp/`, `admin/`, and `mobile/` is a self-contained project. You can push them as four Git remotes later; in this workspace they live side by side for convenience.
-
-### Environment variables
-
-Secrets are **not** committed and are **not** deployed by automation in this repo. Configure them yourself in:
-
-- Supabase dashboard (DB is enough for MVP; Edge Function secrets only if you deploy those functions)
-- Vercel project settings for the webapp and admin app
-
-### Dev OTP
-
-With `OTP_DEV_MODE=true`, login OTP is always **`123456`** (no SMS cost while building).
+Follow [the migration and deployment guide](backend/OFFERS_NOTIFICATIONS.md) for existing data cleanup and release order. No production data is changed just by updating this repository.

@@ -1,42 +1,11 @@
-# Sanyuj Webapp
+# Sanyuj webapp
 
-Next.js app that includes:
+Next.js public website: /app/offerly and /app/notifications. The landing page links to both. Public login/profile/directory URLs redirect to Offerly, and retired public account/request APIs return 410.
 
-- Marketing landing (`/`)
-- Email + password auth (`/auth/*`)
-- Full customer + business web app (`/app/*`)
+Copy .env.example to .env.local, configure Supabase, then run `npm install` and `npm run dev` (port 3000). Run `npm run build` and `npm test` to validate.
 
-Deploy this folder to **Vercel**.
+The server-only service role key is used by /api/notifications/devices and /api/notifications/send. Registration is anonymous and rate-limited; sending requires an active admin bearer token. Firebase service-account credentials are required only on the server for push delivery. Set CORS_ALLOWED_ORIGINS for the admin deployment if needed.
 
-## Local setup
+The public Supabase client does not persist or refresh sessions. New clients remove legacy saved credentials. Optional location detection resolves an area for content filters, without saving a profile.
 
-1. Apply the SQL migrations from `../backend/supabase/migrations/` in your Supabase project (including `20260903120000_profiles_email_auth.sql`)
-2. Copy env template:
-
-```bash
-cp .env.example .env.local
-```
-
-3. Fill values from Supabase → Project Settings → API (set `SUPABASE_SERVICE_ROLE_KEY` for auth API routes)
-4. Run:
-
-```bash
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-Sign up / log in with a real email and password. Phone is only collected when listing a business (provider contact).
-
-## Deploy (Vercel)
-
-1. Import the `webapp` directory as a Vercel project
-2. Set the same environment variables in the Vercel dashboard (do not commit secrets)
-3. Deploy
-
-## Scripts
-
-- `npm run dev` — local development
-- `npm run build` — production build
-- `npm run start` — run production server
+See [rollout instructions](../backend/OFFERS_NOTIFICATIONS.md) before deploying.

@@ -42,3 +42,7 @@ export function nestedContentCategory(raw: unknown): ContentCategoryRef | null {
     emoji: typeof o.emoji === "string" ? o.emoji : null,
   };
 }
+
+export function isCategoryImageUrl(value: string | null | undefined): boolean {
+  return Boolean(value && /^(https?:\/\/|\/\/|\/|data:image\/)/i.test(value.trim()));
+}

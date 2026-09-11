@@ -3,7 +3,7 @@
 /// Values come from compile-time defines (preferred), with safe defaults for local runs.
 ///
 /// Local:
-///   flutter run -d <device> --dart-define-from-file=env/dev.json
+///   flutter run -d DEVICE --dart-define-from-file=env/dev.json
 ///
 /// Play Store / release:
 ///   flutter build appbundle --release --dart-define-from-file=env/prod.json
@@ -22,7 +22,7 @@ class AppConfig {
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqZmVtcHVnbW9ucmxwZHRwdmp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODczMjE1OTEsImV4cCI6MjEwMjg5NzU5MX0.FBhjSauTD4rlthQkrd0VyBJEeKnhrgHTM0rixW_bysA',
   );
 
-  /// Auth / account APIs hosted by the webapp (Vercel in production).
+  /// Notification APIs hosted by the webapp (Vercel in production).
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'http://10.161.151.171:3000',

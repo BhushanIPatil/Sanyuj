@@ -8,12 +8,13 @@ import type { PostalLocality } from "@/lib/geo/postal";
 
 type Props = {
   nationwide: boolean;
+  hideNationwide?: boolean;
   pins: AdPinDraft[];
   onNationwideChange: (nationwide: boolean) => void;
   onPinsChange: (pins: AdPinDraft[]) => void;
 };
 
-export function AdCoverageEditor({ nationwide, pins, onNationwideChange, onPinsChange }: Props) {
+export function AdCoverageEditor({ nationwide, pins, onNationwideChange, onPinsChange, hideNationwide = false }: Props) {
   const [newPin, setNewPin] = useState("");
   const [editingPin, setEditingPin] = useState<string | null>(null);
   const [entire, setEntire] = useState(true);
@@ -102,7 +103,7 @@ export function AdCoverageEditor({ nationwide, pins, onNationwideChange, onPinsC
 
   return (
     <div className="space-y-3">
-      <label className="flex cursor-pointer items-start gap-2 text-sm font-semibold">
+      {!hideNationwide && <label className="flex cursor-pointer items-start gap-2 text-sm font-semibold">
         <input
           type="checkbox"
           className="mt-0.5 cursor-pointer"
@@ -115,10 +116,10 @@ export function AdCoverageEditor({ nationwide, pins, onNationwideChange, onPinsC
         <span>
           Show everywhere
           <span className="mt-0.5 block text-xs font-medium text-ink-soft">
-            Uncheck to target pincode, locality, or area — same rules as business service areas.
+            Uncheck to target pincode, locality, or area — choose where this content appears.
           </span>
         </span>
-      </label>
+      </label>}
 
       {!nationwide ? (
         <>

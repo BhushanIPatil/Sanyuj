@@ -1,4 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type GeoPosition = {
   lat: number;
@@ -63,25 +62,4 @@ export async function reverseGeocode(lat: number, lng: number): Promise<Resolved
 export async function detectLocation(): Promise<ResolvedLocation> {
   const { lat, lng } = await getCurrentPosition();
   return reverseGeocode(lat, lng);
-}
-
-/** Persist live GPS + reverse-geocoded address on the user profile. */
-export async function updateCurrentAddress(
-  supabase: SupabaseClient,
-  userId: string,
-  loc?: ResolvedLocation,
-): Promise<ResolvedLocation> {
-  const resolved = loc ?? (await detectLocation());
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      current_address: resolved.address,
-      current_lat: resolved.lat,
-      current_lng: resolved.lng,
-    })
-    .eq("id", userId)
-    .eq("is_active", true)
-    .eq("is_deleted", false);
-  if (error) throw error;
-  return resolved;
 }

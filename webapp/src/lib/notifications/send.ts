@@ -165,16 +165,6 @@ export async function sendPushToTokens(
   return { successCount, failureCount, invalidTokens };
 }
 
-/** Send to all active devices for the given user ids. */
-export async function sendPushToUsers(
-  adminDb: SupabaseClient,
-  userIds: string[],
-  message: PushMessage,
-): Promise<SendPushResult> {
-  const tokens = await listActiveTokens(adminDb, { userIds });
-  return sendPushToTokens(adminDb, tokens, message);
-}
-
 /** Broadcast to every active device token. */
 export async function broadcastPush(
   adminDb: SupabaseClient,

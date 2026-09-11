@@ -2,17 +2,17 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Sanyuj — Local help nearby",
+    name: "Sanyuj - Offers and notifications",
     short_name: "Sanyuj",
     description:
-      "Find trusted local help near you, or list your business free and get found by neighbours.",
-    start_url: "/app",
+      "Discover offers and local announcements without an account.",
+    start_url: "/app/offerly",
     scope: "/",
     display: "standalone",
     orientation: "portrait-primary",
     background_color: "#ecf3f1",
     theme_color: "#10549C",
-    categories: ["lifestyle", "business", "productivity"],
+    categories: ["lifestyle", "news", "shopping"],
     icons: [
       {
         src: "/icons/icon-192.png",

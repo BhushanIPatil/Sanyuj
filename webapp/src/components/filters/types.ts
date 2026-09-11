@@ -1,4 +1,4 @@
-/** Shared filter/sort model used by Explore, Offerly and Notify. */
+/** Shared filter/sort model used by Offerly and Notifications. */
 
 export type FilterOption = {
   value: string;
