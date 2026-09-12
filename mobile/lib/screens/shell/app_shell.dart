@@ -12,10 +12,11 @@ class AppShell extends StatelessWidget {
   final Widget child;
 
   static const _tabs = [
-    ('/services', 'Services', Icons.home_repair_service_rounded),
-    ('/offerly', 'Offerly', Icons.local_offer_rounded),
-    ('/home', 'Home', Icons.home_rounded),
-    ('/notifications', 'Notify', Icons.notifications_rounded),
+    ('/offerly', 'Offerly', Icons.local_offer_outlined),
+    ('/notifications', 'Notify', Icons.notifications_outlined),
+    ('/home', 'Home', Icons.home_outlined),
+    ('/services', 'Services', Icons.home_repair_service_outlined),
+    ('/requests', 'Requests', Icons.add_comment_outlined),
   ];
 
   static const _homeIndex = 2;
@@ -79,28 +80,16 @@ class AppShell extends StatelessWidget {
           )
         : Scaffold(
             backgroundColor: AppColors.bgApp,
-            body: SafeArea(
-              bottom: false,
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 88),
-                      child: child,
-                    ),
-                  ),
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 14 + MediaQuery.paddingOf(context).bottom,
-                    child: _FloatingBottomNav(
-                      index: idx,
-                      homeIndex: _homeIndex,
-                      onSelect: (i) => context.go(_tabs[i].$1),
-                      tabs: _tabs,
-                    ),
-                  ),
-                ],
+            body: SafeArea(bottom: false, child: child),
+            bottomNavigationBar: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
+                child: _FloatingBottomNav(
+                  index: idx,
+                  onSelect: (i) => context.go(_tabs[i].$1),
+                  tabs: _tabs,
+                ),
               ),
             ),
           );
@@ -119,29 +108,16 @@ class AppShell extends StatelessWidget {
 class _FloatingBottomNav extends StatelessWidget {
   const _FloatingBottomNav({
     required this.index,
-    required this.homeIndex,
     required this.onSelect,
     required this.tabs,
   });
 
   final int index;
-  final int homeIndex;
   final ValueChanged<int> onSelect;
   final List<(String, String, IconData)> tabs;
 
   @override
   Widget build(BuildContext context) {
-    final left = <(int, (String, String, IconData))>[];
-    final right = <(int, (String, String, IconData))>[];
-    for (var i = 0; i < tabs.length; i++) {
-      if (i == homeIndex) continue;
-      if (i < homeIndex) {
-        left.add((i, tabs[i]));
-      } else {
-        right.add((i, tabs[i]));
-      }
-    }
-
     return Container(
       height: 70,
       decoration: BoxDecoration(
@@ -150,55 +126,18 @@ class _FloatingBottomNav extends StatelessWidget {
         border: Border.all(color: AppColors.line),
         boxShadow: AppColors.popShadow,
       ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.bottomCenter,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    for (final item in left)
-                      Expanded(
-                        child: _NavItem(
-                          label: item.$2.$2,
-                          icon: item.$2.$3,
-                          selected: index == item.$1,
-                          onTap: () => onSelect(item.$1),
-                          margin: const EdgeInsets.fromLTRB(4, 8, 2, 8),
-                        ),
-                      ),
-                  ],
-                ),
+          for (var i = 0; i < tabs.length; i++)
+            Expanded(
+              child: _NavItem(
+                label: tabs[i].$2,
+                icon: tabs[i].$3,
+                selected: index == i,
+                onTap: () => onSelect(i),
               ),
-              const SizedBox(width: 62),
-              Expanded(
-                child: Row(
-                  children: [
-                    for (final item in right)
-                      Expanded(
-                        child: _NavItem(
-                          label: item.$2.$2,
-                          icon: item.$2.$3,
-                          selected: index == item.$1,
-                          onTap: () => onSelect(item.$1),
-                          margin: const EdgeInsets.fromLTRB(2, 8, 4, 8),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          Positioned(
-            top: -18,
-            child: _HomeFab(
-              selected: index == homeIndex,
-              onTap: () => onSelect(homeIndex),
             ),
-          ),
         ],
       ),
     );
@@ -211,14 +150,12 @@ class _NavItem extends StatelessWidget {
     required this.icon,
     required this.selected,
     required this.onTap,
-    this.margin = const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
   });
 
   final String label;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
-  final EdgeInsets margin;
 
   @override
   Widget build(BuildContext context) {
@@ -226,9 +163,9 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        margin: margin,
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? AppColors.greenSoft : Colors.transparent,
+          color: selected ? AppColors.blueDeep : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
@@ -237,51 +174,21 @@ class _NavItem extends StatelessWidget {
             Icon(
               icon,
               size: 20,
-              color: selected ? AppColors.greenDeep : AppColors.inkFaint,
+              color: selected ? Colors.white : AppColors.inkSoft,
             ),
             const SizedBox(height: 3),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 9.5,
                 fontWeight: FontWeight.w700,
-                color: selected ? AppColors.greenDeep : AppColors.inkFaint,
+                color: selected ? Colors.white : AppColors.inkSoft,
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _HomeFab extends StatelessWidget {
-  const _HomeFab({required this.selected, required this.onTap});
-
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 54,
-        height: 54,
-        decoration: BoxDecoration(
-          color: AppColors.blueDeep,
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF1D5FA0).withValues(alpha: 0.30),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-              spreadRadius: -2,
-            ),
-          ],
-          border: selected ? Border.all(color: Colors.white, width: 2) : null,
-        ),
-        child: const Icon(Icons.home_rounded, color: Colors.white, size: 24),
       ),
     );
   }

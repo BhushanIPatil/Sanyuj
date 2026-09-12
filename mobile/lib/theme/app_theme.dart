@@ -11,7 +11,7 @@ class AppColors {
   static const line = Color(0xFFEAF0EF);
 
   static const blue = Color(0xFF2E86D6);
-  static const blueDeep = Color(0xFF1D5FA0);
+  static const blueDeep = Color(0xFF2563EB);
   static const blueSoft = Color(0xFFE6F2FE);
   /// White plate behind the app mark.
   static const logoPlate = Color(0xFFFFFFFF);
@@ -69,7 +69,7 @@ class AppColors {
 
   static List<BoxShadow> get ctaShadow => [
         BoxShadow(
-          color: const Color(0xFF1D5FA0).withValues(alpha: 0.30),
+          color: blueDeep.withValues(alpha: 0.30),
           blurRadius: 22,
           offset: const Offset(0, 10),
         ),

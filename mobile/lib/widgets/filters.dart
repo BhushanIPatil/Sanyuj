@@ -12,7 +12,12 @@ import 'locality_picker.dart';
 /// One checkable value inside a [FilterGroup].
 @immutable
 class FilterOption {
-  const FilterOption({required this.value, required this.label, this.icon, this.count});
+  const FilterOption({
+    required this.value,
+    required this.label,
+    this.icon,
+    this.count,
+  });
 
   final String value;
   final String label;
@@ -42,7 +47,12 @@ class FilterGroup {
 
 @immutable
 class SortOption {
-  const SortOption({required this.value, required this.label, required this.icon, this.short});
+  const SortOption({
+    required this.value,
+    required this.label,
+    required this.icon,
+    this.short,
+  });
 
   final String value;
   final String label;
@@ -100,7 +110,11 @@ class GeoFilter {
   bool get isEverywhere => pincode.length != 6;
 
   String get label {
-    final parts = [areaName, locality, pincode].where((p) => p.trim().isNotEmpty);
+    final parts = [
+      areaName,
+      locality,
+      pincode,
+    ].where((p) => p.trim().isNotEmpty);
     return parts.isEmpty ? 'All areas' : parts.join(', ');
   }
 
@@ -142,7 +156,8 @@ class FilterState {
 
   List<String> valuesOf(String groupId) => selections[groupId] ?? const [];
 
-  bool isSelected(String groupId, String value) => valuesOf(groupId).contains(value);
+  bool isSelected(String groupId, String value) =>
+      valuesOf(groupId).contains(value);
 
   /// Highest numeric value selected in [groupId], or 0 when nothing is selected.
   double maxNumberOf(String groupId) {
@@ -191,10 +206,14 @@ class FilterState {
     return FilterState(selections: next, geo: geo);
   }
 
-  FilterState withGeo(GeoFilter next) => FilterState(selections: selections, geo: next);
+  FilterState withGeo(GeoFilter next) =>
+      FilterState(selections: selections, geo: next);
 
   int activeCount(GeoFilter defaultGeo) {
-    final facets = selections.values.fold<int>(0, (sum, list) => sum + list.length);
+    final facets = selections.values.fold<int>(
+      0,
+      (sum, list) => sum + list.length,
+    );
     return facets + (geo == defaultGeo ? 0 : 1);
   }
 }
@@ -220,17 +239,25 @@ List<ActiveFilter> buildActiveFilters({
 
   if (state.geo != defaultGeo) {
     if (state.geo.pincode.isNotEmpty) {
-      chips.add(ActiveFilter(label: state.geo.pincode, onRemove: () => onGeoChange(defaultGeo)));
+      chips.add(
+        ActiveFilter(
+          label: state.geo.pincode,
+          onRemove: () => onGeoChange(defaultGeo),
+        ),
+      );
     } else {
-      chips.add(ActiveFilter(label: 'All areas', onRemove: () => onGeoChange(defaultGeo)));
+      chips.add(
+        ActiveFilter(
+          label: 'All areas',
+          onRemove: () => onGeoChange(defaultGeo),
+        ),
+      );
     }
     if (state.geo.locality.isNotEmpty) {
       chips.add(
         ActiveFilter(
           label: state.geo.locality,
-          onRemove: () => onGeoChange(
-            GeoFilter(pincode: state.geo.pincode),
-          ),
+          onRemove: () => onGeoChange(GeoFilter(pincode: state.geo.pincode)),
         ),
       );
     }
@@ -238,7 +265,8 @@ List<ActiveFilter> buildActiveFilters({
       chips.add(
         ActiveFilter(
           label: state.geo.areaName,
-          onRemove: () => onGeoChange(state.geo.copyWith(areaId: '', areaName: '')),
+          onRemove: () =>
+              onGeoChange(state.geo.copyWith(areaId: '', areaName: '')),
         ),
       );
     }
@@ -255,7 +283,9 @@ List<ActiveFilter> buildActiveFilters({
           break;
         }
       }
-      chips.add(ActiveFilter(label: label, onRemove: () => onToggle(group.id, value)));
+      chips.add(
+        ActiveFilter(label: label, onRemove: () => onToggle(group.id, value)),
+      );
     }
   }
 
@@ -285,8 +315,12 @@ class FilterToolbar extends StatelessWidget {
     required this.resultNoun,
     this.searchResultLabel,
     this.animatedHint = false,
+    this.onCreateRequest,
+    this.requestLabel = 'New request',
   });
 
+  final VoidCallback? onCreateRequest;
+  final String requestLabel;
   final String title;
 
   /// Trails the result count, e.g. "near Kothrud, 411038".
@@ -338,21 +372,33 @@ class FilterToolbar extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: GoogleFonts.nunito(fontSize: 20, fontWeight: FontWeight.w800, height: 1.15),
+                      style: GoogleFonts.nunito(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        height: 1.15,
+                      ),
                     ),
                     const SizedBox(height: 3),
                     RichText(
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       text: TextSpan(
-                        style: const TextStyle(fontSize: 12, color: AppColors.inkSoft, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.inkSoft,
+                          fontWeight: FontWeight.w600,
+                        ),
                         children: [
                           TextSpan(
                             text: '$resultCount ',
-                            style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.ink),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.ink,
+                            ),
                           ),
                           TextSpan(text: resultNoun),
-                          if (subtitle.trim().isNotEmpty) TextSpan(text: ' · ${subtitle.trim()}'),
+                          if (subtitle.trim().isNotEmpty)
+                            TextSpan(text: ' · ${subtitle.trim()}'),
                         ],
                       ),
                     ),
@@ -394,6 +440,19 @@ class FilterToolbar extends StatelessWidget {
                   onTap: onOpenFilters,
                 ),
               ),
+              if (onCreateRequest != null) ...[
+                const SizedBox(width: 10),
+                IconButton.filledTonal(
+                  onPressed: onCreateRequest,
+                  tooltip: requestLabel,
+                  icon: const Icon(Icons.add_circle_outline),
+                  style: IconButton.styleFrom(
+                    foregroundColor: AppColors.blueDeep,
+                    backgroundColor: AppColors.blueSoft,
+                    minimumSize: const Size(48, 48),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -452,7 +511,10 @@ class _SearchIconButton extends StatelessWidget {
           height: 40,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(13),
-            border: Border.all(color: active ? AppColors.blueDeep : AppColors.line, width: 1.5),
+            border: Border.all(
+              color: active ? AppColors.blueDeep : AppColors.line,
+              width: 1.5,
+            ),
             boxShadow: AppColors.cardShadow,
           ),
           child: Icon(
@@ -492,11 +554,17 @@ Future<void> showFloatingSearch(
       resultLabel: resultLabel,
     ),
     transitionBuilder: (context, animation, _, child) {
-      final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+      );
       return FadeTransition(
         opacity: curved,
         child: SlideTransition(
-          position: Tween(begin: const Offset(0, -0.15), end: Offset.zero).animate(curved),
+          position: Tween(
+            begin: const Offset(0, -0.15),
+            end: Offset.zero,
+          ).animate(curved),
           child: child,
         ),
       );
@@ -540,7 +608,11 @@ class _FloatingSearchBar extends StatelessWidget {
                     children: [
                       IconButton(
                         onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.arrow_back_rounded, size: 20, color: AppColors.inkSoft),
+                        icon: const Icon(
+                          Icons.arrow_back_rounded,
+                          size: 20,
+                          color: AppColors.inkSoft,
+                        ),
                         tooltip: 'Close search',
                       ),
                       Expanded(
@@ -565,15 +637,22 @@ class _FloatingSearchBar extends StatelessWidget {
                                 onChanged: onChanged,
                                 textInputAction: TextInputAction.search,
                                 onSubmitted: (_) => Navigator.pop(context),
-                                style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
                                 decoration: InputDecoration(
-                                  hintText: animatedHint && value.text.isEmpty ? '' : hint,
+                                  hintText: animatedHint && value.text.isEmpty
+                                      ? ''
+                                      : hint,
                                   border: InputBorder.none,
                                   enabledBorder: InputBorder.none,
                                   focusedBorder: InputBorder.none,
                                   filled: false,
                                   isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
                                 ),
                               ),
                             ],
@@ -589,7 +668,11 @@ class _FloatingSearchBar extends StatelessWidget {
                                   controller.clear();
                                   onChanged('');
                                 },
-                                icon: const Icon(Icons.close_rounded, size: 19, color: AppColors.inkSoft),
+                                icon: const Icon(
+                                  Icons.close_rounded,
+                                  size: 19,
+                                  color: AppColors.inkSoft,
+                                ),
                                 tooltip: 'Clear',
                               ),
                       ),
@@ -602,7 +685,11 @@ class _FloatingSearchBar extends StatelessWidget {
                         padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
                         child: Row(
                           children: [
-                            const Icon(Icons.bolt_rounded, size: 13, color: AppColors.greenDeep),
+                            const Icon(
+                              Icons.bolt_rounded,
+                              size: 13,
+                              color: AppColors.greenDeep,
+                            ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
@@ -653,7 +740,10 @@ class _ToolbarButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: badge > 0 ? AppColors.blueDeep : AppColors.line, width: 1.5),
+            border: Border.all(
+              color: badge > 0 ? AppColors.blueDeep : AppColors.line,
+              width: 1.5,
+            ),
             boxShadow: AppColors.cardShadow,
           ),
           child: Row(
@@ -666,20 +756,31 @@ class _ToolbarButton extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.ink),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
                 ),
               ),
               if (badge > 0) ...[
                 const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.blueDeep,
                     borderRadius: BorderRadius.circular(100),
                   ),
                   child: Text(
                     '$badge',
-                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
@@ -710,7 +811,11 @@ class _AppliedChip extends StatelessWidget {
         children: [
           Text(
             chip.label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.blueDeep),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.blueDeep,
+            ),
           ),
           const SizedBox(width: 2),
           GestureDetector(
@@ -718,7 +823,11 @@ class _AppliedChip extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             child: const Padding(
               padding: EdgeInsets.all(4),
-              child: Icon(Icons.close_rounded, size: 14, color: AppColors.blueDeep),
+              child: Icon(
+                Icons.close_rounded,
+                size: 14,
+                color: AppColors.blueDeep,
+              ),
             ),
           ),
         ],
@@ -747,13 +856,22 @@ Future<String?> showSortSheet(
           Container(
             width: 40,
             height: 4,
-            decoration: BoxDecoration(color: AppColors.line, borderRadius: BorderRadius.circular(100)),
+            decoration: BoxDecoration(
+              color: AppColors.line,
+              borderRadius: BorderRadius.circular(100),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text('Sort by', style: GoogleFonts.nunito(fontSize: 17, fontWeight: FontWeight.w800)),
+              child: Text(
+                'Sort by',
+                style: GoogleFonts.nunito(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
           ),
           for (final option in options)
@@ -762,18 +880,28 @@ Future<String?> showSortSheet(
               leading: Icon(
                 option.icon,
                 size: 20,
-                color: option.value == value ? AppColors.blueDeep : AppColors.inkFaint,
+                color: option.value == value
+                    ? AppColors.blueDeep
+                    : AppColors.inkFaint,
               ),
               title: Text(
                 option.label,
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: option.value == value ? FontWeight.w800 : FontWeight.w600,
-                  color: option.value == value ? AppColors.blueDeep : AppColors.ink,
+                  fontWeight: option.value == value
+                      ? FontWeight.w800
+                      : FontWeight.w600,
+                  color: option.value == value
+                      ? AppColors.blueDeep
+                      : AppColors.ink,
                 ),
               ),
               trailing: option.value == value
-                  ? const Icon(Icons.check_rounded, color: AppColors.blueDeep, size: 20)
+                  ? const Icon(
+                      Icons.check_rounded,
+                      color: AppColors.blueDeep,
+                      size: 20,
+                    )
                   : null,
             ),
           const SizedBox(height: 12),
@@ -833,7 +961,8 @@ class _FilterSheetState extends State<_FilterSheet> {
   late FilterState _draft = widget.initial;
   int _tab = 0;
 
-  List<FilterGroup> get _groups => widget.groups.where((g) => g.options.isNotEmpty).toList();
+  List<FilterGroup> get _groups =>
+      widget.groups.where((g) => g.options.isNotEmpty).toList();
 
   void _toggle(String groupId, String value) {
     setState(() => _draft = _draft.toggle(groupId, value));
@@ -864,92 +993,94 @@ class _FilterSheetState extends State<_FilterSheet> {
               Container(
                 width: 40,
                 height: 4,
-                decoration: BoxDecoration(color: AppColors.line, borderRadius: BorderRadius.circular(100)),
+                decoration: BoxDecoration(
+                  color: AppColors.line,
+                  borderRadius: BorderRadius.circular(100),
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
                 child: Row(
                   children: [
-                    const Icon(Icons.tune_rounded, size: 18, color: AppColors.blueDeep),
+                    const Icon(
+                      Icons.tune_rounded,
+                      size: 18,
+                      color: AppColors.blueDeep,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text('Filters', style: GoogleFonts.nunito(fontSize: 18, fontWeight: FontWeight.w800)),
+                      child: Text(
+                        'Filters',
+                        style: GoogleFonts.nunito(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
                     TextButton(
                       onPressed: activeCount == 0
                           ? null
                           : () => setState(
-                                () => _draft = FilterState(geo: widget.defaultGeo),
-                              ),
+                              () =>
+                                  _draft = FilterState(geo: widget.defaultGeo),
+                            ),
                       child: Text(
                         'Clear all',
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 12.5,
-                          color: activeCount == 0 ? AppColors.inkFaint : AppColors.blueDeep,
+                          color: activeCount == 0
+                              ? AppColors.inkFaint
+                              : AppColors.blueDeep,
                         ),
                       ),
                     ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: AppColors.line),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    _FilterTab(
+                      label: 'Location',
+                      selected: _tab == 0,
+                      badge: _draft.geo == widget.defaultGeo ? 0 : 1,
+                      onTap: () => setState(() => _tab = 0),
+                    ),
+                    for (var i = 0; i < groups.length; i++)
+                      _FilterTab(
+                        label: groups[i].label,
+                        selected: _tab == i + 1,
+                        badge: _draft.valuesOf(groups[i].id).length,
+                        onTap: () => setState(() => _tab = i + 1),
+                      ),
                   ],
                 ),
               ),
               const Divider(height: 1, color: AppColors.line),
               Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(
-                      width: 136,
-                      child: ColoredBox(
-                        color: AppColors.surface,
-                        child: ListView(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          children: [
-                            _RailItem(
-                              label: 'Location',
-                              selected: _tab == 0,
-                              badge: _draft.geo == widget.defaultGeo ? 0 : 1,
-                              onTap: () => setState(() => _tab = 0),
-                            ),
-                            for (var i = 0; i < groups.length; i++)
-                              _RailItem(
-                                label: groups[i].label,
-                                selected: _tab == i + 1,
-                                badge: _draft.valuesOf(groups[i].id).length,
-                                onTap: () => setState(() => _tab = i + 1),
-                              ),
-                          ],
-                        ),
+                child: _tab == 0
+                    ? _GeoPane(
+                        geo: _draft.geo,
+                        defaultGeo: widget.defaultGeo,
+                        onChanged: _setGeo,
+                      )
+                    : _OptionsPane(
+                        key: ValueKey(groups[_tab - 1].id),
+                        group: groups[_tab - 1],
+                        state: _draft,
+                        onToggle: _toggle,
                       ),
-                    ),
-                    const VerticalDivider(width: 1, color: AppColors.line),
-                    Expanded(
-                      child: _tab == 0
-                          ? _GeoPane(
-                              geo: _draft.geo,
-                              defaultGeo: widget.defaultGeo,
-                              onChanged: _setGeo,
-                            )
-                          : _OptionsPane(
-                              key: ValueKey(groups[_tab - 1].id),
-                              group: groups[_tab - 1],
-                              state: _draft,
-                              onToggle: _toggle,
-                            ),
-                    ),
-                  ],
-                ),
               ),
               const Divider(height: 1, color: AppColors.line),
               Padding(
-                // Extra bottom space so Apply sits above the shell's floating
-                // home button instead of touching it.
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  12,
-                  16,
-                  12 + (MediaQuery.sizeOf(context).width < 900 ? 28 : 0),
-                ),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Row(
                   children: [
                     Expanded(
@@ -957,10 +1088,20 @@ class _FilterSheetState extends State<_FilterSheet> {
                         onPressed: () => Navigator.pop(context),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.inkSoft,
-                          side: const BorderSide(color: AppColors.line, width: 1.5),
+                          side: const BorderSide(
+                            color: AppColors.line,
+                            width: 1.5,
+                          ),
                           minimumSize: const Size.fromHeight(48),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusMd)),
-                          textStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppColors.radiusMd,
+                            ),
+                          ),
+                          textStyle: GoogleFonts.nunito(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
                         ),
                         child: const Text('Cancel'),
                       ),
@@ -974,8 +1115,15 @@ class _FilterSheetState extends State<_FilterSheet> {
                           backgroundColor: AppColors.blueDeep,
                           foregroundColor: Colors.white,
                           minimumSize: const Size.fromHeight(48),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppColors.radiusMd)),
-                          textStyle: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppColors.radiusMd,
+                            ),
+                          ),
+                          textStyle: GoogleFonts.nunito(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
                         ),
                         child: Text(
                           preview == null
@@ -995,8 +1143,8 @@ class _FilterSheetState extends State<_FilterSheet> {
   }
 }
 
-class _RailItem extends StatelessWidget {
-  const _RailItem({
+class _FilterTab extends StatelessWidget {
+  const _FilterTab({
     required this.label,
     required this.selected,
     required this.badge,
@@ -1009,49 +1157,15 @@ class _RailItem extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.bgApp : Colors.transparent,
-          border: Border(
-            left: BorderSide(
-              color: selected ? AppColors.blueDeep : Colors.transparent,
-              width: 3,
-            ),
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                  color: selected ? AppColors.ink : AppColors.inkSoft,
-                ),
-              ),
-            ),
-            if (badge > 0)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: AppColors.blueSoft,
-                  borderRadius: BorderRadius.circular(100),
-                ),
-                child: Text(
-                  '$badge',
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.blueDeep),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(right: 8),
+    child: ChoiceChip(
+      label: Text(badge > 0 ? '$label ($badge)' : label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      showCheckmark: false,
+    ),
+  );
 }
 
 class _OptionsPane extends StatefulWidget {
@@ -1108,24 +1222,39 @@ class _OptionsPaneState extends State<_OptionsPane> {
         Expanded(
           child: options.isEmpty
               ? const Center(
-                  child: Text('No matches', style: TextStyle(fontSize: 13, color: AppColors.inkSoft)),
+                  child: Text(
+                    'No matches',
+                    style: TextStyle(fontSize: 13, color: AppColors.inkSoft),
+                  ),
                 )
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(6, 6, 10, 20),
                   itemCount: options.length,
                   itemBuilder: (_, i) {
                     final option = options[i];
-                    final selected = widget.state.isSelected(widget.group.id, option.value);
+                    final selected = widget.state.isSelected(
+                      widget.group.id,
+                      option.value,
+                    );
                     return InkWell(
-                      onTap: () => widget.onToggle(widget.group.id, option.value),
+                      onTap: () =>
+                          widget.onToggle(widget.group.id, option.value),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 10,
+                        ),
                         child: Row(
                           children: [
                             _CheckBox(selected: selected),
                             const SizedBox(width: 10),
                             if ((option.icon ?? '').trim().isNotEmpty) ...[
-                              CategoryIcon(value: option.icon, size: 20, radius: 6, fallback: '•'),
+                              CategoryIcon(
+                                value: option.icon,
+                                size: 20,
+                                radius: 6,
+                                fallback: '•',
+                              ),
                               const SizedBox(width: 8),
                             ],
                             Expanded(
@@ -1133,8 +1262,12 @@ class _OptionsPaneState extends State<_OptionsPane> {
                                 option.label,
                                 style: TextStyle(
                                   fontSize: 13.5,
-                                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                                  color: selected ? AppColors.ink : AppColors.inkSoft,
+                                  fontWeight: selected
+                                      ? FontWeight.w800
+                                      : FontWeight.w600,
+                                  color: selected
+                                      ? AppColors.ink
+                                      : AppColors.inkSoft,
                                 ),
                               ),
                             ),
@@ -1172,7 +1305,10 @@ class _CheckBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: selected ? AppColors.blueDeep : Colors.white,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: selected ? AppColors.blueDeep : AppColors.line, width: 1.5),
+        border: Border.all(
+          color: selected ? AppColors.blueDeep : AppColors.line,
+          width: 1.5,
+        ),
       ),
       child: selected
           ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
@@ -1182,7 +1318,11 @@ class _CheckBox extends StatelessWidget {
 }
 
 class _GeoPane extends StatefulWidget {
-  const _GeoPane({required this.geo, required this.defaultGeo, required this.onChanged});
+  const _GeoPane({
+    required this.geo,
+    required this.defaultGeo,
+    required this.onChanged,
+  });
 
   final GeoFilter geo;
   final GeoFilter defaultGeo;
@@ -1193,7 +1333,9 @@ class _GeoPane extends StatefulWidget {
 }
 
 class _GeoPaneState extends State<_GeoPane> {
-  late final TextEditingController _pin = TextEditingController(text: widget.geo.pincode);
+  late final TextEditingController _pin = TextEditingController(
+    text: widget.geo.pincode,
+  );
 
   @override
   void dispose() {
@@ -1208,13 +1350,19 @@ class _GeoPaneState extends State<_GeoPane> {
 
   Future<void> _onLocality(String? name) async {
     final locality = name ?? '';
-    widget.onChanged(GeoFilter(pincode: widget.geo.pincode, locality: locality));
+    widget.onChanged(
+      GeoFilter(pincode: widget.geo.pincode, locality: locality),
+    );
     if (locality.isEmpty) return;
     try {
       final id = await resolveLocalityId(widget.geo.pincode, locality);
       if (!mounted) return;
       widget.onChanged(
-        GeoFilter(pincode: widget.geo.pincode, locality: locality, localityId: id),
+        GeoFilter(
+          pincode: widget.geo.pincode,
+          locality: locality,
+          localityId: id,
+        ),
       );
     } catch (_) {
       // Keep the name-only selection; the RPC falls back to whole-pincode coverage.
@@ -1264,7 +1412,11 @@ class _GeoPaneState extends State<_GeoPane> {
             padding: EdgeInsets.only(top: 8),
             child: Text(
               'Enter a 6-digit pincode to narrow down by locality and area.',
-              style: TextStyle(fontSize: 12, color: AppColors.inkSoft, height: 1.4),
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.inkSoft,
+                height: 1.4,
+              ),
             ),
           ),
         const SizedBox(height: 18),
@@ -1297,7 +1449,11 @@ class _GeoPaneState extends State<_GeoPane> {
 }
 
 class _GeoResetButton extends StatelessWidget {
-  const _GeoResetButton({required this.icon, required this.label, required this.onTap});
+  const _GeoResetButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String label;
@@ -1317,7 +1473,11 @@ class _GeoResetButton extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.blueDeep),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.blueDeep,
+                ),
               ),
             ),
           ],

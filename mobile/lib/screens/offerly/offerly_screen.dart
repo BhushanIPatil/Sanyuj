@@ -322,14 +322,7 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
   }
 
   void _pickListingCategory(String id) {
-    setState(() {
-      final selected = _filters.valuesOf('category');
-      if (selected.length == 1 && selected.first == id) {
-        _filters = _filters.clearGroup('category');
-      } else {
-        _filters = _filters.selectOnly('category', id);
-      }
-    });
+    setState(() => _filters = _filters.toggle('category', id));
   }
 
   Future<void> _showAd(AdBanner ad) async {
@@ -369,6 +362,8 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
           onOpenSort: _openSort,
           filterCount: _filters.activeCount(_defaultGeo),
           onOpenFilters: _openFilters,
+          onCreateRequest: () => context.go('/requests?kind=offer'),
+          requestLabel: 'Request an offer',
           chips: buildActiveFilters(
             state: _filters,
             groups: groups,

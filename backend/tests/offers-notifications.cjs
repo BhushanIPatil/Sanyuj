@@ -50,6 +50,8 @@ const { PGlite } = require("@electric-sql/pglite");
   console.log("Retirement, content access and admin authorization tests passed.");
   await db.exec(fs.readFileSync("supabase/tests/services.sql", "utf8"));
   console.log("Services visibility, category, coverage and admin publication tests passed.");
+  await db.exec(fs.readFileSync("supabase/tests/content_requests.sql", "utf8"));
+  console.log("Private request and admin follow-up access tests passed.");
   await db.close();
 })().catch((e) => {
   console.error(e.message);

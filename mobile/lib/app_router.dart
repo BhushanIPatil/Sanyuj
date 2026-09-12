@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'screens/offerly/offerly_screen.dart';
 import 'screens/home/home_screen.dart';
+import 'screens/requests/requests_screen.dart';
 import 'widgets/location_session.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/shell/app_shell.dart';
@@ -16,6 +17,7 @@ GoRouter createRouter({
   initialLocation: initialLocation,
   redirect: (context, state) =>
       [
+        '/requests',
         '/home',
         '/services',
         '/offerly',
@@ -28,6 +30,13 @@ GoRouter createRouter({
       builder: (context, state, child) =>
           LocationSession(child: AppShell(child: child)),
       routes: [
+        GoRoute(
+          path: '/requests',
+          builder: (context, state) => RequestsScreen(
+            key: ValueKey(state.uri.queryParameters['kind']),
+            initialKind: state.uri.queryParameters['kind'],
+          ),
+        ),
         GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
         GoRoute(
           path: '/services',

@@ -10,7 +10,7 @@ export default function Page() {
       <p>Allow notifications when prompted to receive updates. You can turn them off in your phone settings. The Notifications page remains available without push permission.</p>
     </LegalSection>
     <LegalSection title="Contact support">
-      <p>For help, to report an inaccurate offer or announcement, or to discuss an offer placement, email <a href="mailto:support@sanyuj.app">support@sanyuj.app</a>. Include the content title or link. To discuss listing a service, include the provider name, service category, contact details and areas served. Administrators manage publication.</p>
+      <p>For help, to report an inaccurate offer or announcement, or to discuss an offer placement, email <a href="mailto:support@sanyuj.app">support@sanyuj.app</a>. Include the content title or link. Use Submit Request to share an offer, notification or service with our team. Add your name, contact details and an image, and we will follow up before publication.</p>
     </LegalSection>
   </LegalShell>;
 }

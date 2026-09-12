@@ -237,24 +237,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
             child: Row(
               children: [
-                AvatarBadge(
-                  label: 'S',
-                  size: 42,
-                  radius: 14,
-                  background: AppColors.blueSoft,
-                  foreground: AppColors.blueDeep,
-                ),
-                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Hi there',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      const Row(
+                        children: [
+                          Text(
+                            'Hi there',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          SizedBox(width: 6),
+                          Icon(
+                            Icons.waving_hand_outlined,
+                            size: 18,
+                            color: AppColors.amber,
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 1),
                       GestureDetector(
@@ -510,66 +512,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ),
           ],
-
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
-            child: Material(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(100),
-              child: InkWell(
-                onTap: () => _openUrl(
-                  'mailto:${AppConfig.supportEmail}?subject=Banner%20ad%20on%20Sanyuj',
-                ),
-                borderRadius: BorderRadius.circular(100),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 11,
-                  ),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(100),
-                    border: Border.all(color: AppColors.line, width: 1.5),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.campaign_outlined,
-                        size: 16,
-                        color: AppColors.blueDeep,
-                      ),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Want your ad here?',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Contact',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.blueDeep,
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      const Icon(
-                        Icons.arrow_forward_rounded,
-                        size: 14,
-                        color: AppColors.blueDeep,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
 
           if (_error != null)
             Padding(padding: const EdgeInsets.all(20), child: Text(_error!)),

@@ -14,3 +14,5 @@ Copy .env.example to .env.local. Set public Supabase URL/key and NEXT_PUBLIC_WEB
 Run `npm install`, `npm run dev` (port 3001), and `npm run build` for validation. Deploy this directory separately from webapp. Content writes use the signed-in admin's RLS permissions; the admin webapp no longer needs a service-role key.
 
 See [rollout instructions](../backend/OFFERS_NOTIFICATIONS.md).
+
+The **Requests** page at /requests shows private offer, notification and service enquiries, with image previews, contact links, status and follow-up notes. See [request rollout](../backend/REQUESTS.md).

@@ -14,3 +14,5 @@ Services such as plumbing and electrical work are published by admins with categ
 Apply the new [services and home migration](backend/supabase/migrations/20260911160000_services_and_home.sql) before releasing these clients. See [services rollout](backend/SERVICES.md).
 
 Follow [the migration and deployment guide](backend/OFFERS_NOTIFICATIONS.md) for existing data cleanup and release order. No production data is changed just by updating this repository.
+
+Public visitors can submit an offer, notification or service enquiry through **Submit Request**. Admins manage these privately in **Requests**. Apply the [requests migration and rollout](backend/REQUESTS.md) before releasing this feature.

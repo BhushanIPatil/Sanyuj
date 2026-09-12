@@ -9,3 +9,5 @@ The server-only service role key is used by /api/notifications/devices and /api/
 The public Supabase client does not persist or refresh sessions. New clients remove legacy saved credentials. Location detection refreshes the address and pincode at startup, when returning to the foreground and every two minutes while visible. Manual pincode/locality/area filters remain available when location permission is denied. No profile or address is saved to the database.
 
 Apply [services rollout](../backend/SERVICES.md) for this release. See [rollout instructions](../backend/OFFERS_NOTIFICATIONS.md) before deploying.
+
+The **Submit Request** page at /app/requests sends name, contact, details and an image to /api/content-requests. See [request rollout](../backend/REQUESTS.md) for its database and private Storage migration.

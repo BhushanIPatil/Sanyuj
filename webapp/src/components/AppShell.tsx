@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Bell,
+  ClipboardPlus,
   ChevronDown,
   FileText,
   HelpCircle,
@@ -19,10 +20,11 @@ import { useUserLocation } from "@/components/UserLocation";
 import { SanyujBrand } from "@/components/SanyujLogo";
 
 export const APP_NAV = [
-  { href: "/app", label: "Home", icon: Home, match: "/app", exact: true },
   { href: "/app/offerly", label: "Offerly", icon: Tag, match: "/app/offerly" },
   { href: "/app/notifications", label: "Notify", icon: Bell, match: "/app/notifications" },
+  { href: "/app", label: "Home", icon: Home, match: "/app", exact: true },
   { href: "/app/services", label: "Services", icon: Wrench, match: "/app/services" },
+  { href: "/app/requests", label: "Submit Request", icon: ClipboardPlus, match: "/app/requests" },
 ] as const;
 
 const TERMS_URL = "/terms";
@@ -165,7 +167,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 lg:h-16 lg:px-6">
           <SanyujBrand href="/app" size={44} priority />
 
-          <nav className="ml-2 hidden items-center gap-0.5 md:flex">
+          <nav className="ml-2 hidden items-center gap-0.5 lg:flex">
             <NavLinks pathname={pathname} variant="top" />
           </nav>
 
@@ -203,7 +205,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               aria-label={menuOpen ? "Close menu" : "Open menu"}
-              className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-line bg-white md:hidden"
+              className="flex h-10 w-10 items-center justify-center rounded-[12px] border border-line bg-white lg:hidden"
               onClick={() => setMenuOpen((v) => !v)}
             >
               {menuOpen ? <X size={18} /> : <Menu size={18} />}
@@ -212,7 +214,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         {menuOpen ? (
-          <nav className="space-y-1 border-t border-line bg-white px-3 py-3 md:hidden">
+          <nav className="space-y-1 border-t border-line bg-white px-3 py-3 lg:hidden">
             <NavLinks
               pathname={pathname}
               variant="menu"
