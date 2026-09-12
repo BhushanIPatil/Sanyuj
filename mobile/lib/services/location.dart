@@ -2,17 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
 
 class LocationFix {
-  LocationFix({
-    required this.address,
-    this.pincode,
-    this.lat,
-    this.lng,
-  });
+  LocationFix({required this.address, this.pincode, this.lat, this.lng});
 
   final String address;
   final String? pincode;
@@ -29,6 +25,7 @@ class LocationService {
   Future<LocationFix?>? _inFlight;
 
   LocationFix? get lastFix => _lastFix;
+  final currentFix = ValueNotifier<LocationFix?>(null);
 
   Future<String?> fetchCurrentAddress() async {
     return (await fetchCurrentLocation())?.address;
@@ -75,13 +72,13 @@ class LocationService {
 
       Position? lastKnown = await Geolocator.getLastKnownPosition();
       Position? pos;
-      if (forceRefresh && lastKnown != null) {
-        pos = lastKnown;
-      } else {
+      {
         try {
           pos = await Geolocator.getCurrentPosition(
             locationSettings: LocationSettings(
-              accuracy: forceRefresh ? LocationAccuracy.low : LocationAccuracy.medium,
+              accuracy: forceRefresh
+                  ? LocationAccuracy.low
+                  : LocationAccuracy.medium,
               timeLimit: Duration(seconds: forceRefresh ? 8 : 12),
             ),
           );
@@ -97,6 +94,7 @@ class LocationService {
       final fix = await _reverseGeocode(pos);
       if (fix != null) {
         _lastFix = fix;
+        currentFix.value = fix;
         _lastFixAt = DateTime.now();
         return fix;
       }

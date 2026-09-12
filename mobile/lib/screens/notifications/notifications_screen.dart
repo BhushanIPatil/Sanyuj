@@ -1,28 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers.dart';
+import '../../services/location.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
-import '../../utils/format.dart';
 import '../../widgets/ad_detail_sheet.dart';
 import '../../widgets/common.dart';
 import '../../widgets/filters.dart';
 import '../../widgets/notice_detail_sheet.dart';
+import '../../widgets/notice_card.dart';
 
 const _sortOptions = [
-  SortOption(value: 'featured', label: 'Featured', icon: Icons.workspace_premium_rounded),
-  SortOption(value: 'newest', label: 'Newest first', short: 'Newest', icon: Icons.fiber_new_rounded),
-  SortOption(value: 'oldest', label: 'Oldest first', short: 'Oldest', icon: Icons.history_rounded),
+  SortOption(
+    value: 'featured',
+    label: 'Featured',
+    icon: Icons.workspace_premium_rounded,
+  ),
+  SortOption(
+    value: 'newest',
+    label: 'Newest first',
+    short: 'Newest',
+    icon: Icons.fiber_new_rounded,
+  ),
+  SortOption(
+    value: 'oldest',
+    label: 'Oldest first',
+    short: 'Oldest',
+    icon: Icons.history_rounded,
+  ),
   SortOption(
     value: 'ending',
     label: 'Ending soonest',
     short: 'Ending soon',
     icon: Icons.hourglass_bottom_rounded,
   ),
-  SortOption(value: 'title', label: 'Title: A to Z', short: 'Title A–Z', icon: Icons.sort_by_alpha_rounded),
+  SortOption(
+    value: 'title',
+    label: 'Title: A to Z',
+    short: 'Title A–Z',
+    icon: Icons.sort_by_alpha_rounded,
+  ),
 ];
 
 const _timingGroup = FilterGroup(
@@ -46,10 +65,12 @@ const _extraGroup = FilterGroup(
 );
 
 class NotificationsScreen extends ConsumerStatefulWidget {
-  const NotificationsScreen({super.key});
+  const NotificationsScreen({super.key, this.services = false});
+  final bool services;
 
   @override
-  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
@@ -61,17 +82,33 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   GeoFilter _appliedGeo = GeoFilter.empty;
   String _sort = 'featured';
   bool _loading = true;
+  int _loadId = 0;
 
   @override
   void initState() {
     super.initState();
+    LocationService.instance.currentFix.addListener(_onLocation);
     _bootstrap();
   }
 
   @override
   void dispose() {
+    LocationService.instance.currentFix.removeListener(_onLocation);
     _query.dispose();
     super.dispose();
+  }
+
+  void _onLocation() {
+    if (!mounted) return;
+    final pin = LocationService.instance.lastFix?.pincode;
+    if (pin == null) return;
+    final geo = GeoFilter(pincode: pin);
+    final followsDefault = _filters.geo == _defaultGeo;
+    setState(() {
+      _defaultGeo = geo;
+      if (followsDefault) _filters = _filters.withGeo(geo);
+    });
+    if (followsDefault && geo != _appliedGeo) _load(geo);
   }
 
   Future<void> _bootstrap() async {
@@ -79,9 +116,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     try {
       List<ContentCategory> cats = [];
       try {
-        cats = await ref.read(repoProvider).fetchContentCategories('notice');
+        cats = await ref
+            .read(repoProvider)
+            .fetchContentCategories(widget.services ? 'service' : 'notice');
       } catch (_) {}
-      const geo = GeoFilter();
+      final geo = GeoFilter(
+        pincode: LocationService.instance.lastFix?.pincode ?? '',
+      );
       if (!mounted) return;
       setState(() {
         _defaultGeo = geo;
@@ -97,41 +138,51 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   Future<void> _load(GeoFilter geo) async {
+    final loadId = ++_loadId;
     setState(() => _loading = true);
     try {
-      final notices = await ref.read(repoProvider).fetchNotices(
+      final notices = await ref
+          .read(repoProvider)
+          .fetchNotices(
+            kind: widget.services ? 'service' : 'notice',
             pincode: geo.pincode.isEmpty ? null : geo.pincode,
             localityId: geo.localityId,
             areaId: geo.areaId.isEmpty ? null : geo.areaId,
           );
-      if (!mounted) return;
+      if (!mounted || loadId != _loadId) return;
       setState(() {
         _notices = notices;
         _appliedGeo = geo;
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || loadId != _loadId) return;
       setState(() => _loading = false);
-      showAppErrorAlert(context, e, actionLabel: 'Retry', onAction: () => _load(geo));
+      showAppErrorAlert(
+        context,
+        e,
+        actionLabel: 'Retry',
+        onAction: () => _load(geo),
+      );
     }
   }
 
   Future<void> _refresh() => _load(_filters.geo);
 
   List<FilterGroup> get _filterGroups => [
-        if (_categories.isNotEmpty)
-          FilterGroup(
-            id: 'category',
-            label: 'Category',
-            searchable: true,
-            options: [
-              for (final c in _categories) FilterOption(value: c.id, label: c.name, icon: c.emoji),
-            ],
-          ),
-        _timingGroup,
-        _extraGroup,
-      ];
+    if (_categories.isNotEmpty)
+      FilterGroup(
+        id: 'category',
+        label: 'Category',
+        searchable: true,
+        options: [
+          for (final c in _categories)
+            FilterOption(value: c.id, label: c.name, icon: c.emoji),
+        ],
+      ),
+    if (!widget.services) _timingGroup,
+    _extraGroup,
+  ];
 
   List<AreaNotice> _results(FilterState state) {
     final needle = _query.text.trim().toLowerCase();
@@ -142,7 +193,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
     bool endsWithin(AreaNotice notice, int days) {
       final end = notice.eventEndsAt;
-      return end != null && end.isAfter(now) && end.difference(now).inDays <= days;
+      return end != null &&
+          end.isAfter(now) &&
+          end.difference(now).inDays <= days;
     }
 
     bool matchesTiming(AreaNotice notice) {
@@ -156,19 +209,30 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             if (notice.eventEndsAt == null) return true;
           case 'new':
             final created = notice.createdAt;
-            if (created != null && now.difference(created).inDays <= 7) return true;
+            if (created != null && now.difference(created).inDays <= 7) {
+              return true;
+            }
         }
       }
       return false;
     }
 
     final matched = _notices.where((notice) {
-      if (categoryIds.isNotEmpty && !categoryIds.contains(notice.category?.id)) return false;
+      if (categoryIds.isNotEmpty &&
+          !categoryIds.contains(notice.category?.id)) {
+        return false;
+      }
       if (timing.isNotEmpty && !matchesTiming(notice)) return false;
-      if (extras.contains('photo') && (notice.imageUrl ?? '').trim().isEmpty) return false;
-      if (extras.contains('details') && (notice.body ?? '').trim().isEmpty) return false;
+      if (extras.contains('photo') && (notice.imageUrl ?? '').trim().isEmpty) {
+        return false;
+      }
+      if (extras.contains('details') && (notice.body ?? '').trim().isEmpty) {
+        return false;
+      }
       if (needle.isEmpty) return true;
-      return '${notice.title} ${notice.body ?? ''} ${notice.category?.name ?? ''}'.toLowerCase().contains(needle);
+      return '${notice.title} ${notice.body ?? ''} ${notice.category?.name ?? ''}'
+          .toLowerCase()
+          .contains(needle);
     }).toList();
 
     switch (_sort) {
@@ -179,7 +243,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       case 'ending':
         matched.sort((a, b) => compareDatesAsc(a.eventEndsAt, b.eventEndsAt));
       case 'title':
-        matched.sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        matched.sort(
+          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        );
       default:
         break; // 'featured' keeps the admin sort_order coming back from the query.
     }
@@ -192,8 +258,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       groups: _filterGroups,
       value: _filters,
       defaultGeo: _defaultGeo,
-      resultNoun: 'updates',
-      previewCount: (state) => state.geo == _appliedGeo ? _results(state).length : null,
+      resultNoun: widget.services ? 'services' : 'updates',
+      previewCount: (state) =>
+          state.geo == _appliedGeo ? _results(state).length : null,
     );
     if (result == null || !mounted) return;
     final geoChanged = result.geo != _appliedGeo;
@@ -202,7 +269,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   Future<void> _openSort() async {
-    final next = await showSortSheet(context, options: _sortOptions, value: _sort);
+    final next = await showSortSheet(
+      context,
+      options: _sortOptions,
+      value: _sort,
+    );
     if (next == null || !mounted) return;
     setState(() => _sort = next);
   }
@@ -241,31 +312,34 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       notice: notice,
       onCta: url.isEmpty
           ? null
-          : () => openCtaUrl(
-                context,
-                url,
-                goTo: (path) => context.go(path),
-              ),
+          : () => openCtaUrl(context, url, goTo: (path) => context.go(path)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final results = _results(_filters);
-    final filtered = _filters.activeCount(_defaultGeo) > 0 || _query.text.trim().isNotEmpty;
+    final filtered =
+        _filters.activeCount(_defaultGeo) > 0 || _query.text.trim().isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         FilterToolbar(
-          title: 'Notify',
-          subtitle: _filters.geo.isEverywhere ? 'across all areas' : 'for ${_filters.geo.label}',
+          title: widget.services ? 'Services' : 'Notify',
+          subtitle: _filters.geo.isEverywhere
+              ? 'across all areas'
+              : 'for ${_filters.geo.label}',
           searchController: _query,
           onSearchChanged: (_) => setState(() {}),
-          searchHint: 'Search events, functions…',
+          searchHint: widget.services
+              ? 'Search services, providers…'
+              : 'Search events, functions…',
           searchResultLabel: () {
             final count = _results(_filters).length;
-            return '$count ${count == 1 ? 'update' : 'updates'}';
+            return widget.services
+                ? '$count ${count == 1 ? 'service' : 'services'}'
+                : '$count ${count == 1 ? 'update' : 'updates'}';
           },
           sortLabel: sortLabelFor(_sortOptions, _sort),
           onOpenSort: _openSort,
@@ -275,12 +349,15 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             state: _filters,
             groups: _filterGroups,
             defaultGeo: _defaultGeo,
-            onToggle: (groupId, value) => setState(() => _filters = _filters.toggle(groupId, value)),
+            onToggle: (groupId, value) =>
+                setState(() => _filters = _filters.toggle(groupId, value)),
             onGeoChange: _setGeo,
           ),
           onClearAll: _clearAll,
           resultCount: results.length,
-          resultNoun: results.length == 1 ? 'update' : 'updates',
+          resultNoun: widget.services
+              ? 'services'
+              : (results.length == 1 ? 'update' : 'updates'),
         ),
         CategoryFilterRow(
           categories: _categories,
@@ -290,7 +367,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         ),
         Expanded(
           child: _loading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.blueDeep))
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppColors.blueDeep),
+                )
               : RefreshIndicator(
                   color: AppColors.blueDeep,
                   onRefresh: _refresh,
@@ -301,17 +380,31 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       if (results.isEmpty) {
                         return EmptyState(
                           icon: Icons.notifications_none_rounded,
-                          title: filtered ? 'No updates match these filters' : 'No updates nearby',
+                          title: widget.services
+                              ? (filtered
+                                    ? 'No services match these filters'
+                                    : 'No services nearby')
+                              : (filtered
+                                    ? 'No updates match these filters'
+                                    : 'No updates nearby'),
                           message: filtered
                               ? 'Try clearing the category or timing filters, or widening the location.'
-                              : 'Events and local updates for your area will show up here.',
-                          padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 8),
+                              : (widget.services
+                                    ? 'Local services for your area will show up here.'
+                                    : 'Events and local updates for your area will show up here.'),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 48,
+                            horizontal: 8,
+                          ),
                           action: filtered
                               ? TextButton(
                                   onPressed: _clearAll,
                                   child: const Text(
                                     'Clear all filters',
-                                    style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.blueDeep),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.blueDeep,
+                                    ),
                                   ),
                                 )
                               : null,
@@ -319,7 +412,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       }
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 14),
-                        child: _NoticeCard(
+                        child: NoticeCard(
                           notice: results[i],
                           onTap: () => _showNotice(results[i]),
                         ),
@@ -329,86 +422,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 ),
         ),
       ],
-    );
-  }
-}
-
-class _NoticeCard extends StatelessWidget {
-  const _NoticeCard({required this.notice, required this.onTap});
-
-  final AreaNotice notice;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final imageUrl = notice.imageUrl?.trim();
-    final when = formatWhenRange(notice.eventStartsAt, notice.eventEndsAt);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.line),
-        boxShadow: AppColors.cardShadow,
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Material(
-        color: Colors.white,
-        child: InkWell(
-          onTap: onTap,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (imageUrl != null && imageUrl.isNotEmpty)
-                ColoredBox(
-                  color: AppColors.surface,
-                  child: AspectRatio(
-                    aspectRatio: adBannerAspectRatio,
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.contain,
-                      width: double.infinity,
-                      alignment: Alignment.center,
-                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                    ),
-                  ),
-                ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (notice.category != null) ...[
-                      CategoryTintChip(category: notice.category!),
-                      const SizedBox(height: 8),
-                    ],
-                    Text(
-                      notice.title,
-                      style: GoogleFonts.nunito(fontSize: 16, fontWeight: FontWeight.w800, height: 1.25),
-                    ),
-                    if ((notice.body ?? '').trim().isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        notice.body!.trim(),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13, height: 1.4, color: AppColors.inkSoft),
-                      ),
-                    ],
-                    if (when.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        when,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.inkFaint),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

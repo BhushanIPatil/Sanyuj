@@ -1,6 +1,6 @@
 /* Sanyuj PWA service worker — cache app shell for offline revisit */
-const CACHE = "sanyuj-shell-v3-offerly-notifications";
-const PRECACHE = ["/", "/app/offerly", "/app/notifications", "/icons/icon-192.png", "/icons/icon-512.png"];
+const CACHE = "sanyuj-shell-v4-home-services";
+const PRECACHE = ["/", "/app", "/app/services", "/app/offerly", "/app/notifications", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -34,7 +34,7 @@ self.addEventListener("fetch", (event) => {
           }
           return res;
         })
-        .catch(() => caches.match(request).then((cached) => cached || caches.match("/app/offerly"))),
+        .catch(() => caches.match(request).then((cached) => cached || caches.match("/app"))),
     );
     return;
   }

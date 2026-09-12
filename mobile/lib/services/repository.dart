@@ -13,6 +13,7 @@ class SanyujRepository {
     String? localityId,
     String? areaId,
     int? limit = 8,
+    bool homeScreenOnly = false,
   }) async {
     final covering = await _db.rpc(
       'ads_covering',
@@ -31,13 +32,14 @@ class SanyujRepository {
         .whereType<String>()
         .toList();
     if (ids.isEmpty) return [];
-    final query = visible(
+    var query = visible(
       _db
           .from('ads')
           .select(
             'id, brand_name, title, body, cta_label, cta_url, image_url, background, offer_starts_at, offer_ends_at, created_at, category:content_categories(id, slug, name, emoji)',
           ),
     ).inFilter('id', ids);
+    if (homeScreenOnly) query = query.eq('is_home_screen', true);
     final ordered = query.order('sort_order');
     final data = await (limit != null ? ordered.limit(limit) : ordered);
     return (data as List)
@@ -46,12 +48,13 @@ class SanyujRepository {
   }
 
   Future<List<AreaNotice>> fetchNotices({
+    String kind = 'notice',
     String? pincode,
     String? localityId,
     String? areaId,
   }) async {
     final covering = await _db.rpc(
-      'notices_covering',
+      kind == 'service' ? 'services_covering' : 'notices_covering',
       params: {
         'p_pincode': pincode,
         'p_locality_id': localityId,
@@ -61,7 +64,9 @@ class SanyujRepository {
     final ids = (covering as List)
         .map((e) {
           if (e is String) return e;
-          if (e is Map) return (e['notice_id'] ?? e['id']) as String?;
+          if (e is Map) {
+            return (e['notice_id'] ?? e['service_id'] ?? e['id']) as String?;
+          }
           return null;
         })
         .whereType<String>()
@@ -69,7 +74,7 @@ class SanyujRepository {
     if (ids.isEmpty) return [];
     final data = await visible(
       _db
-          .from('notices')
+          .from(kind == 'service' ? 'services' : 'notices')
           .select(
             'id, title, body, image_url, cta_label, cta_url, event_starts_at, event_ends_at, created_at, category:content_categories(id, slug, name, emoji)',
           ),

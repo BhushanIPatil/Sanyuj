@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers.dart';
+import '../../services/location.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/format.dart';
@@ -12,16 +13,35 @@ import '../../widgets/common.dart';
 import '../../widgets/filters.dart';
 
 const _sortOptions = [
-  SortOption(value: 'featured', label: 'Featured', icon: Icons.workspace_premium_rounded),
-  SortOption(value: 'newest', label: 'Newest first', short: 'Newest', icon: Icons.fiber_new_rounded),
-  SortOption(value: 'oldest', label: 'Oldest first', short: 'Oldest', icon: Icons.history_rounded),
+  SortOption(
+    value: 'featured',
+    label: 'Featured',
+    icon: Icons.workspace_premium_rounded,
+  ),
+  SortOption(
+    value: 'newest',
+    label: 'Newest first',
+    short: 'Newest',
+    icon: Icons.fiber_new_rounded,
+  ),
+  SortOption(
+    value: 'oldest',
+    label: 'Oldest first',
+    short: 'Oldest',
+    icon: Icons.history_rounded,
+  ),
   SortOption(
     value: 'ending',
     label: 'Ending soonest',
     short: 'Ending soon',
     icon: Icons.hourglass_bottom_rounded,
   ),
-  SortOption(value: 'brand', label: 'Brand: A to Z', short: 'Brand A–Z', icon: Icons.sort_by_alpha_rounded),
+  SortOption(
+    value: 'brand',
+    label: 'Brand: A to Z',
+    short: 'Brand A–Z',
+    icon: Icons.sort_by_alpha_rounded,
+  ),
 ];
 
 const _statusGroup = FilterGroup(
@@ -61,17 +81,33 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
   GeoFilter _appliedGeo = GeoFilter.empty;
   String _sort = 'featured';
   bool _loading = true;
+  int _loadId = 0;
 
   @override
   void initState() {
     super.initState();
+    LocationService.instance.currentFix.addListener(_onLocation);
     _bootstrap();
   }
 
   @override
   void dispose() {
+    LocationService.instance.currentFix.removeListener(_onLocation);
     _query.dispose();
     super.dispose();
+  }
+
+  void _onLocation() {
+    if (!mounted) return;
+    final pin = LocationService.instance.lastFix?.pincode;
+    if (pin == null) return;
+    final geo = GeoFilter(pincode: pin);
+    final followsDefault = _filters.geo == _defaultGeo;
+    setState(() {
+      _defaultGeo = geo;
+      if (followsDefault) _filters = _filters.withGeo(geo);
+    });
+    if (followsDefault && geo != _appliedGeo) _load(geo);
   }
 
   Future<void> _bootstrap() async {
@@ -81,7 +117,9 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
       try {
         cats = await ref.read(repoProvider).fetchContentCategories('offer');
       } catch (_) {}
-      const geo = GeoFilter();
+      final geo = GeoFilter(
+        pincode: LocationService.instance.lastFix?.pincode ?? '',
+      );
       if (!mounted) return;
       setState(() {
         _defaultGeo = geo;
@@ -97,24 +135,32 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
   }
 
   Future<void> _load(GeoFilter geo) async {
+    final loadId = ++_loadId;
     setState(() => _loading = true);
     try {
-      final ads = await ref.read(repoProvider).fetchAds(
+      final ads = await ref
+          .read(repoProvider)
+          .fetchAds(
             pincode: geo.pincode.isEmpty ? null : geo.pincode,
             localityId: geo.localityId,
             areaId: geo.areaId.isEmpty ? null : geo.areaId,
             limit: null,
           );
-      if (!mounted) return;
+      if (!mounted || loadId != _loadId) return;
       setState(() {
         _ads = ads;
         _appliedGeo = geo;
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || loadId != _loadId) return;
       setState(() => _loading = false);
-      showAppErrorAlert(context, e, actionLabel: 'Retry', onAction: () => _load(geo));
+      showAppErrorAlert(
+        context,
+        e,
+        actionLabel: 'Retry',
+        onAction: () => _load(geo),
+      );
     }
   }
 
@@ -135,25 +181,27 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
       label: 'Brand',
       searchable: brands.length > 8,
       options: [
-        for (final brand in brands) FilterOption(value: brand, label: brand, count: counts[brand]),
+        for (final brand in brands)
+          FilterOption(value: brand, label: brand, count: counts[brand]),
       ],
     );
   }
 
   List<FilterGroup> get _filterGroups => [
-        if (_categories.isNotEmpty)
-          FilterGroup(
-            id: 'category',
-            label: 'Category',
-            searchable: true,
-            options: [
-              for (final c in _categories) FilterOption(value: c.id, label: c.name, icon: c.emoji),
-            ],
-          ),
-        _brandGroup,
-        _statusGroup,
-        _extraGroup,
-      ];
+    if (_categories.isNotEmpty)
+      FilterGroup(
+        id: 'category',
+        label: 'Category',
+        searchable: true,
+        options: [
+          for (final c in _categories)
+            FilterOption(value: c.id, label: c.name, icon: c.emoji),
+        ],
+      ),
+    _brandGroup,
+    _statusGroup,
+    _extraGroup,
+  ];
 
   List<AdBanner> _results(FilterState state) {
     final needle = _query.text.trim().toLowerCase();
@@ -167,14 +215,21 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
       for (final status in statuses) {
         switch (status) {
           case 'live':
-            final started = ad.offerStartsAt == null || !ad.offerStartsAt!.isAfter(now);
+            final started =
+                ad.offerStartsAt == null || !ad.offerStartsAt!.isAfter(now);
             final open = ad.offerEndsAt == null || ad.offerEndsAt!.isAfter(now);
             if (started && open) return true;
           case 'upcoming':
-            if (ad.offerStartsAt != null && ad.offerStartsAt!.isAfter(now)) return true;
+            if (ad.offerStartsAt != null && ad.offerStartsAt!.isAfter(now)) {
+              return true;
+            }
           case 'ending':
             final end = ad.offerEndsAt;
-            if (end != null && end.isAfter(now) && end.difference(now).inDays <= 7) return true;
+            if (end != null &&
+                end.isAfter(now) &&
+                end.difference(now).inDays <= 7) {
+              return true;
+            }
           case 'open':
             if (ad.offerEndsAt == null) return true;
         }
@@ -183,17 +238,27 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
     }
 
     final matched = _ads.where((ad) {
-      if (categoryIds.isNotEmpty && !categoryIds.contains(ad.category?.id)) return false;
-      if (brands.isNotEmpty && !brands.contains(ad.brandName.trim())) return false;
+      if (categoryIds.isNotEmpty && !categoryIds.contains(ad.category?.id)) {
+        return false;
+      }
+      if (brands.isNotEmpty && !brands.contains(ad.brandName.trim())) {
+        return false;
+      }
       if (statuses.isNotEmpty && !matchesStatus(ad)) return false;
       if (extras.contains('new')) {
         final created = ad.createdAt;
         if (created == null || now.difference(created).inDays > 7) return false;
       }
-      if (extras.contains('cta') && (ad.ctaUrl ?? '').trim().isEmpty) return false;
-      if (extras.contains('photo') && (ad.imageUrl ?? '').trim().isEmpty) return false;
+      if (extras.contains('cta') && (ad.ctaUrl ?? '').trim().isEmpty) {
+        return false;
+      }
+      if (extras.contains('photo') && (ad.imageUrl ?? '').trim().isEmpty) {
+        return false;
+      }
       if (needle.isEmpty) return true;
-      return '${ad.brandName} ${ad.title} ${ad.body ?? ''} ${ad.category?.name ?? ''}'.toLowerCase().contains(needle);
+      return '${ad.brandName} ${ad.title} ${ad.body ?? ''} ${ad.category?.name ?? ''}'
+          .toLowerCase()
+          .contains(needle);
     }).toList();
 
     switch (_sort) {
@@ -204,7 +269,10 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
       case 'ending':
         matched.sort((a, b) => compareDatesAsc(a.offerEndsAt, b.offerEndsAt));
       case 'brand':
-        matched.sort((a, b) => a.brandName.toLowerCase().compareTo(b.brandName.toLowerCase()));
+        matched.sort(
+          (a, b) =>
+              a.brandName.toLowerCase().compareTo(b.brandName.toLowerCase()),
+        );
       default:
         break; // 'featured' keeps the admin sort_order coming back from the query.
     }
@@ -218,7 +286,8 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
       value: _filters,
       defaultGeo: _defaultGeo,
       resultNoun: 'offers',
-      previewCount: (state) => state.geo == _appliedGeo ? _results(state).length : null,
+      previewCount: (state) =>
+          state.geo == _appliedGeo ? _results(state).length : null,
     );
     if (result == null || !mounted) return;
     final geoChanged = result.geo != _appliedGeo;
@@ -227,7 +296,11 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
   }
 
   Future<void> _openSort() async {
-    final next = await showSortSheet(context, options: _sortOptions, value: _sort);
+    final next = await showSortSheet(
+      context,
+      options: _sortOptions,
+      value: _sort,
+    );
     if (next == null || !mounted) return;
     setState(() => _sort = next);
   }
@@ -266,11 +339,7 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
       ad: ad,
       onCta: (ad.ctaUrl ?? '').trim().isEmpty
           ? null
-          : () => openAdCta(
-                context,
-                ad,
-                goTo: (path) => context.go(path),
-              ),
+          : () => openAdCta(context, ad, goTo: (path) => context.go(path)),
     );
   }
 
@@ -278,14 +347,17 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
   Widget build(BuildContext context) {
     final groups = _filterGroups;
     final results = _results(_filters);
-    final filtered = _filters.activeCount(_defaultGeo) > 0 || _query.text.trim().isNotEmpty;
+    final filtered =
+        _filters.activeCount(_defaultGeo) > 0 || _query.text.trim().isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         FilterToolbar(
           title: 'Offerly',
-          subtitle: _filters.geo.isEverywhere ? 'across all areas' : 'in ${_filters.geo.label}',
+          subtitle: _filters.geo.isEverywhere
+              ? 'across all areas'
+              : 'in ${_filters.geo.label}',
           searchController: _query,
           onSearchChanged: (_) => setState(() {}),
           searchHint: 'Search offers, brands…',
@@ -301,7 +373,8 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
             state: _filters,
             groups: groups,
             defaultGeo: _defaultGeo,
-            onToggle: (groupId, value) => setState(() => _filters = _filters.toggle(groupId, value)),
+            onToggle: (groupId, value) =>
+                setState(() => _filters = _filters.toggle(groupId, value)),
             onGeoChange: _setGeo,
           ),
           onClearAll: _clearAll,
@@ -316,7 +389,9 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
         ),
         Expanded(
           child: _loading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.blueDeep))
+              ? const Center(
+                  child: CircularProgressIndicator(color: AppColors.blueDeep),
+                )
               : RefreshIndicator(
                   color: AppColors.blueDeep,
                   onRefresh: _refresh,
@@ -327,17 +402,25 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
                       if (results.isEmpty) {
                         return EmptyState(
                           icon: Icons.local_offer_outlined,
-                          title: filtered ? 'No offers match these filters' : 'No offers nearby',
+                          title: filtered
+                              ? 'No offers match these filters'
+                              : 'No offers nearby',
                           message: filtered
                               ? 'Try clearing the offer status, category, or brand filters, or widening the location.'
                               : 'Featured offers for your area will show up here. Check back soon.',
-                          padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 8),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 48,
+                            horizontal: 8,
+                          ),
                           action: filtered
                               ? TextButton(
                                   onPressed: _clearAll,
                                   child: const Text(
                                     'Clear all filters',
-                                    style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.blueDeep),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.blueDeep,
+                                    ),
                                   ),
                                 )
                               : null,
@@ -345,7 +428,10 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
                       }
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 14),
-                        child: _OfferlyCard(ad: results[i], onTap: () => _showAd(results[i])),
+                        child: _OfferlyCard(
+                          ad: results[i],
+                          onTap: () => _showAd(results[i]),
+                        ),
                       );
                     },
                   ),
@@ -407,7 +493,10 @@ class _OfferlyCard extends StatelessWidget {
                       runSpacing: 6,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.blueSoft,
                             borderRadius: BorderRadius.circular(100),
@@ -421,19 +510,28 @@ class _OfferlyCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (ad.category != null) CategoryTintChip(category: ad.category!),
+                        if (ad.category != null)
+                          CategoryTintChip(category: ad.category!),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Text(
                       ad.title,
-                      style: GoogleFonts.nunito(fontSize: 16, fontWeight: FontWeight.w800, height: 1.25),
+                      style: GoogleFonts.nunito(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        height: 1.25,
+                      ),
                     ),
                     if (when.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(
                         when,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.inkFaint),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.inkFaint,
+                        ),
                       ),
                     ],
                   ],
@@ -464,14 +562,23 @@ class _OfferlyFallback extends StatelessWidget {
         children: [
           Text(
             ad.brandName.isEmpty ? 'Sponsored' : ad.brandName,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 11, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.85),
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const Spacer(),
           Text(
             ad.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.nunito(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16, height: 1.3),
+            style: GoogleFonts.nunito(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+              height: 1.3,
+            ),
           ),
         ],
       ),

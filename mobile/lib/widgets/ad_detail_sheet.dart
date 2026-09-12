@@ -51,7 +51,11 @@ class _AdDetailSheet extends StatelessWidget {
         color: AppColors.bgApp,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: [
-          BoxShadow(color: Color(0x26000000), blurRadius: 24, offset: Offset(0, -4)),
+          BoxShadow(
+            color: Color(0x26000000),
+            blurRadius: 24,
+            offset: Offset(0, -4),
+          ),
         ],
       ),
       child: Column(
@@ -91,7 +95,10 @@ class _AdDetailSheet extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.blueSoft,
                         borderRadius: BorderRadius.circular(100),
@@ -105,7 +112,8 @@ class _AdDetailSheet extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (ad.category != null) CategoryTintChip(category: ad.category!),
+                    if (ad.category != null)
+                      CategoryTintChip(category: ad.category!),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -142,11 +150,18 @@ class _AdDetailSheet extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('When', style: eyebrowStyle(color: AppColors.inkSoft)),
+                        Text(
+                          'When',
+                          style: eyebrowStyle(color: AppColors.inkSoft),
+                        ),
                         const SizedBox(height: 10),
                         Text(
                           when,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.ink),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.ink,
+                          ),
                         ),
                       ],
                     ),
@@ -165,12 +180,17 @@ class _AdDetailSheet extends StatelessWidget {
                         backgroundColor: AppColors.blueDeep,
                         minimumSize: const Size.fromHeight(50),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppColors.radiusMd),
+                          borderRadius: BorderRadius.circular(
+                            AppColors.radiusMd,
+                          ),
                         ),
                       ),
                       child: Text(
                         ad.ctaLabel!.trim(),
-                        style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 15),
+                        style: GoogleFonts.nunito(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
                       ),
                     ),
                   ),
@@ -209,13 +229,23 @@ class _BannerFallback extends StatelessWidget {
   }
 }
 
-Future<void> openCtaUrl(BuildContext context, String? rawUrl, {required void Function(String) goTo}) async {
+Future<void> openCtaUrl(
+  BuildContext context,
+  String? rawUrl, {
+  required void Function(String) goTo,
+}) async {
   final url = rawUrl?.trim();
   if (url == null || url.isEmpty) return;
   try {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      if (!ok && context.mounted) showAppErrorSnack(context, 'Could not open link');
+    final scheme = Uri.parse(url).scheme.toLowerCase();
+    if (['http', 'https', 'tel', 'mailto'].contains(scheme)) {
+      final ok = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!ok && context.mounted) {
+        showAppErrorSnack(context, 'Could not open link');
+      }
       return;
     }
     final path = Uri.parse(url).path.replaceFirst(RegExp(r'^/app'), '');
@@ -225,13 +255,27 @@ Future<void> openCtaUrl(BuildContext context, String? rawUrl, {required void Fun
     }
     if (path == '/notifications') {
       goTo('/notifications');
+      return;
     }
+    if (path == '/services') {
+      goTo('/services');
+      return;
+    }
+    if (path == '' || path == '/home') {
+      goTo('/home');
+      return;
+    }
+    if (context.mounted) showAppErrorSnack(context, 'Could not open link');
   } catch (e) {
     if (!context.mounted) return;
     showAppErrorSnack(context, e);
   }
 }
 
-Future<void> openAdCta(BuildContext context, AdBanner ad, {required void Function(String) goTo}) {
+Future<void> openAdCta(
+  BuildContext context,
+  AdBanner ad, {
+  required void Function(String) goTo,
+}) {
   return openCtaUrl(context, ad.ctaUrl, goTo: goTo);
 }

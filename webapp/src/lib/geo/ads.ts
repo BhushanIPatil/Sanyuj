@@ -41,6 +41,7 @@ export async function fetchVisibleAds(
     localityId?: string | null;
     areaId?: string | null;
     limit?: number;
+    homeScreenOnly?: boolean;
   },
 ): Promise<AdDetail[]> {
   const covering = await fetchCoveringAdIds(supabase, opts);
@@ -51,6 +52,7 @@ export async function fetchVisibleAds(
     .eq("is_active", true)
     .eq("is_deleted", false)
     .in("id", covering);
+  if (opts.homeScreenOnly) query.eq("is_home_screen", true);
   const ordered = query.order("sort_order", { ascending: true });
   const { data } = await (opts.limit != null ? ordered.limit(opts.limit) : ordered);
   return ((data as Array<Omit<AdDetail, "category"> & { category?: unknown }> | null) ?? []).map((row) => ({

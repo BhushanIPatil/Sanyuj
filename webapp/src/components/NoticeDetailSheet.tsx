@@ -32,7 +32,8 @@ export function NoticeDetailSheet({
   if (!open || !notice) return null;
 
   const when = formatWhenRange(notice.event_starts_at, notice.event_ends_at);
-  const ctaUrl = notice.cta_url?.trim() ?? "";
+  const rawUrl = notice.cta_url?.trim() ?? "";
+  const ctaUrl = /^(https?:\/\/|tel:|mailto:|\/(?!\/))/i.test(rawUrl) ? rawUrl : "";
   const cta = notice.cta_label?.trim() || (ctaUrl ? "Open link" : "");
 
   return (
@@ -89,7 +90,7 @@ export function NoticeDetailSheet({
 
           {cta && ctaUrl ? (
             <div className="mt-6">
-              {isExternalUrl(ctaUrl) ? (
+              {isExternalUrl(ctaUrl) || /^(tel:|mailto:)/i.test(ctaUrl) ? (
                 <a
                   href={ctaUrl}
                   target="_blank"

@@ -2,11 +2,11 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Sanyuj - Offers and notifications",
+    name: "Sanyuj - Offers, notifications and services",
     short_name: "Sanyuj",
     description:
-      "Discover offers and local announcements without an account.",
-    start_url: "/app/offerly",
+      "Discover offers, local announcements and services without an account.",
+    start_url: "/app",
     scope: "/",
     display: "standalone",
     orientation: "portrait-primary",

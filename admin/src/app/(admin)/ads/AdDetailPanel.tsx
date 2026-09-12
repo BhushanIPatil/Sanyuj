@@ -23,6 +23,7 @@ export type AdRow = {
   background: string;
   sort_order: number;
   is_active: boolean;
+  is_home_screen: boolean;
   is_deleted: boolean;
   starts_at: string | null;
   ends_at: string | null;

@@ -1,5 +1,7 @@
 # Offerly and notifications retirement rollout
 
+This documents the earlier account-retirement migration. The current release restores Home and adds admin-published Services; follow [SERVICES.md](SERVICES.md) after the retirement migration.
+
 This release replaces the directory and request workflow. Public web/mobile apps have only Offerly and Notifications. Admin email/password login remains; public signup, profile forms, business requests, providers, live availability, and account-based click tracking are retired.
 
 ## Database

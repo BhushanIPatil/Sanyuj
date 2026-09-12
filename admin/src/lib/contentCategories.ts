@@ -1,4 +1,4 @@
-export type ContentCategoryKind = "offer" | "notice";
+export type ContentCategoryKind = "offer" | "notice" | "service";
 
 export type ContentCategory = {
   id: string;
@@ -41,5 +41,5 @@ export function nestedContentCategory(raw: unknown): ContentCategoryRef | null {
 }
 
 export function contentCategoryKindLabel(kind: ContentCategoryKind) {
-  return kind === "offer" ? "Offer" : "Notify";
+  return kind === "offer" ? "Offer" : kind === "service" ? "Services" : "Notify";
 }

@@ -50,6 +50,7 @@ type AdForm = {
   background: string;
   sort_order: number;
   is_active: boolean;
+  is_home_screen: boolean;
   is_deleted: boolean;
   starts_at: string | null;
   ends_at: string | null;
@@ -78,6 +79,7 @@ const EMPTY_AD: AdForm = {
   background: "linear-gradient(135deg,#2E86D6,#3B5BDB)",
   sort_order: 0,
   is_active: true,
+  is_home_screen: true,
   is_deleted: false,
   starts_at: null,
   ends_at: null,
@@ -106,6 +108,7 @@ function formFromAd(ad: AdRow): AdForm {
     background: ad.background,
     sort_order: ad.sort_order,
     is_active: ad.is_active,
+    is_home_screen: ad.is_home_screen,
     is_deleted: ad.is_deleted,
     starts_at: ad.starts_at,
     ends_at: ad.ends_at,
@@ -343,6 +346,7 @@ export default function AdsPage() {
       background: form.background.trim() || EMPTY_AD.background,
       sort_order: form.sort_order,
       is_active: form.is_active,
+      is_home_screen: form.is_home_screen,
       is_deleted: form.is_deleted,
       starts_at: form.starts_at || null,
       ends_at: form.ends_at || null,
@@ -818,6 +822,10 @@ export default function AdsPage() {
                       onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))}
                     />
                     Active
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
+                    <input type="checkbox" checked={form.is_home_screen} onChange={(e) => setForm(f => ({ ...f, is_home_screen: e.target.checked }))} />
+                    Show in home carousel
                   </label>
 
                 </div>

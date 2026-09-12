@@ -5,11 +5,11 @@ export default function LandingPage() {
     <div className="mx-auto max-w-5xl">
       <SanyujBrand href="/" size={48} priority />
       <section className="py-20">
-        <p className="font-bold text-blue-deep">OFFERLY & NOTIFICATIONS</p>
+        <p className="font-bold text-blue-deep">OFFERS, NOTIFICATIONS & SERVICES</p>
         <h1 className="mt-4 max-w-3xl text-4xl font-extrabold sm:text-6xl">Offers to discover. Updates to keep you informed.</h1>
-        <p className="mt-6 max-w-2xl text-lg text-ink-soft">Explore offers and local announcements in one place. Choose an area to see what is relevant to you. No account needed.</p>
+        <p className="mt-6 max-w-2xl text-lg text-ink-soft">Explore offers, local services and announcements in one place. Choose an area to see what is relevant to you. No account needed.</p>
         <div className="mt-8 flex flex-wrap gap-4">
-          <Link href="/app/offerly" className="rounded-xl bg-blue-deep px-6 py-3 font-bold text-white">Explore Offerly</Link>
+          <Link href="/app" className="rounded-xl bg-blue-deep px-6 py-3 font-bold text-white">Explore Sanyuj</Link>
           <Link href="/app/notifications" className="rounded-xl border border-line bg-white px-6 py-3 font-bold">View notifications</Link>
         </div>
       </section>
