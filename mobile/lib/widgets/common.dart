@@ -126,7 +126,7 @@ class ScreenTopBar extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );
@@ -170,7 +170,7 @@ class SectionHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );
@@ -1016,4 +1016,3 @@ Future<bool?> showActionConfirmDialog(
     ),
   );
 }
-

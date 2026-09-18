@@ -25,7 +25,6 @@ import { useToast } from "@/components/Toast";
 export const ADMIN_NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, match: "/dashboard", exact: true },
   { href: "/ads", label: "Offerly", icon: Megaphone, match: "/ads" },
-  { href: "/services", label: "Services", icon: Newspaper, match: "/services" },
   { href: "/notices", label: "Notify", icon: Newspaper, match: "/notices", exact: true },
   { href: "/notifications", label: "Push", icon: Bell, match: "/notifications" },
   { href: "/requests", label: "Requests", icon: ClipboardList, match: "/requests" },

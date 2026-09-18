@@ -1,6 +1,6 @@
 /* Sanyuj PWA service worker — cache app shell for offline revisit */
-const CACHE = "sanyuj-shell-v5-requests";
-const PRECACHE = ["/", "/app", "/app/services", "/app/offerly", "/app/notifications", "/icons/icon-192.png", "/icons/icon-512.png"];
+const CACHE = "sanyuj-shell-v6";
+const PRECACHE = ["/", "/app", "/app/offerly", "/app/notifications", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

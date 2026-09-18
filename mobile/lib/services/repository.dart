@@ -48,13 +48,12 @@ class SanyujRepository {
   }
 
   Future<List<AreaNotice>> fetchNotices({
-    String kind = 'notice',
     String? pincode,
     String? localityId,
     String? areaId,
   }) async {
     final covering = await _db.rpc(
-      kind == 'service' ? 'services_covering' : 'notices_covering',
+      'notices_covering',
       params: {
         'p_pincode': pincode,
         'p_locality_id': localityId,
@@ -65,7 +64,7 @@ class SanyujRepository {
         .map((e) {
           if (e is String) return e;
           if (e is Map) {
-            return (e['notice_id'] ?? e['service_id'] ?? e['id']) as String?;
+            return (e['notice_id'] ?? e['id']) as String?;
           }
           return null;
         })
@@ -74,7 +73,7 @@ class SanyujRepository {
     if (ids.isEmpty) return [];
     final data = await visible(
       _db
-          .from(kind == 'service' ? 'services' : 'notices')
+          .from('notices')
           .select(
             'id, title, body, image_url, cta_label, cta_url, event_starts_at, event_ends_at, created_at, category:content_categories(id, slug, name, emoji)',
           ),

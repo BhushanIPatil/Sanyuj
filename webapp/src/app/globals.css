@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --bg-page: #ecf3f1;
-  --bg-app: #ffffff;
+  --bg-page: #ffffff;
+  --bg-app: var(--bg-page);
   --surface: #f5faf9;
   --ink: #152033;
   --ink-soft: #66727f;
@@ -75,8 +75,6 @@ body {
   margin: 0;
   color: var(--ink);
   background: var(--bg-page);
-  background-image: radial-gradient(circle, #dce7e3 1px, transparent 1px);
-  background-size: 18px 18px;
   font-family: var(--font-nunito), system-ui, sans-serif;
 }
 
@@ -356,4 +354,3 @@ h3,
     padding: 2rem 2rem 2.5rem;
   }
 }
-

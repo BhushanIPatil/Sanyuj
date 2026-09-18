@@ -29,6 +29,7 @@ import {
   useFilters,
   withinNextDays,
   withinPastDays,
+  overlapsDateRange,
   type FilterGroup,
   type SortOption,
 } from "@/components/filters";
@@ -77,8 +78,7 @@ function NoticeSkeletonGrid() {
   );
 }
 
-export function LocalContentPage({ kind = "notice" }: { kind?: "notice" | "service" }) {
-  const service = kind === "service";
+export function LocalContentPage() {
   const filters = useFilters("featured");
   const { state, defaultGeo, sort, query, geoKey } = filters;
 
@@ -93,12 +93,12 @@ export function LocalContentPage({ kind = "notice" }: { kind?: "notice" | "servi
   useEffect(() => {
     const load = async () => {
       const supabase = createClient();
-      const cats = await fetchContentCategories(supabase, kind).catch(() => [] as ContentCategory[]);
+      const cats = await fetchContentCategories(supabase, "notice").catch(() => [] as ContentCategory[]);
       setCategories(cats);
       setReady(true);
     };
     void load().catch(() => setReady(true));
-  }, [kind]);
+  }, []);
 
   useEffect(() => {
     if (!ready) return;
@@ -111,7 +111,6 @@ export function LocalContentPage({ kind = "notice" }: { kind?: "notice" | "servi
           pincode: state.geo.pincode || null,
           localityId: state.geo.localityId,
           areaId: state.geo.areaId || null,
-          kind,
         });
         if (!cancelled) setNotices(data);
       } catch {
@@ -124,7 +123,7 @@ export function LocalContentPage({ kind = "notice" }: { kind?: "notice" | "servi
     return () => {
       cancelled = true;
     };
-  }, [ready, geoKey, kind, retry]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, geoKey, retry]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const categoryGroup: FilterGroup | null = useMemo(
     () =>
@@ -141,8 +140,8 @@ export function LocalContentPage({ kind = "notice" }: { kind?: "notice" | "servi
   );
 
   const groups = useMemo(
-    () => [categoryGroup, ...(service ? [] : [TIMING_GROUP]), EXTRA_GROUP].filter((g): g is FilterGroup => g != null),
-    [categoryGroup, service],
+    () => [categoryGroup, TIMING_GROUP, EXTRA_GROUP, { id: "dateRange", label: "Date range", options: [] }].filter((g): g is FilterGroup => g != null),
+    [categoryGroup],
   );
 
   const results = useMemo(() => {
@@ -161,6 +160,7 @@ export function LocalContentPage({ kind = "notice" }: { kind?: "notice" | "servi
       });
 
     const matched = notices.filter((notice) => {
+      if (!overlapsDateRange(notice.event_starts_at ?? notice.created_at, notice.event_ends_at, selectedValues(state, "dateRange")[0])) return false;
       if (categorySlugs.length && !categorySlugs.includes(notice.category?.slug ?? "")) return false;
       if (timing.length && !matchesTiming(notice)) return false;
       if (extras.includes("photo") && !notice.image_url?.trim()) return false;
@@ -193,7 +193,7 @@ export function LocalContentPage({ kind = "notice" }: { kind?: "notice" | "servi
     />
   );
 
-  const noun = service ? (results.length === 1 ? "service" : "services") : (results.length === 1 ? "update" : "updates");
+  const noun = (results.length === 1 ? "update" : "updates");
   const selectedCategories = selectedValues(state, "category");
   const pickListingCategory = (slug: string) => {
     if (selectedCategories.length === 1 && selectedCategories[0] === slug) {
@@ -206,15 +206,15 @@ export function LocalContentPage({ kind = "notice" }: { kind?: "notice" | "servi
   return (
     <div className="page-pad">
       <header className="mb-4">
-        <h1 className="font-display text-[19px] font-bold">{service ? "Services" : "Notify"}</h1>
-        <p className="mt-1 text-sm text-ink-soft">{service ? "Find plumbers, electricians and other services in your area." : "Events and updates for your area."}</p>
+        <h1 className="font-display text-[19px] font-bold">{"Notify"}</h1>
+        <p className="mt-1 text-sm text-ink-soft">{"Events and updates for your area."}</p>
       </header>
 
       <div className="mb-4 space-y-3">
         <FilterToolbar
           query={query}
           onQueryChange={filters.setQuery}
-          searchPlaceholder={service ? "Search services, providers…" : "Search events, functions…"}
+          searchPlaceholder={"Search events, functions…"}
           sortOptions={SORTS}
           sort={sort}
           onSortChange={filters.setSort}
@@ -259,7 +259,7 @@ export function LocalContentPage({ kind = "notice" }: { kind?: "notice" | "servi
         ) : filters.filterCount || query.trim() ? (
           <EmptyState
             icon={Bell}
-            title={service ? "No services match these filters" : "No updates match these filters"}
+            title={"No updates match these filters"}
             message="Try clearing the category or timing filters, or widening the location."
             actionLabel="Clear all filters"
             onAction={filters.clear}
@@ -267,8 +267,8 @@ export function LocalContentPage({ kind = "notice" }: { kind?: "notice" | "servi
         ) : (
           <EmptyState
             icon={Bell}
-            title={service ? "No services nearby" : "No updates nearby"}
-            message={service ? "Local services for your area will show up here." : "Events and local updates for your area will show up here."}
+            title={"No updates nearby"}
+            message={"Events and local updates for your area will show up here."}
           />
         )}
       </FilterLayout>

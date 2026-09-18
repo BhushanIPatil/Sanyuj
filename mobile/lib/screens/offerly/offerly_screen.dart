@@ -201,6 +201,7 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
     _brandGroup,
     _statusGroup,
     _extraGroup,
+    const FilterGroup(id: 'dateRange', label: 'Date range', options: []),
   ];
 
   List<AdBanner> _results(FilterState state) {
@@ -238,6 +239,13 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
     }
 
     final matched = _ads.where((ad) {
+      if (!overlapsDateRange(
+        ad.offerStartsAt ?? ad.createdAt,
+        ad.offerEndsAt,
+        state,
+      )) {
+        return false;
+      }
       if (categoryIds.isNotEmpty && !categoryIds.contains(ad.category?.id)) {
         return false;
       }
@@ -365,6 +373,7 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
           onCreateRequest: () => context.go('/requests?kind=offer'),
           requestLabel: 'Request an offer',
           chips: buildActiveFilters(
+            context: context,
             state: _filters,
             groups: groups,
             defaultGeo: _defaultGeo,

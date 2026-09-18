@@ -32,6 +32,7 @@ import {
   useFilters,
   withinNextDays,
   withinPastDays,
+  overlapsDateRange,
   type FilterGroup,
   type SortOption,
 } from "@/components/filters";
@@ -198,7 +199,7 @@ export default function OfferlyPage() {
   }, [ads]);
 
   const groups = useMemo(
-    () => [categoryGroup, brandGroup, STATUS_GROUP, EXTRA_GROUP].filter((g): g is FilterGroup => g != null),
+    () => [categoryGroup, brandGroup, STATUS_GROUP, EXTRA_GROUP, { id: "dateRange", label: "Date range", options: [] }].filter((g): g is FilterGroup => g != null),
     [categoryGroup, brandGroup],
   );
 
@@ -219,6 +220,7 @@ export default function OfferlyPage() {
       });
 
     const matched = ads.filter((ad) => {
+      if (!overlapsDateRange(ad.offer_starts_at ?? ad.created_at, ad.offer_ends_at, selectedValues(state, "dateRange")[0])) return false;
       if (categorySlugs.length && !categorySlugs.includes(ad.category?.slug ?? "")) return false;
       if (brands.length && !brands.includes(ad.brand_name?.trim() ?? "")) return false;
       if (statuses.length && !matchesStatus(ad)) return false;

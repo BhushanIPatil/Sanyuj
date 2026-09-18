@@ -257,10 +257,6 @@ Future<void> openCtaUrl(
       goTo('/notifications');
       return;
     }
-    if (path == '/services') {
-      goTo('/services');
-      return;
-    }
     if (path == '' || path == '/home') {
       goTo('/home');
       return;

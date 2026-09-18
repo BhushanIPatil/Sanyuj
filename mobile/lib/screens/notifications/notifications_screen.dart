@@ -65,8 +65,7 @@ const _extraGroup = FilterGroup(
 );
 
 class NotificationsScreen extends ConsumerStatefulWidget {
-  const NotificationsScreen({super.key, this.services = false});
-  final bool services;
+  const NotificationsScreen({super.key});
 
   @override
   ConsumerState<NotificationsScreen> createState() =>
@@ -116,9 +115,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     try {
       List<ContentCategory> cats = [];
       try {
-        cats = await ref
-            .read(repoProvider)
-            .fetchContentCategories(widget.services ? 'service' : 'notice');
+        cats = await ref.read(repoProvider).fetchContentCategories('notice');
       } catch (_) {}
       final geo = GeoFilter(
         pincode: LocationService.instance.lastFix?.pincode ?? '',
@@ -144,7 +141,6 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       final notices = await ref
           .read(repoProvider)
           .fetchNotices(
-            kind: widget.services ? 'service' : 'notice',
             pincode: geo.pincode.isEmpty ? null : geo.pincode,
             localityId: geo.localityId,
             areaId: geo.areaId.isEmpty ? null : geo.areaId,
@@ -180,8 +176,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             FilterOption(value: c.id, label: c.name, icon: c.emoji),
         ],
       ),
-    if (!widget.services) _timingGroup,
+    _timingGroup,
     _extraGroup,
+    const FilterGroup(id: 'dateRange', label: 'Date range', options: []),
   ];
 
   List<AreaNotice> _results(FilterState state) {
@@ -218,6 +215,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
 
     final matched = _notices.where((notice) {
+      if (!overlapsDateRange(
+        notice.eventStartsAt ?? notice.createdAt,
+        notice.eventEndsAt,
+        state,
+      )) {
+        return false;
+      }
       if (categoryIds.isNotEmpty &&
           !categoryIds.contains(notice.category?.id)) {
         return false;
@@ -258,7 +262,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       groups: _filterGroups,
       value: _filters,
       defaultGeo: _defaultGeo,
-      resultNoun: widget.services ? 'services' : 'updates',
+      resultNoun: 'updates',
       previewCount: (state) =>
           state.geo == _appliedGeo ? _results(state).length : null,
     );
@@ -319,34 +323,25 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         FilterToolbar(
-          title: widget.services ? 'Services' : 'Notify',
+          title: 'Notify',
           subtitle: _filters.geo.isEverywhere
               ? 'across all areas'
               : 'for ${_filters.geo.label}',
           searchController: _query,
           onSearchChanged: (_) => setState(() {}),
-          searchHint: widget.services
-              ? 'Search services, providers…'
-              : 'Search events, functions…',
+          searchHint: 'Search events, functions…',
           searchResultLabel: () {
             final count = _results(_filters).length;
-            return widget.services
-                ? '$count ${count == 1 ? 'service' : 'services'}'
-                : '$count ${count == 1 ? 'update' : 'updates'}';
+            return '$count ${count == 1 ? 'update' : 'updates'}';
           },
           sortLabel: sortLabelFor(_sortOptions, _sort),
           onOpenSort: _openSort,
           filterCount: _filters.activeCount(_defaultGeo),
           onOpenFilters: _openFilters,
-          onCreateRequest: () => context.go(
-            widget.services
-                ? '/requests?kind=service'
-                : '/requests?kind=notice',
-          ),
-          requestLabel: widget.services
-              ? 'Request a service'
-              : 'Request a notification',
+          onCreateRequest: () => context.go('/requests?kind=notice'),
+          requestLabel: 'Request a notification',
           chips: buildActiveFilters(
+            context: context,
             state: _filters,
             groups: _filterGroups,
             defaultGeo: _defaultGeo,
@@ -356,9 +351,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           ),
           onClearAll: _clearAll,
           resultCount: results.length,
-          resultNoun: widget.services
-              ? 'services'
-              : (results.length == 1 ? 'update' : 'updates'),
+          resultNoun: (results.length == 1 ? 'update' : 'updates'),
         ),
         CategoryFilterRow(
           categories: _categories,
@@ -381,18 +374,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       if (results.isEmpty) {
                         return EmptyState(
                           icon: Icons.notifications_none_rounded,
-                          title: widget.services
-                              ? (filtered
-                                    ? 'No services match these filters'
-                                    : 'No services nearby')
-                              : (filtered
-                                    ? 'No updates match these filters'
-                                    : 'No updates nearby'),
+                          title: (filtered
+                              ? 'No updates match these filters'
+                              : 'No updates nearby'),
                           message: filtered
                               ? 'Try clearing the category or timing filters, or widening the location.'
-                              : (widget.services
-                                    ? 'Local services for your area will show up here.'
-                                    : 'Events and local updates for your area will show up here.'),
+                              : ('Events and local updates for your area will show up here.'),
                           padding: const EdgeInsets.symmetric(
                             vertical: 48,
                             horizontal: 8,

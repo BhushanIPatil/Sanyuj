@@ -50,3 +50,4 @@ app.*.map.json
 # Local env overrides (keep env/example.json + commit prod carefully)
 .env
 .env.local
+/env/*.local.json

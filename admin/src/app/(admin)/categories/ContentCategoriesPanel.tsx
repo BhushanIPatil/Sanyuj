@@ -39,10 +39,9 @@ export function ContentCategoriesPanel() {
   const load = useCallback(async () => {
     setLoading(true);
     const supabase = createClient();
-    const [catsRes, adsRes, servicesRes, noticesRes] = await Promise.all([
+    const [catsRes, adsRes, noticesRes] = await Promise.all([
       supabase.from("content_categories").select("*").order("kind").order("sort_order"),
       supabase.from("ads").select("category_id").eq("is_deleted", false).not("category_id", "is", null),
-      supabase.from("services").select("category_id").eq("is_deleted", false).not("category_id", "is", null),
       supabase.from("notices").select("category_id").eq("is_deleted", false).not("category_id", "is", null),
     ]);
     if (catsRes.error) showToast(catsRes.error.message);
@@ -54,7 +53,6 @@ export function ContentCategoriesPanel() {
     for (const row of (noticesRes.data as { category_id: string }[] | null) ?? []) {
       counts[row.category_id] = (counts[row.category_id] ?? 0) + 1;
     }
-    for (const row of servicesRes.data ?? []) counts[row.category_id] = (counts[row.category_id] ?? 0) + 1;
     setUsage(counts);
     setLoading(false);
   }, [showToast]);
@@ -165,7 +163,6 @@ export function ContentCategoriesPanel() {
             <FilterSelect value={kindFilter} onChange={(v) => setKindFilter(v as "all" | ContentCategoryKind)}>
               <option value="all">All</option>
               <option value="offer">Offers</option>
-              <option value="service">Services</option>
                 <option value="notice">Notify</option>
             </FilterSelect>
           </FilterField>
@@ -262,7 +259,6 @@ export function ContentCategoriesPanel() {
                   onChange={(e) => setForm((f) => ({ ...f, kind: e.target.value as ContentCategoryKind }))}
                 >
                   <option value="offer">Offer (Offerly)</option>
-                  <option value="service">Services</option>
                 <option value="notice">Notify</option>
                 </select>
               </label>

@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Sanyuj - Offers, notifications and services",
+    name: "Sanyuj - Offers and notifications",
     short_name: "Sanyuj",
     description:
-      "Discover offers, local announcements and services without an account.",
+      "Discover offers and local announcements without an account.",
     start_url: "/app",
     scope: "/",
     display: "standalone",

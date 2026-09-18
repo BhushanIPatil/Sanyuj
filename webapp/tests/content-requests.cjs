@@ -27,7 +27,7 @@ function request(overrides={}, image=png) {
  return new Request('http://localhost/api/content-requests',{method:'POST',body:form});
 }
 test('all request types store only approved contact fields with a private image',async()=>{
- for(const kind of ['offer','notice','service']) {
+ for(const kind of ['offer','notice']) {
   const h=harness();const res=await h.api.POST(request({kind,status:'published',follow_up_notes:'injected'}));
   assert.equal(res.status,201);const result=await res.json();assert.equal(result.ok,true);assert.equal(h.writes.length,1);
   assert.equal(h.writes[0].kind,kind);assert.equal(h.writes[0].status,undefined);assert.equal(h.writes[0].follow_up_notes,undefined);
@@ -35,7 +35,7 @@ test('all request types store only approved contact fields with a private image'
  }
 });
 test('invalid contact, kind, missing image and non-image files are rejected',async()=>{
- for(const req of [request({kind:'unknown'}),request({name:' '}),request({contact:'bad'}),request({details:'x'.repeat(2001)}),request({},null),request({},Buffer.from('<svg onload="alert(1)"/>'))]) {
+ for(const req of [request({kind:'service'}),request({kind:'unknown'}),request({name:' '}),request({contact:'bad'}),request({details:'x'.repeat(2001)}),request({},null),request({},Buffer.from('<svg onload="alert(1)"/>'))]) {
   const h=harness();assert.equal((await h.api.POST(req)).status,400);assert.equal(h.writes.length,0);assert.equal(h.uploads.length,0);
  }
 });

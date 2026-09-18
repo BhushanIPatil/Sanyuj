@@ -17,28 +17,28 @@ export type NoticeDetail = {
 
 export async function fetchCoveringNoticeIds(
   supabase: SupabaseClient,
-  opts: { pincode?: string | null; localityId?: string | null; areaId?: string | null; kind?: "notice" | "service" },
+  opts: { pincode?: string | null; localityId?: string | null; areaId?: string | null },
 ): Promise<string[]> {
-  const { data, error } = await supabase.rpc(opts.kind === "service" ? "services_covering" : "notices_covering", {
+  const { data, error } = await supabase.rpc("notices_covering", {
     p_pincode: opts.pincode ?? null,
     p_locality_id: opts.localityId ?? null,
     p_area_id: opts.areaId ?? null,
   });
   if (error) throw error;
-  return ((data as Array<{ notice_id?: string; service_id?: string; id?: string }> | string[] | null) ?? [])
-    .map((row) => (typeof row === "string" ? row : row.notice_id ?? row.service_id ?? row.id))
+  return ((data as Array<{ notice_id?: string; id?: string }> | string[] | null) ?? [])
+    .map((row) => (typeof row === "string" ? row : row.notice_id ?? row.id))
     .filter((id): id is string => Boolean(id));
 }
 
 export async function fetchVisibleNotices(
   supabase: SupabaseClient,
-  opts: { pincode?: string | null; localityId?: string | null; areaId?: string | null; kind?: "notice" | "service" },
+  opts: { pincode?: string | null; localityId?: string | null; areaId?: string | null },
 ): Promise<NoticeDetail[]> {
   const covering = await fetchCoveringNoticeIds(supabase, opts);
   if (!covering.length) return [];
   const { data, error } = await visible(
     supabase
-      .from(opts.kind === "service" ? "services" : "notices")
+      .from("notices")
       .select(
         "id, title, body, image_url, cta_label, cta_url, event_starts_at, event_ends_at, created_at, category:content_categories(id, slug, name, emoji)",
       ),

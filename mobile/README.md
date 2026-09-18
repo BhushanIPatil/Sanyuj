@@ -52,3 +52,9 @@ Those values are **baked into the binary** at build time. Users do not need your
 - Sign with your upload keystore (not debug)
 
 See [the retirement rollout](../backend/OFFERS_NOTIFICATIONS.md) before releasing. Push registration stores only token, platform, app version and timestamps. Device name/hardware identifiers and account-linked tracking are removed.
+
+Public form links have defaults in `lib/config/app_config.dart`, so they also work with plain `flutter run`. Configure `OFFER_REQUEST_FORM_URL`, `NOTIFICATION_REQUEST_FORM_URL`, and `CONTACT_FORM_URL` in `env/dev.json` and `env/prod.json` alongside the other app links. Commands and launch configurations load only the selected environment file. Fully stop and rebuild the app after changing these compile-time values; hot reload does not update them.
+
+## Social links
+
+The Sanyuj page includes LinkedIn, Instagram, X, Facebook and YouTube. Replace the placeholder `LINKEDIN_URL`, `INSTAGRAM_URL`, `X_URL`, `FACEBOOK_URL`, and `YOUTUBE_URL` values in `env/dev.json` and `env/prod.json` with your official profiles. `CONTACT_FORM_URL` controls support contact; `FAQ_URL` controls the FAQ link. Build defines override the defaults in `AppConfig`. Rebuild the app after updating these values.

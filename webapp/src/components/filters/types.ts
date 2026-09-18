@@ -64,6 +64,12 @@ export function isSelected(state: FilterState, groupId: string, value: string): 
 
 export function toggleFilter(state: FilterState, groupId: string, value: string): FilterState {
   const current = selectedValues(state, groupId);
+  if (groupId === "dateRange") {
+    const selections = { ...state.selections };
+    if (!value || current.includes(value)) delete selections[groupId];
+    else selections[groupId] = [value];
+    return { ...state, selections };
+  }
   const next = current.includes(value)
     ? current.filter((v) => v !== value)
     : [...current, value];

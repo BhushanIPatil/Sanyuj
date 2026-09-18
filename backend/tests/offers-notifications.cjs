@@ -35,6 +35,10 @@ const { PGlite } = require("@electric-sql/pglite");
       insert into public.device_tokens(user_id,device_token,device_name) values(null,'anonymous-token','Private device name'),('30000000-0000-0000-0000-000000000001','legacy-token','Legacy name');
       insert into public.api_rate_limits(action,subject_type,subject_key) values('legacy_auth','email','old@example.test');
     `);
+    if (name === "20260917120000_remove_services.sql") await db.exec(`
+      insert into public.services(title) values('Retired listing');
+      insert into public.content_requests(kind,name,contact,image_path) values('service','Retired request','9123456780','retired-request.png');
+    `);
     let sql = fs
       .readFileSync("supabase/migrations/" + name, "utf8")
       .replace(/create extension if not exists "pgcrypto";/i, "");
@@ -48,8 +52,8 @@ const { PGlite } = require("@electric-sql/pglite");
   console.log("All migrations applied to disposable PostgreSQL.");
   await db.exec(fs.readFileSync("supabase/tests/offers_notifications.sql", "utf8"));
   console.log("Retirement, content access and admin authorization tests passed.");
-  await db.exec(fs.readFileSync("supabase/tests/services.sql", "utf8"));
-  console.log("Services visibility, category, coverage and admin publication tests passed.");
+  await db.exec(fs.readFileSync("supabase/tests/remove_services.sql", "utf8"));
+  console.log("Services removal and remaining content checks passed.");
   await db.exec(fs.readFileSync("supabase/tests/content_requests.sql", "utf8"));
   console.log("Private request and admin follow-up access tests passed.");
   await db.close();

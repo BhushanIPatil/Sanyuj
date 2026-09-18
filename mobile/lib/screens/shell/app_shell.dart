@@ -15,8 +15,8 @@ class AppShell extends StatelessWidget {
     ('/offerly', 'Offerly', Icons.local_offer_outlined),
     ('/notifications', 'Notify', Icons.notifications_outlined),
     ('/home', 'Home', Icons.home_outlined),
-    ('/services', 'Services', Icons.home_repair_service_outlined),
-    ('/requests', 'Requests', Icons.add_comment_outlined),
+    ('/requests', 'Share', Icons.add_comment_outlined),
+    ('/sanyuj', 'Sanyuj', Icons.grid_view_rounded),
   ];
 
   static const _homeIndex = 2;

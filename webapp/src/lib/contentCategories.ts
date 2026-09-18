@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { visible } from "@/lib/db/visible";
 
-export type ContentCategoryKind = "offer" | "notice" | "service";
+export type ContentCategoryKind = "offer" | "notice";
 
 export type ContentCategory = {
   id: string;

@@ -8,7 +8,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers.dart';
 import '../../models/models.dart';
-import '../../config/app_config.dart';
 import '../../services/location.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
@@ -16,8 +15,6 @@ import '../../widgets/filters.dart';
 import '../../widgets/ad_detail_sheet.dart';
 import '../../widgets/notice_detail_sheet.dart';
 import '../../widgets/notice_card.dart';
-
-enum _HomeMenuAction { terms, privacy, help }
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -27,7 +24,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<AdBanner> _ads = [];
-  List<AreaNotice> _notices = [], _services = [];
+  List<AreaNotice> _notices = [];
   bool _loading = true, _locationLoading = false;
   String? _error;
   GeoFilter _geo = GeoFilter.empty;
@@ -148,12 +145,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           localityId: _geo.localityId,
           areaId: area,
         ),
-        repo.fetchNotices(
-          kind: 'service',
-          pincode: pin,
-          localityId: _geo.localityId,
-          areaId: area,
-        ),
       ]);
       if (!mounted || loadId != _loadId) return;
       final ads = results[0] as List<AdBanner>;
@@ -161,7 +152,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       setState(() {
         _ads = ads;
         _notices = (results[1] as List<AreaNotice>).take(2).toList();
-        _services = (results[2] as List<AreaNotice>).take(2).toList();
         _loading = false;
       });
       _scheduleNextAd();
@@ -252,7 +242,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                           SizedBox(width: 6),
                           Icon(
-                            Icons.waving_hand_outlined,
+                            Icons.wb_sunny_rounded,
                             size: 18,
                             color: AppColors.amber,
                           ),
@@ -291,105 +281,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ),
                     ],
-                  ),
-                ),
-                PopupMenuButton<_HomeMenuAction>(
-                  tooltip: 'Sanyuj',
-                  offset: const Offset(0, 44),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  onSelected: (action) {
-                    switch (action) {
-                      case _HomeMenuAction.terms:
-                        _openUrl(AppConfig.termsUrl);
-                      case _HomeMenuAction.privacy:
-                        _openUrl(AppConfig.privacyUrl);
-                      case _HomeMenuAction.help:
-                        _openUrl(AppConfig.helpUrl);
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    PopupMenuItem(
-                      value: _HomeMenuAction.terms,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.description_outlined,
-                            size: 18,
-                            color: AppColors.indigo,
-                          ),
-                          const SizedBox(width: 10),
-                          const Text(
-                            'Terms of Use',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: _HomeMenuAction.privacy,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.privacy_tip_outlined,
-                            size: 18,
-                            color: AppColors.teal,
-                          ),
-                          const SizedBox(width: 10),
-                          const Text(
-                            'Privacy Policy',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: _HomeMenuAction.help,
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.support_agent_rounded,
-                            size: 18,
-                            color: AppColors.greenDeep,
-                          ),
-                          const SizedBox(width: 10),
-                          const Text(
-                            'Help and support',
-                            style: TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  child: Container(
-                    height: 40,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(color: AppColors.line),
-                      boxShadow: AppColors.cardShadow,
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Sanyuj',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.blueDeep,
-                          ),
-                        ),
-                        SizedBox(width: 2),
-                        Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 18,
-                          color: AppColors.inkSoft,
-                        ),
-                      ],
-                    ),
                   ),
                 ),
               ],
@@ -516,7 +407,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           if (_error != null)
             Padding(padding: const EdgeInsets.all(20), child: Text(_error!)),
           _section('Notifications', '/notifications', _notices),
-          _section('Services', '/services', _services),
         ],
       ),
     );

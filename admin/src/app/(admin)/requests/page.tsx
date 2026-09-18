@@ -7,7 +7,7 @@ import { SlideOver } from "@/components/ui/SlideOver";
 import { useToast } from "@/components/Toast";
 
 type RequestRow = { id: string; kind: string; name: string; contact: string; details: string; image_path: string; status: string; follow_up_notes: string; created_at: string };
-const KINDS: Record<string, string> = { offer: "Offer", notice: "Notification", service: "Service" };
+const KINDS: Record<string, string> = { offer: "Offer", notice: "Notification" };
 const STATUSES: Record<string, string> = { new: "New", contacted: "Contacted", published: "Published", closed: "Closed" };
 const PAGE_SIZE = 25;
 export default function RequestsPage() {
@@ -65,7 +65,7 @@ export default function RequestsPage() {
   }
   return <div className="page-pad">
     <PageHeader title="Requests" action={<button className="btn-secondary flex items-center gap-2" onClick={() => void load()}><RefreshCw size={16} />Refresh</button>} />
-    <p className="mt-2 text-sm text-ink-soft">Follow up with people who want to share an offer, notification or service.</p>
+    <p className="mt-2 text-sm text-ink-soft">Follow up with people who want to share an offer or notification.</p>
     <div className="my-5 flex flex-wrap gap-3 rounded-[18px] border border-line bg-white p-4">
       <label className="flex-1 text-xs font-bold text-ink-soft">Search by name<input className="input-box mt-1 w-full" value={search} onChange={e => { setSearch(e.target.value); setPage(0); }} placeholder="Find a request…" /></label>
       <label className="text-xs font-bold text-ink-soft">Type<select className="input-box mt-1 block" value={kind} onChange={e => { setKind(e.target.value); setPage(0); }}><option value="">All types</option>{Object.entries(KINDS).map(([v,l]) => <option key={v} value={v}>{l}</option>)}</select></label>
@@ -86,7 +86,7 @@ export default function RequestsPage() {
       <h3 className="mb-2 mt-5 text-sm font-bold">Request details</h3><p className="whitespace-pre-wrap break-words text-sm leading-6 text-ink-soft">{selected.details || "No additional details provided."}</p>
       <label className="mt-6 block text-sm font-bold">Follow-up status<select disabled={saving} className="input-box mt-2 w-full" value={nextStatus} onChange={e => setNextStatus(e.target.value)}>{Object.entries(STATUSES).map(([v,l]) => <option key={v} value={v}>{l}</option>)}</select></label>
       <label className="mt-5 block text-sm font-bold">Internal notes<textarea disabled={saving} maxLength={4000} rows={5} className="input-box mt-2 w-full" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Record your conversation, next steps or publication details…" /></label>
-      <p className="mt-2 text-xs leading-5 text-ink-soft">Notes stay private to your team. After follow-up, add the content through Offerly, Notify or Services and update the status here.</p>
+      <p className="mt-2 text-xs leading-5 text-ink-soft">Notes stay private to your team. After follow-up, add the content through Offerly or Notify and update the status here.</p>
     </SlideOver> : null}
   </div>;
 }

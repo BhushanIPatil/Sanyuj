@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const phone = /^\+?[\d\s().-]+$/;
     const digits = contact.replace(/\D/g, "");
-    if (!["offer", "notice", "service"].includes(kind) || name.length < 2 || name.length > 100 || contact.length > 150 || details.length > 2000 || !(email.test(contact) || (phone.test(contact) && digits.length >= 8 && digits.length <= 15))) {
+    if (!["offer", "notice"].includes(kind) || name.length < 2 || name.length > 100 || contact.length > 150 || details.length > 2000 || !(email.test(contact) || (phone.test(contact) && digits.length >= 8 && digits.length <= 15))) {
       return reply({ error: "Enter your name and a valid phone number or email address." }, 400);
     }
     const file = form.get("image");

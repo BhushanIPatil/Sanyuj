@@ -34,6 +34,8 @@ export function SanyujLogoMark({
 }
 
 type BrandProps = {
+  /** Transparent mark with a separate wordmark for light headers. */
+  light?: boolean;
   href?: string;
   size?: number;
   /** @deprecated Lockup asset includes gradient; kept for call-site compatibility. */
@@ -45,6 +47,7 @@ type BrandProps = {
 };
 
 export function SanyujBrand({
+  light = false,
   href,
   size = 48,
   showName = false,
@@ -54,14 +57,14 @@ export function SanyujBrand({
 }: BrandProps) {
   const content = (
     <span className={className}>
-      <SanyujLogoMark size={size} priority={priority} />
+      {light ? <Image src="/brand/sanyuj-mark.png" alt={showName ? "" : "Sanyuj"} width={size} height={size} priority={priority} className="shrink-0 object-contain" style={{ width: size, height: size }} /> : <SanyujLogoMark size={size} priority={priority} />}
       {showName ? <span className={nameClassName}>Sanyuj</span> : null}
     </span>
   );
 
   if (href) {
     return (
-      <Link href={href} className="inline-flex">
+      <Link href={href} aria-label="Sanyuj" className="inline-flex shrink-0">
         {content}
       </Link>
     );

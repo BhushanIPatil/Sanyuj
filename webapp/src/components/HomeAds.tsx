@@ -2,12 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { AdDetailSheet } from "@/components/AdDetailSheet";
 import {
-  AD_BANNER_HEIGHT,
   AD_BANNER_RADIUS,
   AD_CAROUSEL_MS,
   fetchVisibleAds,
@@ -15,7 +13,7 @@ import {
 } from "@/lib/geo/ads";
 
 const DEFAULT_BG = "linear-gradient(135deg,#2E86D6,#3B5BDB)";
-const ADS_CONTACT = "mailto:support@sanyuj.app?subject=Banner%20ad%20on%20Sanyuj";
+const HOME_BANNER_HEIGHT = "clamp(260px, 32vw, 340px)";
 
 function AdCard({ ad, onOpen }: { ad: AdDetail; onOpen: (ad: AdDetail) => void }) {
   const hasImage = Boolean(ad.image_url?.trim());
@@ -24,11 +22,12 @@ function AdCard({ ad, onOpen }: { ad: AdDetail; onOpen: (ad: AdDetail) => void }
     <button
       type="button"
       onClick={() => onOpen(ad)}
+      aria-label={ad.title || ad.brand_name || "View featured offer"}
       className={`relative flex h-full w-full overflow-hidden text-left transition hover:brightness-[1.02] ${
         hasImage ? "" : "text-white"
       }`}
       style={{
-        height: AD_BANNER_HEIGHT,
+        height: HOME_BANNER_HEIGHT,
         borderRadius: AD_BANNER_RADIUS,
         background: hasImage ? undefined : ad.background || DEFAULT_BG,
       }}
@@ -47,28 +46,6 @@ function AdCard({ ad, onOpen }: { ad: AdDetail; onOpen: (ad: AdDetail) => void }
         </div>
       )}
     </button>
-  );
-}
-
-function FeaturedCta() {
-  return (
-    <a
-      href={ADS_CONTACT}
-      className="flex h-full items-center gap-3 px-2 py-4 text-left transition hover:opacity-80 sm:px-1"
-      style={{ minHeight: AD_BANNER_HEIGHT }}
-    >
-      <Megaphone size={28} className="shrink-0 text-blue-deep" strokeWidth={1.75} />
-      <div className="min-w-0 flex-1">
-        <p className="font-display text-sm font-extrabold leading-snug text-ink sm:text-[15px]">
-          Want your business here?
-        </p>
-        <p className="mt-1.5 text-xs leading-snug text-ink-soft">
-          Reach neighbours nearby — get featured on Sanyuj.
-        </p>
-      </div>
-      <ChevronDown size={22} className="shrink-0 text-blue-deep sm:hidden" strokeWidth={2.25} />
-      <ChevronRight size={22} className="hidden shrink-0 text-blue-deep sm:block" strokeWidth={2.25} />
-    </a>
   );
 }
 
@@ -171,36 +148,15 @@ export function HomeAds({
   }, [looping, active, ads.length, settleLoop]);
 
   return (
-    <section className="mt-6" aria-label="Brand collaborations">
+    <section className="mx-auto mt-6 w-full max-w-4xl" aria-label="Featured local offers">
       {loading ? (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-10">
-          <div className="sm:col-span-3">
-            <div
-              className="flex w-full animate-pulse items-center gap-3 py-4"
-              style={{ minHeight: AD_BANNER_HEIGHT }}
-            >
-              <div className="h-8 w-8 shrink-0 rounded-full bg-line" />
-              <div className="min-w-0 flex-1 space-y-2">
-                <div className="h-3 w-36 rounded bg-line" />
-                <div className="h-2.5 w-full max-w-[180px] rounded bg-line" />
-              </div>
-              <div className="h-5 w-5 shrink-0 rounded bg-line" />
-            </div>
-          </div>
-          <div className="min-w-0 sm:col-span-7">
-            <Skeleton style={{ height: AD_BANNER_HEIGHT, borderRadius: AD_BANNER_RADIUS }} />
-          </div>
-        </div>
+        <Skeleton style={{ height: HOME_BANNER_HEIGHT, borderRadius: AD_BANNER_RADIUS }} />
       ) : (
-        <div className="grid grid-cols-1 items-stretch gap-3 sm:grid-cols-10">
-          <div className="sm:col-span-3">
-            <FeaturedCta />
-          </div>
-          <div className="min-w-0 sm:col-span-7">
+        <div className="min-w-0">
             {ads.length > 0 ? (
               <div
                 className="relative overflow-hidden"
-                style={{ height: AD_BANNER_HEIGHT, borderRadius: AD_BANNER_RADIUS }}
+                style={{ height: HOME_BANNER_HEIGHT, borderRadius: AD_BANNER_RADIUS }}
               >
                 <div
                   ref={scrollerRef}
@@ -225,7 +181,7 @@ export function HomeAds({
             ) : (
               <div
                 className="flex items-center justify-center rounded-[12px] border border-dashed border-line bg-surface px-4 text-center"
-                style={{ height: AD_BANNER_HEIGHT }}
+                style={{ height: HOME_BANNER_HEIGHT }}
               >
                 <p className="text-sm font-semibold text-ink-soft">
                   Featured offers for your area will show up here.{" "}
@@ -235,7 +191,6 @@ export function HomeAds({
                 </p>
               </div>
             )}
-          </div>
         </div>
       )}
 

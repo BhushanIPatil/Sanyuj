@@ -1,6 +1,9 @@
+import { SITE_URL } from "@/lib/siteLinks";
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Nunito } from "next/font/google";
 import { RegisterPwa } from "@/components/RegisterPwa";
+import { AppShell } from "@/components/AppShell";
+import { UserLocationProvider } from "@/components/UserLocation";
 import "./globals.css";
 
 const nunito = Nunito({
@@ -16,6 +19,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Sanyuj - Offers and notifications",
     template: "%s · Sanyuj",
@@ -58,7 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${nunito.variable} ${mono.variable} h-full`}>
       <body className="min-h-full antialiased">
-        {children}
+        <UserLocationProvider><AppShell>{children}</AppShell></UserLocationProvider>
         <RegisterPwa />
       </body>
     </html>

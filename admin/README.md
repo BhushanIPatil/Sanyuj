@@ -1,8 +1,8 @@
 # Sanyuj Admin
 
-Separate Next.js application for Offerly, notifications, services, push campaigns, content categories, geographic coverage, and app versions. Admin email/password login and password changes remain. Directory, customer, request, and account-based click-reporting tools are removed.
+Separate Next.js application for Offerly, notifications, push campaigns, content categories, geographic coverage, and app versions. Admin email/password login and password changes remain. Directory, customer, request, and account-based click-reporting tools are removed.
 
-Apply backend migrations, including `20260911160000_services_and_home.sql`. Services are published at /services using the existing category and coverage editor; use the provider/service name, description and contact link (https, tel or mailto). Offers include a home-carousel placement checkbox. Create an admin Auth user through the Supabase Dashboard or Admin API, then register the UUID:
+Apply backend migrations through `20260917120000_remove_services.sql`; see [removal rollout](../backend/REMOVE_SERVICES.md). Offers include a home-carousel placement checkbox. Create an admin Auth user through the Supabase Dashboard or Admin API, then register the UUID:
 
 ```sql
 insert into public.admins (id, email, full_name)
@@ -15,4 +15,4 @@ Run `npm install`, `npm run dev` (port 3001), and `npm run build` for validation
 
 See [rollout instructions](../backend/OFFERS_NOTIFICATIONS.md).
 
-The **Requests** page at /requests shows private offer, notification and service enquiries, with image previews, contact links, status and follow-up notes. See [request rollout](../backend/REQUESTS.md).
+The **Requests** page at /requests shows private offer and notification enquiries, with image previews, contact links, status and follow-up notes. See [request rollout](../backend/REQUESTS.md).

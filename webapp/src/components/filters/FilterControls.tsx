@@ -11,6 +11,8 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
+import { DateRangeFilter } from "./DateRangeFilter";
+import { dateRangeLabel } from "./dates";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { LocalityPicker } from "@/components/LocalityPicker";
 import { AreaPicker } from "@/components/AreaPicker";
@@ -131,6 +133,11 @@ function GroupSection({
   const visibleOptions = showAll || q.trim() ? matching : matching.slice(0, limit);
   const hiddenCount = matching.length - visibleOptions.length;
 
+  if (group.id === "dateRange") {
+    return <Section title="Date range" badge={selected.length}>
+      <DateRangeFilter value={selected[0] ?? ""} onChange={value => onToggle(group.id, value)} />
+    </Section>;
+  }
   if (!group.options.length) return null;
 
   return (
@@ -365,7 +372,7 @@ export function ActiveFilterChips({
       const option = group.options.find((o) => o.value === value);
       chips.push({
         key: `${group.id}:${value}`,
-        label: option?.label ?? value,
+        label: group.id === "dateRange" ? dateRangeLabel(value) : option?.label ?? value,
         onRemove: () => onToggle(group.id, value),
       });
     }
@@ -464,7 +471,6 @@ export function FilterDrawer({
   open,
   onClose,
   resultCount,
-  resultNoun,
   children,
 }: {
   open: boolean;
@@ -502,7 +508,7 @@ export function FilterDrawer({
         <div className="flex-1 overflow-y-auto p-3">{children}</div>
         <div className="border-t border-line bg-white p-3">
           <button type="button" onClick={onClose} className="btn-primary !py-3.5">
-            Show {resultCount} {resultNoun}
+            Apply ({resultCount})
           </button>
         </div>
       </div>

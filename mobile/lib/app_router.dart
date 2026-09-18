@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'screens/offerly/offerly_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/requests/requests_screen.dart';
+import 'screens/sanyuj/sanyuj_screen.dart';
 import 'widgets/location_session.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/shell/app_shell.dart';
@@ -18,8 +19,8 @@ GoRouter createRouter({
   redirect: (context, state) =>
       [
         '/requests',
+        '/sanyuj',
         '/home',
-        '/services',
         '/offerly',
         '/notifications',
       ].contains(state.uri.path)
@@ -39,11 +40,8 @@ GoRouter createRouter({
         ),
         GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
         GoRoute(
-          path: '/services',
-          builder: (context, state) => const NotificationsScreen(
-            key: ValueKey('services'),
-            services: true,
-          ),
+          path: '/sanyuj',
+          builder: (context, state) => const SanyujScreen(),
         ),
         GoRoute(
           path: '/offerly',

@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import 'animated_search_hint.dart';
 import 'area_picker.dart';
 import 'common.dart';
+import 'date_range_filter.dart';
 import 'locality_picker.dart';
 
 /// One checkable value inside a [FilterGroup].
@@ -180,6 +181,14 @@ class FilterState {
 
   FilterState toggle(String groupId, String value) {
     final next = Map<String, List<String>>.from(selections);
+    if (groupId == 'dateRange') {
+      if (value.isEmpty || valuesOf(groupId).contains(value)) {
+        next.remove(groupId);
+      } else {
+        next[groupId] = [value];
+      }
+      return FilterState(selections: next, geo: geo);
+    }
     final current = [...valuesOf(groupId)];
     if (current.remove(value)) {
       if (current.isEmpty) {
@@ -229,6 +238,7 @@ class ActiveFilter {
 
 /// Chips for everything currently narrowing the list, location included.
 List<ActiveFilter> buildActiveFilters({
+  required BuildContext context,
   required FilterState state,
   required List<FilterGroup> groups,
   required GeoFilter defaultGeo,
@@ -276,7 +286,9 @@ List<ActiveFilter> buildActiveFilters({
     for (final value in state.valuesOf(group.id)) {
       // Options can vanish when the location changes (brands, for example), so
       // fall back to the raw value to keep the chip removable.
-      var label = value;
+      var label = group.id == 'dateRange'
+          ? dateRangeLabel(context, value)
+          : value;
       for (final option in group.options) {
         if (option.value == value) {
           label = option.label;
@@ -961,8 +973,9 @@ class _FilterSheetState extends State<_FilterSheet> {
   late FilterState _draft = widget.initial;
   int _tab = 0;
 
-  List<FilterGroup> get _groups =>
-      widget.groups.where((g) => g.options.isNotEmpty).toList();
+  List<FilterGroup> get _groups => widget.groups
+      .where((g) => g.options.isNotEmpty || g.id == 'dateRange')
+      .toList();
 
   void _toggle(String groupId, String value) {
     setState(() => _draft = _draft.toggle(groupId, value));
@@ -1128,7 +1141,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                         child: Text(
                           preview == null
                               ? 'Apply filters'
-                              : 'Show $preview ${preview == 1 ? widget.resultNoun.replaceAll(RegExp(r's$'), '') : widget.resultNoun}',
+                              : 'Apply ($preview)',
                         ),
                       ),
                     ),
@@ -1195,6 +1208,18 @@ class _OptionsPaneState extends State<_OptionsPane> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.group.id == 'dateRange') {
+      final values = widget.state.valuesOf('dateRange');
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          DateRangeFilter(
+            value: values.isEmpty ? '' : values.first,
+            onChanged: (value) => widget.onToggle('dateRange', value),
+          ),
+        ],
+      );
+    }
     final needle = _query.text.trim().toLowerCase();
     final options = widget.group.options
         .where((o) => needle.isEmpty || o.label.toLowerCase().contains(needle))
@@ -1485,4 +1510,16 @@ class _GeoResetButton extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Windows overlapping the chosen local calendar dates (inclusive).
+bool overlapsDateRange(DateTime? start, DateTime? end, FilterState state) {
+  final values = state.valuesOf('dateRange');
+  if (values.isEmpty) return true;
+  final parts = values.first.split('|');
+  final lower = DateTime.parse(parts[0]);
+  final last = DateTime.parse(parts[1]);
+  final upper = DateTime(last.year, last.month, last.day + 1);
+  return (start == null || start.isBefore(upper)) &&
+      (end == null || !end.isBefore(lower));
 }
