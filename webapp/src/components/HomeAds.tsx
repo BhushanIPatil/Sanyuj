@@ -23,7 +23,7 @@ function AdCard({ ad, onOpen }: { ad: AdDetail; onOpen: (ad: AdDetail) => void }
       type="button"
       onClick={() => onOpen(ad)}
       aria-label={ad.title || ad.brand_name || "View featured offer"}
-      className={`relative flex h-full w-full overflow-hidden text-left transition hover:brightness-[1.02] ${
+      className={`relative flex h-full w-full cursor-pointer overflow-hidden text-left transition hover:brightness-[1.02] ${
         hasImage ? "" : "text-white"
       }`}
       style={{

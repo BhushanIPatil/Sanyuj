@@ -9,7 +9,7 @@ export function NoticeCard({ notice, onOpen }: { notice: NoticeDetail; onOpen: (
     <button
       type="button"
       onClick={() => onOpen(notice)}
-      className="overflow-hidden rounded-[16px] border border-line bg-white text-left shadow-card transition hover:border-blue-deep/30"
+      className="cursor-pointer overflow-hidden rounded-[16px] border border-line bg-white text-left shadow-card transition hover:border-blue-deep/30"
     >
       {notice.image_url ? (
         <div className="overflow-hidden bg-surface" style={{ aspectRatio: "2.4 / 1" }}>
@@ -30,4 +30,3 @@ export function NoticeCard({ notice, onOpen }: { notice: NoticeDetail; onOpen: (
     </button>
   );
 }
-

@@ -80,36 +80,16 @@ class SanyujScreen extends StatelessWidget {
           spacing: 10,
           runSpacing: 10,
           children: [
-            _socialLink(
-              context,
-              'LinkedIn',
-              Icons.business_center_outlined,
-              AppConfig.linkedinUrl,
-            ),
+            _socialLink(context, 'LinkedIn', 'linkedin', AppConfig.linkedinUrl),
             _socialLink(
               context,
               'Instagram',
-              Icons.camera_alt_outlined,
+              'instagram',
               AppConfig.instagramUrl,
             ),
-            _socialLink(
-              context,
-              'X',
-              Icons.alternate_email_rounded,
-              AppConfig.xUrl,
-            ),
-            _socialLink(
-              context,
-              'Facebook',
-              Icons.facebook_outlined,
-              AppConfig.facebookUrl,
-            ),
-            _socialLink(
-              context,
-              'YouTube',
-              Icons.play_circle_outline_rounded,
-              AppConfig.youtubeUrl,
-            ),
+            _socialLink(context, 'X', 'x', AppConfig.xUrl),
+            _socialLink(context, 'Facebook', 'facebook', AppConfig.facebookUrl),
+            _socialLink(context, 'YouTube', 'youtube', AppConfig.youtubeUrl),
           ],
         ),
         const SizedBox(height: 28),
@@ -141,19 +121,29 @@ class SanyujScreen extends StatelessWidget {
   Widget _socialLink(
     BuildContext context,
     String label,
-    IconData icon,
+    String platform,
     String url,
   ) {
-    return OutlinedButton.icon(
-      onPressed: () =>
-          openCtaUrl(context, url, goTo: (path) => context.go(path)),
-      icon: Icon(icon, size: 20),
-      label: Text(label),
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(0, 48),
-        foregroundColor: AppColors.blueDeep,
-        side: const BorderSide(color: AppColors.line),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    return Semantics(
+      label: label,
+      child: OutlinedButton(
+        onPressed: () =>
+            openCtaUrl(context, url, goTo: (path) => context.go(path)),
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          padding: const EdgeInsets.all(12),
+          backgroundColor: Colors.white,
+          side: const BorderSide(color: AppColors.line),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        child: Image.asset(
+          'assets/brand/social/$platform.png',
+          width: 24,
+          height: 24,
+          excludeFromSemantics: true,
+        ),
       ),
     );
   }

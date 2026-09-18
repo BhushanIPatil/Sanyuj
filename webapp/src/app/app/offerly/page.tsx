@@ -76,7 +76,7 @@ function OfferlyCard({ ad, onOpen }: { ad: AdDetail; onOpen: (ad: AdDetail) => v
     <button
       type="button"
       onClick={() => onOpen(ad)}
-      className="overflow-hidden rounded-[16px] border border-line bg-white text-left shadow-card transition hover:border-blue-deep/30"
+      className="cursor-pointer overflow-hidden rounded-[16px] border border-line bg-white text-left shadow-card transition hover:border-blue-deep/30"
     >
       <div className="overflow-hidden bg-surface" style={{ aspectRatio: AD_BANNER_ASPECT, borderRadius: 0 }}>
         {hasImage ? (

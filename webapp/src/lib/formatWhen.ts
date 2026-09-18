@@ -9,7 +9,7 @@ export function formatWhenRange(startIso: string | null | undefined, endIso: str
   const day = (d: Date) =>
     d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
   const time = (d: Date) =>
-    d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: true }).toUpperCase();
   const midnight = (d: Date) => d.getHours() === 0 && d.getMinutes() === 0;
   const sameDay =
     start &&

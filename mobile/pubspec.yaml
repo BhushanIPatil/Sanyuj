@@ -34,6 +34,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/brand/social/
     - assets/brand/sanyuj_logo.png
     - assets/brand/sanyuj_lockup.png
     - assets/brand/sanyuj_transparent.png

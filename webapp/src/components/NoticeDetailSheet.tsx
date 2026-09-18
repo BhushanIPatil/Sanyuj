@@ -37,12 +37,12 @@ export function NoticeDetailSheet({
   const cta = notice.cta_label?.trim() || (ctaUrl ? "Open link" : "");
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/40 p-0 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-ink/40 p-4" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="notice-detail-title"
-        className="relative flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-t-[20px] bg-white shadow-pop sm:rounded-[20px]"
+        className="relative flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-[20px] bg-white shadow-pop"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-center pt-3">
@@ -53,7 +53,7 @@ export function NoticeDetailSheet({
           type="button"
           aria-label="Close"
           onClick={onClose}
-          className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white text-ink-soft"
+          className="absolute right-4 top-4 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-line bg-white text-ink-soft"
         >
           <X size={16} />
         </button>
