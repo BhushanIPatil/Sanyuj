@@ -39,6 +39,10 @@ const { PGlite } = require("@electric-sql/pglite");
       insert into public.services(title) values('Retired listing');
       insert into public.content_requests(kind,name,contact,image_path) values('service','Retired request','9123456780','retired-request.png');
     `);
+    if (name === "20260926120000_admin_request_payments.sql") await db.exec(`
+      update public.ads set price=1250,payment_status='paid' where id='40000000-0000-0000-0000-000000000001';
+      insert into public.ads(brand_name,title,price,payment_status) values('Unpaid advertiser','Unpaid campaign',500,'unpaid');
+    `);
     let sql = fs
       .readFileSync("supabase/migrations/" + name, "utf8")
       .replace(/create extension if not exists "pgcrypto";/i, "");

@@ -2,17 +2,16 @@
 
 import type { ReactNode } from "react";
 import { Pencil, Trash2 } from "lucide-react";
-import { formatDateTime, formatMoney } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { Badge } from "@/components/ui/Badge";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { ImagePreview } from "@/components/ui/ImageOrEmoji";
 import type { ContentCategoryRef } from "@/lib/contentCategories";
 
-export type AdPaymentStatus = "paid" | "unpaid";
-
 export type AdRunState = "live" | "scheduled" | "ended" | "inactive" | "deleted";
 
 export type AdRow = {
+  request_id: string | null;
   id: string;
   brand_name: string;
   title: string;
@@ -29,8 +28,6 @@ export type AdRow = {
   ends_at: string | null;
   offer_starts_at: string | null;
   offer_ends_at: string | null;
-  price: number | null;
-  payment_status: AdPaymentStatus;
   category_id: string | null;
   category: ContentCategoryRef | null;
   created_at: string;
@@ -76,10 +73,6 @@ export function adRunStateBadge(state: AdRunState) {
   }
 }
 
-export function paymentBadge(status: AdPaymentStatus) {
-  return status === "paid" ? "bg-green-soft text-green-deep" : "bg-amber-soft text-amber";
-}
-
 function Detail({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
@@ -108,9 +101,6 @@ export function AdDetailPanel({
       subtitle={
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge className={adRunStateBadge(run)}>{adRunStateLabel(run)}</Badge>
-          <Badge className={paymentBadge(ad.payment_status)}>
-            {ad.payment_status === "paid" ? "Paid" : "Unpaid"}
-          </Badge>
           {ad.category ? <Badge className="bg-indigo-soft text-indigo">{ad.category.name}</Badge> : null}
         </div>
       }
@@ -152,15 +142,6 @@ export function AdDetailPanel({
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-3">
-        <Detail label="Price" value={<span className="font-semibold">{formatMoney(ad.price)}</span>} />
-        <Detail
-          label="Payment"
-          value={
-            <Badge className={paymentBadge(ad.payment_status)}>
-              {ad.payment_status === "paid" ? "Paid" : "Unpaid"}
-            </Badge>
-          }
-        />
         <Detail label="Show from" value={ad.starts_at ? formatDateTime(ad.starts_at) : "Anytime"} />
         <Detail label="Show until" value={ad.ends_at ? formatDateTime(ad.ends_at) : "No end"} />
         <Detail label="Offer starts" value={ad.offer_starts_at ? formatDateTime(ad.offer_starts_at) : "Not set"} />

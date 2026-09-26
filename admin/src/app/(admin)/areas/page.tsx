@@ -10,6 +10,8 @@ import { DataTable } from "@/components/ui/DataTable";
 import { Badge } from "@/components/ui/Badge";
 import { FilterBar, FilterField, FilterInput } from "@/components/ui/FilterBar";
 import { TablePageSkeleton } from "@/components/ui/Skeleton";
+import { mergeLocalities } from "@/lib/geo/localities";
+import type { PostalLocality } from "@/lib/geo/postal";
 
 type LocalityRow = {
   id: string;
@@ -35,6 +37,12 @@ export default function AreasPage() {
   const [coverageCounts, setCoverageCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [pincode, setPincode] = useState("");
+  const [lookup, setLookup] = useState<{
+    pincode: string;
+    localities: PostalLocality[];
+    loading: boolean;
+    message: string;
+  }>({ pincode: "", localities: [], loading: false, message: "" });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [modal, setModal] = useState<{ type: "none" } | { type: "create" } | { type: "edit"; item: AreaRow }>({
@@ -43,7 +51,6 @@ export default function AreasPage() {
   const [form, setForm] = useState({ name: "", is_active: true });
 
   const load = useCallback(async () => {
-    setLoading(true);
     const supabase = createClient();
     const [locRes, areaRes, adRes, noticeRes] = await Promise.all([
       supabase
@@ -69,14 +76,56 @@ export default function AreasPage() {
   }, []);
 
   useEffect(() => {
+    // Load persisted rows on mount; state updates happen after the database requests.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
-  const filteredLocalities = useMemo(() => {
-    const pin = pincode.trim();
-    if (!pin) return localities.filter((l) => !l.is_deleted);
-    return localities.filter((l) => !l.is_deleted && l.pincode.includes(pin));
-  }, [localities, pincode]);
+  useEffect(() => {
+    if (!/^[1-9]\d{5}$/.test(pincode)) return;
+    const controller = new AbortController();
+    async function fetchLocalities() {
+      setLookup({ pincode, localities: [], loading: true, message: "" });
+      try {
+        const res = await fetch(`/api/geo/pincode/${pincode}`, { signal: controller.signal });
+        const data = (await res.json()) as {
+          localities?: PostalLocality[];
+          source?: string;
+          error?: string;
+        };
+        if (!res.ok) throw new Error(data.error ?? "Could not load localities");
+        if (controller.signal.aborted) return;
+        setLookup({
+          pincode,
+          localities: data.localities ?? [],
+          loading: false,
+          message: data.source === "cache"
+            ? "Postal lookup is unavailable. Showing saved localities only."
+            : "",
+        });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setLookup({
+          pincode,
+          localities: [],
+          loading: false,
+          message: `${error instanceof Error ? error.message : "Could not load localities"}. Showing saved localities only.`,
+        });
+      }
+    }
+    void fetchLocalities();
+    return () => controller.abort();
+  }, [pincode]);
+
+  const filteredLocalities = useMemo<Array<Pick<LocalityRow, "id" | "pincode" | "name">>>(() => {
+    const saved = localities.filter((l) => !l.is_deleted && l.pincode.includes(pincode));
+    if (!/^[1-9]\d{5}$/.test(pincode) || lookup.pincode !== pincode) return saved;
+    return mergeLocalities(lookup.localities, saved).map((l) => ({
+      ...l,
+      id: l.id ?? `postal:${pincode}:${l.name.toLowerCase()}`,
+      pincode,
+    }));
+  }, [localities, pincode, lookup]);
 
   const uncovered = useMemo(
     () =>
@@ -88,34 +137,46 @@ export default function AreasPage() {
     [filteredLocalities, coverageCounts, areas],
   );
 
-  const selected = localities.find((l) => l.id === selectedId) ?? null;
+  const selected = filteredLocalities.find((l) => l.id === selectedId) ?? null;
   const selectedAreas = areas.filter((a) => a.locality_id === selectedId && !a.is_deleted);
 
   const saveArea = async () => {
-    if (!selectedId || !form.name.trim()) {
+    if (!selected || !form.name.trim() || saving) {
       showToast("Area name is required");
       return;
     }
     setSaving(true);
-    const supabase = createClient();
-    const payload = {
-      locality_id: selectedId,
-      name: form.name.trim(),
-      is_active: form.is_active,
-      is_deleted: false,
-    };
-    if (modal.type === "edit") {
-      const { error } = await supabase.from("areas").update(payload).eq("id", modal.item.id);
-      if (error) showToast(error.message);
-      else showToast("Area updated");
-    } else {
-      const { error } = await supabase.from("areas").insert(payload);
-      if (error) showToast(error.message);
-      else showToast("Area added");
+    try {
+      const supabase = createClient();
+      let localityId = selected.id;
+      if (localityId.startsWith("postal:")) {
+        const { data, error } = await supabase.rpc("upsert_locality", {
+          p_pincode: selected.pincode,
+          p_name: selected.name,
+        });
+        if (error) throw error;
+        if (!data) throw new Error("Could not save locality");
+        localityId = data as string;
+      }
+      const payload = {
+        locality_id: localityId,
+        name: form.name.trim(),
+        is_active: form.is_active,
+        is_deleted: false,
+      };
+      const { error } = modal.type === "edit"
+        ? await supabase.from("areas").update(payload).eq("id", modal.item.id)
+        : await supabase.from("areas").insert(payload);
+      if (error) throw error;
+      showToast(modal.type === "edit" ? "Area updated" : "Area added");
+      setSelectedId(localityId);
+      setModal({ type: "none" });
+      await load();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : (error as { message?: string }).message ?? "Could not save area");
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    setModal({ type: "none" });
-    void load();
   };
 
   const deleteArea = async (item: AreaRow) => {
@@ -147,7 +208,10 @@ export default function AreasPage() {
       <div className="mt-6">
         <FilterBar>
           <FilterField label="Pincode">
-            <FilterInput value={pincode} onChange={setPincode} placeholder="e.g. 425001" />
+            <FilterInput value={pincode} onChange={(value) => {
+              setPincode(value.replace(/\D/g, "").slice(0, 6));
+              setSelectedId(null);
+            }} placeholder="e.g. 425001" />
           </FilterField>
         </FilterBar>
       </div>
@@ -174,10 +238,17 @@ export default function AreasPage() {
 
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <section>
-          <h2 className="mb-3 font-display text-lg font-bold">Cached localities</h2>
+          <h2 className="mb-3 font-display text-lg font-bold">Localities</h2>
+          <p className="mb-3 text-xs text-ink-soft" role="status">
+            {lookup.pincode === pincode && lookup.loading
+              ? "Loading localities from the postal lookup…"
+              : lookup.pincode === pincode && lookup.message
+                ? lookup.message
+                : "Enter a 6-digit pincode to find localities. A new locality is saved when you add its first area."}
+          </p>
           <DataTable
             rows={filteredLocalities}
-            emptyMessage="No saved localities yet. Add a locality through offer or notification coverage."
+            emptyMessage="No localities found. Enter a valid 6-digit pincode to look up localities."
             defaultSortKey="name"
             defaultSortDir="asc"
             columns={[
@@ -310,7 +381,7 @@ export default function AreasPage() {
               Active
             </label>
             <div className="mt-6 flex gap-3">
-              <button type="button" className="btn-secondary flex-1" onClick={() => setModal({ type: "none" })}>
+              <button type="button" className="btn-secondary flex-1" disabled={saving} onClick={() => setModal({ type: "none" })}>
                 Cancel
               </button>
               <button type="button" className="btn-primary flex-1" disabled={saving} onClick={() => void saveArea()}>

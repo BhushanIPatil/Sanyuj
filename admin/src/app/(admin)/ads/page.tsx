@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Banknote,
   Megaphone,
   Pencil,
   Plus,
@@ -11,7 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { formatDateTime, formatMoney } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { useToast } from "@/components/Toast";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -21,6 +20,7 @@ import { ImageOrEmoji, ImagePreview } from "@/components/ui/ImageOrEmoji";
 import { TablePageSkeleton } from "@/components/ui/Skeleton";
 import { FilterBar, FilterField, FilterInput, FilterSelect } from "@/components/ui/FilterBar";
 import { StatCard } from "@/components/ui/StatCard";
+import { RequestPicker } from "@/components/RequestPicker";
 import { AdCoverageEditor } from "@/components/AdCoverageEditor";
 import {
   fetchAdCoverage,
@@ -35,12 +35,11 @@ import {
   adRunState,
   adRunStateBadge,
   adRunStateLabel,
-  paymentBadge,
-  type AdPaymentStatus,
   type AdRow,
 } from "./AdDetailPanel";
 
 type AdForm = {
+  request_id: string;
   brand_name: string;
   title: string;
   body: string;
@@ -56,15 +55,12 @@ type AdForm = {
   ends_at: string | null;
   offer_starts_at: string | null;
   offer_ends_at: string | null;
-  price: string;
-  payment_status: AdPaymentStatus;
   category_id: string;
 };
 
 const EMPTY_FILTERS = {
   search: "",
   status: "all",
-  payment: "all",
   coverage: "all",
   category: "all",
 };
@@ -85,8 +81,7 @@ const EMPTY_AD: AdForm = {
   ends_at: null,
   offer_starts_at: null,
   offer_ends_at: null,
-  price: "",
-  payment_status: "unpaid",
+  request_id: "",
   category_id: "",
 };
 
@@ -114,18 +109,9 @@ function formFromAd(ad: AdRow): AdForm {
     ends_at: ad.ends_at,
     offer_starts_at: ad.offer_starts_at,
     offer_ends_at: ad.offer_ends_at,
-    price: ad.price != null ? String(ad.price) : "",
-    payment_status: ad.payment_status,
+    request_id: ad.request_id ?? "",
     category_id: ad.category_id ?? "",
   };
-}
-
-function parsePrice(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const n = Number(trimmed);
-  if (!Number.isFinite(n) || n < 0) return null;
-  return Math.round(n);
 }
 
 export default function AdsPage() {
@@ -136,7 +122,6 @@ export default function AdsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
-  const [payment, setPayment] = useState("all");
   const [coverage, setCoverage] = useState("all");
   const [category, setCategory] = useState("all");
   const [categories, setCategories] = useState<ContentCategory[]>([]);
@@ -218,8 +203,6 @@ export default function AdsPage() {
 
     const mapped: AdRow[] = list.map((ad) => ({
       ...ad,
-      price: typeof ad.price === "number" ? ad.price : null,
-      payment_status: ad.payment_status === "paid" ? "paid" : "unpaid",
       category_id: ad.category_id ?? null,
       category: nestedContentCategory(ad.category),
       coverage: labels[ad.id] || "Everywhere",
@@ -237,7 +220,6 @@ export default function AdsPage() {
   const activeFilterCount = [
     search.trim() ? 1 : 0,
     status !== "all" ? 1 : 0,
-    payment !== "all" ? 1 : 0,
     coverage !== "all" ? 1 : 0,
     category !== "all" ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
@@ -245,7 +227,6 @@ export default function AdsPage() {
   const clearFilters = () => {
     setSearch(EMPTY_FILTERS.search);
     setStatus(EMPTY_FILTERS.status);
-    setPayment(EMPTY_FILTERS.payment);
     setCoverage(EMPTY_FILTERS.coverage);
     setCategory(EMPTY_FILTERS.category);
   };
@@ -255,7 +236,6 @@ export default function AdsPage() {
     return rows.filter((r) => {
       const run = adRunState(r);
       if (status !== "all" && run !== status) return false;
-      if (payment !== "all" && r.payment_status !== payment) return false;
       if (coverage === "everywhere" && r.coverage !== "Everywhere") return false;
       if (coverage === "targeted" && r.coverage === "Everywhere") return false;
       if (category === "none" && r.category_id) return false;
@@ -266,7 +246,7 @@ export default function AdsPage() {
       }
       return true;
     });
-  }, [rows, search, status, payment, coverage, category]);
+  }, [rows, search, status, coverage, category]);
 
   const pageStats = useMemo(() => {
     const total = rows.length;
@@ -274,20 +254,12 @@ export default function AdsPage() {
     const live = rows.filter((r) => adRunState(r) === "live").length;
     const scheduled = rows.filter((r) => adRunState(r) === "scheduled").length;
     const ended = rows.filter((r) => adRunState(r) === "ended").length;
-    const paid = rows.filter((r) => r.payment_status === "paid" && !r.is_deleted);
-    const unpaid = rows.filter((r) => r.payment_status === "unpaid" && !r.is_deleted);
-    const paidAmount = paid.reduce((sum, r) => sum + (r.price ?? 0), 0);
-    const unpaidAmount = unpaid.reduce((sum, r) => sum + (r.price ?? 0), 0);
     return {
       total,
       deleted,
       live,
       scheduled,
       ended,
-      paidCount: paid.length,
-      unpaidCount: unpaid.length,
-      paidAmount,
-      unpaidAmount,
     };
   }, [rows]);
 
@@ -326,10 +298,6 @@ export default function AdsPage() {
       showToast("Pick a category");
       return;
     }
-    if (form.price.trim() && parsePrice(form.price) == null) {
-      showToast("Enter a valid price of 0 or more");
-      return;
-    }
     if (!nationwide && pins.length === 0) {
       showToast("Add at least one pincode, or show everywhere");
       return;
@@ -352,8 +320,7 @@ export default function AdsPage() {
       ends_at: form.ends_at || null,
       offer_starts_at: form.offer_starts_at || null,
       offer_ends_at: form.offer_ends_at || null,
-      price: parsePrice(form.price),
-      payment_status: form.payment_status,
+      request_id: form.request_id || null,
       category_id: form.category_id || null,
     };
 
@@ -447,13 +414,6 @@ export default function AdsPage() {
                 <option value="deleted">Deleted</option>
               </FilterSelect>
             </FilterField>
-            <FilterField label="Payment">
-              <FilterSelect value={payment} onChange={setPayment}>
-                <option value="all">All</option>
-                <option value="paid">Paid</option>
-                <option value="unpaid">Unpaid</option>
-              </FilterSelect>
-            </FilterField>
             <FilterField label="Coverage">
               <FilterSelect value={coverage} onChange={setCoverage}>
                 <option value="all">All</option>
@@ -483,7 +443,7 @@ export default function AdsPage() {
         </div>
       ) : null}
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <StatCard
           label="Total ads"
           value={pageStats.total}
@@ -497,13 +457,6 @@ export default function AdsPage() {
           hint={`${pageStats.scheduled} scheduled · ${pageStats.ended} ended`}
           icon={Radio}
           tone="green"
-        />
-        <StatCard
-          label="Paid"
-          value={formatMoney(pageStats.paidAmount)}
-          hint={`${pageStats.paidCount} paid · ${formatMoney(pageStats.unpaidAmount)} unpaid`}
-          icon={Banknote}
-          tone="teal"
         />
       </div>
 
@@ -544,22 +497,6 @@ export default function AdsPage() {
                 ) : (
                   <span className="text-xs text-ink-faint">—</span>
                 ),
-            },
-            {
-              key: "price",
-              header: "Price",
-              sortValue: (row) => row.price ?? -1,
-              render: (row) => <span className="font-semibold">{formatMoney(row.price)}</span>,
-            },
-            {
-              key: "payment",
-              header: "Payment",
-              sortValue: (row) => row.payment_status,
-              render: (row) => (
-                <Badge className={paymentBadge(row.payment_status)}>
-                  {row.payment_status === "paid" ? "Paid" : "Unpaid"}
-                </Badge>
-              ),
             },
             {
               key: "status",
@@ -695,6 +632,8 @@ export default function AdsPage() {
                     <ImagePreview src={form.image_url} alt={form.brand_name} className="mt-3" height={180} />
                   </label>
 
+                <RequestPicker key={editing?.id ?? "new"} kind="offer" value={form.request_id} disabled={saving} onChange={id => setForm(f => ({ ...f, request_id: id }))} />
+
                   <label className="block">
                     <span className="mb-1 block text-xs font-bold text-ink-soft">Category</span>
                     <select
@@ -712,33 +651,6 @@ export default function AdsPage() {
                         ))}
                     </select>
                   </label>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="block">
-                      <span className="mb-1 block text-xs font-bold text-ink-soft">Price (₹)</span>
-                      <input
-                        type="number"
-                        min={0}
-                        className="input-box py-3 text-sm"
-                        value={form.price}
-                        onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
-                        placeholder="Optional"
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="mb-1 block text-xs font-bold text-ink-soft">Payment</span>
-                      <select
-                        className="input-box py-3 text-sm"
-                        value={form.payment_status}
-                        onChange={(e) =>
-                          setForm((f) => ({ ...f, payment_status: e.target.value as AdPaymentStatus }))
-                        }
-                      >
-                        <option value="unpaid">Unpaid</option>
-                        <option value="paid">Paid</option>
-                      </select>
-                    </label>
-                  </div>
 
                   <label className="block">
                     <span className="mb-1 block text-xs font-bold text-ink-soft">Sort order</span>

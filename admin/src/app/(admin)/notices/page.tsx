@@ -13,6 +13,7 @@ import { ImageOrEmoji, ImagePreview } from "@/components/ui/ImageOrEmoji";
 import { TablePageSkeleton } from "@/components/ui/Skeleton";
 import { FilterBar, FilterField, FilterInput, FilterSelect } from "@/components/ui/FilterBar";
 import { StatCard } from "@/components/ui/StatCard";
+import { RequestPicker } from "@/components/RequestPicker";
 import { AdCoverageEditor } from "@/components/AdCoverageEditor";
 import {
   fetchNoticeCoverage,
@@ -31,6 +32,7 @@ import {
 } from "./NoticeDetailPanel";
 
 type NoticeForm = {
+  request_id: string;
   title: string;
   body: string;
   image_url: string;
@@ -64,6 +66,7 @@ const EMPTY_NOTICE: NoticeForm = {
   ends_at: null,
   event_starts_at: null,
   event_ends_at: null,
+  request_id: "",
   category_id: "",
 };
 
@@ -87,6 +90,7 @@ function formFromNotice(row: NoticeRow): NoticeForm {
     ends_at: row.ends_at,
     event_starts_at: row.event_starts_at,
     event_ends_at: row.event_ends_at,
+    request_id: row.request_id ?? "",
     category_id: row.category_id ?? "",
   };
 }
@@ -282,6 +286,7 @@ export default function NoticesPage() {
       ends_at: form.ends_at || null,
       event_starts_at: form.event_starts_at || null,
       event_ends_at: form.event_ends_at || null,
+      request_id: form.request_id || null,
       category_id: form.category_id || null,
     };
 
@@ -564,6 +569,8 @@ export default function NoticesPage() {
                     onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
                   />
                 </label>
+
+                <RequestPicker key={editing?.id ?? "new"} kind="notice" value={form.request_id} disabled={saving} onChange={id => setForm(f => ({ ...f, request_id: id }))} />
 
                 <label className="block">
                   <span className="mb-1 block text-xs font-bold text-ink-soft">Category</span>

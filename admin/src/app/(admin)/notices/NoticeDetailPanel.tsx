@@ -11,6 +11,7 @@ import type { ContentCategoryRef } from "@/lib/contentCategories";
 export type NoticeRunState = "live" | "scheduled" | "ended" | "inactive" | "deleted";
 
 export type NoticeRow = {
+  request_id: string | null;
   id: string;
   title: string;
   body: string | null;
