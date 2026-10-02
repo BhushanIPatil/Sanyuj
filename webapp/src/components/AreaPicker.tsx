@@ -67,7 +67,8 @@ export function AreaPicker({
   if (!areas.length) return null;
 
   return (
-    <div className="mt-2">
+    <label className="mt-2 block">
+      <span className="mb-1 block text-[11px] font-bold text-ink-soft">Area / colony</span>
       <select
         className="input-box"
         value={value}
@@ -84,6 +85,6 @@ export function AreaPicker({
           </option>
         ))}
       </select>
-    </div>
+    </label>
   );
 }

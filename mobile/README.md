@@ -45,7 +45,7 @@ Those values are **baked into the binary** at build time. Users do not need your
 
 ## Play Store checklist
 
-- Package: `app.sanyuj`, targetSdk 35
+- Package: `app.sanyuj`, targetSdk 36
 - Offerly and Notifications only; no public accounts, profiles, or directory
 - Help, Privacy, and Terms links in the app menu
 - Production `API_BASE_URL` must be HTTPS
@@ -55,6 +55,29 @@ See [the retirement rollout](../backend/OFFERS_NOTIFICATIONS.md) before releasin
 
 Public form links have defaults in `lib/config/app_config.dart`, so they also work with plain `flutter run`. Configure `OFFER_REQUEST_FORM_URL`, `NOTIFICATION_REQUEST_FORM_URL`, and `CONTACT_FORM_URL` in `env/dev.json` and `env/prod.json` alongside the other app links. Commands and launch configurations load only the selected environment file. Fully stop and rebuild the app after changing these compile-time values; hot reload does not update them.
 
-## Social links
+## Public links
 
-The Sanyuj page includes LinkedIn, Instagram, X, Facebook and YouTube. Replace the placeholder `LINKEDIN_URL`, `INSTAGRAM_URL`, `X_URL`, `FACEBOOK_URL`, and `YOUTUBE_URL` values in `env/dev.json` and `env/prod.json` with your official profiles. `CONTACT_FORM_URL` controls support contact; `FAQ_URL` controls the FAQ link. Build defines override the defaults in `AppConfig`. Rebuild the app after updating these values.
+Social links have been removed. `CONTACT_FORM_URL` controls support contact; `FAQ_URL` controls the FAQ link. Rebuild after changing compile-time configuration.
+
+## Android release signing
+
+Release builds target API 36 and require an upload key; there is no debug-signing fallback.
+Local signing uses ignored files `android/key.properties` and `android/upload-keystore.jks`.
+Back up both securely outside this computer before the first upload. Never commit or share their contents.
+Enable Play App Signing in Play Console; keep using the same upload key for updates.
+
+On another trusted build machine, restore the key and create `android/key.properties` with:
+
+```properties
+storeFile=upload-keystore.jks
+storePassword=<private password>
+keyAlias=upload
+keyPassword=<private password>
+```
+
+The storeFile path is relative to `android/`. Build with the production environment command above.
+The September 28, 2026 remediation generated a new RSA upload key locally for the first release.
+This does not enroll the app in Play App Signing or publish the app.
+
+Mobile location detection is user-initiated. Viewing is free; provider publication charges are arranged offline.
+The provider fee wording is a disclosure, not a Google Play billing-policy exemption. See the readiness audit for remaining release checks.

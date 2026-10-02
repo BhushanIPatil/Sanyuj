@@ -12,9 +12,15 @@ import 'services/app_version_api.dart';
 import 'services/push_notifications.dart';
 import 'theme/app_theme.dart';
 import 'widgets/update_app_dialog.dart';
+import 'widgets/launch_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  runApp(
+    const MaterialApp(debugShowCheckedModeBanner: false, home: LaunchScreen()),
+  );
+  // Run startup setup alongside the intro, keeping one visible animation cycle.
+  final intro = Future<void>.delayed(const Duration(milliseconds: 1000));
 
   // Remove credentials retained by installations of the retired public login flow.
   final preferences = await SharedPreferences.getInstance();
@@ -38,8 +44,8 @@ Future<void> main() async {
     ),
   ]);
 
-  // Keep the native splash short: skip network/permission work until the first frame.
   final initialRoute = await resolveInitialRoute();
+  await intro;
   runApp(ProviderScope(child: SanyujApp(initialRoute: initialRoute)));
 }
 

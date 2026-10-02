@@ -11,6 +11,7 @@ import '../../utils/format.dart';
 import '../../widgets/ad_detail_sheet.dart';
 import '../../widgets/common.dart';
 import '../../widgets/filters.dart';
+import '../../widgets/location_picker.dart';
 
 const _sortOptions = [
   SortOption(
@@ -82,6 +83,7 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
   String _sort = 'featured';
   bool _loading = true;
   int _loadId = 0;
+  bool _choosingLocation = false;
 
   @override
   void initState() {
@@ -98,7 +100,9 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
   }
 
   void _onLocation() {
-    if (!mounted) return;
+    if (!mounted || _choosingLocation || ref.read(manualGeoProvider) != null) {
+      return;
+    }
     final pin = LocationService.instance.lastFix?.pincode;
     if (pin == null) return;
     final geo = GeoFilter(pincode: pin);
@@ -117,12 +121,13 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
       try {
         cats = await ref.read(repoProvider).fetchContentCategories('offer');
       } catch (_) {}
-      final geo = GeoFilter(
+      final detectedGeo = GeoFilter(
         pincode: LocationService.instance.lastFix?.pincode ?? '',
       );
       if (!mounted) return;
+      final geo = ref.read(manualGeoProvider) ?? detectedGeo;
       setState(() {
-        _defaultGeo = geo;
+        _defaultGeo = detectedGeo;
         _filters = _filters.withGeo(geo);
         _categories = cats;
       });
@@ -287,6 +292,18 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
     return matched;
   }
 
+  Future<void> _chooseLocation() async {
+    _choosingLocation = true;
+    final GeoFilter? geo;
+    try {
+      geo = await showLocationSheet(context, value: _filters.geo);
+    } finally {
+      _choosingLocation = false;
+    }
+    if (geo == null || !mounted) return;
+    _setGeo(geo);
+  }
+
   Future<void> _openFilters() async {
     final result = await showFilterSheet(
       context,
@@ -300,6 +317,7 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
     if (result == null || !mounted) return;
     final geoChanged = result.geo != _appliedGeo;
     setState(() => _filters = result);
+    if (geoChanged) ref.read(manualGeoProvider.notifier).state = result.geo;
     if (geoChanged) await _load(result.geo);
   }
 
@@ -314,6 +332,7 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
   }
 
   void _setGeo(GeoFilter geo) {
+    ref.read(manualGeoProvider.notifier).state = geo;
     setState(() => _filters = _filters.withGeo(geo));
     if (geo != _appliedGeo) _load(geo);
   }
@@ -322,7 +341,10 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
     _query.clear();
     final geoChanged = _filters.geo != _defaultGeo;
     setState(() => _filters = FilterState(geo: _defaultGeo));
-    if (geoChanged) _load(_defaultGeo);
+    if (geoChanged) {
+      ref.read(manualGeoProvider.notifier).state = _defaultGeo;
+      _load(_defaultGeo);
+    }
   }
 
   void _clearCategories() {
@@ -356,6 +378,7 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
       children: [
         FilterToolbar(
           title: 'Offerly',
+          onChooseLocation: _chooseLocation,
           subtitle: _filters.geo.isEverywhere
               ? 'across all areas'
               : 'in ${_filters.geo.label}',

@@ -206,12 +206,32 @@ class _RequestsScreenState extends State<RequestsScreen> {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Fill in the Google Form to send your request. Our team will review your details and follow up with you.',
+                    'Viewing offers and notices is free. Providers pay offline for publication under terms agreed with our team. Sending a request does not publish it or create a payment obligation.',
                     style: TextStyle(
                       fontSize: 13,
                       height: 1.6,
                       color: AppColors.inkSoft,
                     ),
+                  ),
+                  Wrap(
+                    children: [
+                      TextButton(
+                        onPressed: () => openCtaUrl(
+                          context,
+                          AppConfig.termsUrl,
+                          goTo: (path) => context.go(path),
+                        ),
+                        child: const Text('Terms of Use'),
+                      ),
+                      TextButton(
+                        onPressed: () => openCtaUrl(
+                          context,
+                          AppConfig.privacyUrl,
+                          goTo: (path) => context.go(path),
+                        ),
+                        child: const Text('Privacy Policy'),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
                   SizedBox(

@@ -29,7 +29,7 @@ function AdCard({ ad, onOpen }: { ad: AdDetail; onOpen: (ad: AdDetail) => void }
       style={{
         height: HOME_BANNER_HEIGHT,
         borderRadius: AD_BANNER_RADIUS,
-        background: hasImage ? undefined : ad.background || DEFAULT_BG,
+        background: hasImage ? "#E6F2FE" : ad.background || DEFAULT_BG,
       }}
     >
       {hasImage ? (

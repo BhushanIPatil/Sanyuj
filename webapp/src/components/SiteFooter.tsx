@@ -2,10 +2,8 @@ import Link from "next/link";
 import { ExternalLink, MessageCircle } from "lucide-react";
 import { SanyujBrand } from "./SanyujLogo";
 import { ContactFormLink } from "./ContactFormLink";
-import { SOCIAL_LINKS } from "@/lib/siteLinks";
 import { PLAY_STORE_URL } from "@/lib/store";
 
-import { SocialIcon } from "./SocialIcon";
 
 export function SiteFooter() {
   return <footer className="border-t border-line bg-bg-page">
@@ -14,13 +12,6 @@ export function SiteFooter() {
         <div>
           <SanyujBrand href="/" size={52} light showName nameClassName="font-display text-3xl font-extrabold tracking-tight text-blue-deep" />
           <p className="mt-4 max-w-xs text-sm leading-6 text-ink-soft">Discover local offers, nearby events and neighbourhood updates. Your community, connected through Sanyuj.</p>
-          <nav aria-label="Follow Sanyuj" className="mt-5 flex flex-wrap gap-2">
-            {SOCIAL_LINKS.map(link => {
-              return <a key={link.key} href={link.url} target="_blank" rel="noopener noreferrer" aria-label={link.name + " (opens in a new tab)"} title={link.name} className="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-white text-ink transition hover:border-blue-deep hover:text-blue-deep focus-visible:outline-2 focus-visible:outline-blue-deep">
-                <SocialIcon platform={link.key} />
-              </a>;
-            })}
-          </nav>
         </div>
         <nav aria-label="Company">
           <h2 className="font-display text-base font-extrabold text-ink">Company</h2>

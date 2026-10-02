@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../providers.dart';
 import '../../models/models.dart';
 import '../../services/location.dart';
+import '../../widgets/location_picker.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/common.dart';
 import '../../widgets/filters.dart';
@@ -57,7 +58,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _geo = GeoFilter(pincode: LocationService.instance.lastFix?.pincode ?? '');
+    final manualGeo = ref.read(manualGeoProvider);
+    _manualGeo = manualGeo != null;
+    _geo =
+        manualGeo ??
+        GeoFilter(pincode: LocationService.instance.lastFix?.pincode ?? '');
     LocationService.instance.currentFix.addListener(_onLocation);
     _load();
   }
@@ -85,7 +90,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _onLocation() {
-    if (!mounted) return;
+    if (!mounted || _locationLoading) return;
     final pin = LocationService.instance.lastFix?.pincode;
     if (!_manualGeo && pin != null && pin != _geo.pincode) {
       setState(() => _geo = GeoFilter(pincode: pin));
@@ -96,32 +101,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _chooseLocation() async {
-    final result = await showFilterSheet(
-      context,
-      groups: const [],
-      value: FilterState(geo: _geo),
-      defaultGeo: GeoFilter(
-        pincode: LocationService.instance.lastFix?.pincode ?? '',
-      ),
-      resultNoun: 'results',
-    );
-    if (result == null || !mounted) return;
+    _locationLoading = true;
+    final GeoFilter? result;
+    try {
+      result = await showLocationSheet(context, value: _geo);
+    } finally {
+      _locationLoading = false;
+    }
+    final chosenGeo = result;
+    if (chosenGeo == null || !mounted) return;
     setState(() {
-      _geo = result.geo;
-      _manualGeo =
-          _geo !=
-          GeoFilter(pincode: LocationService.instance.lastFix?.pincode ?? '');
+      _geo = chosenGeo;
+      _manualGeo = true;
     });
+    ref.read(manualGeoProvider.notifier).state = chosenGeo;
     await _load();
   }
 
-  Future<void> _refresh() async {
-    setState(() => _locationLoading = true);
-    await LocationService.instance.fetchCurrentLocation(forceRefresh: true);
-    if (!mounted) return;
-    setState(() => _locationLoading = false);
-    await _load();
-  }
+  Future<void> _refresh() => _load();
 
   Future<void> _load() async {
     final loadId = ++_loadId;
@@ -216,7 +213,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final location = _manualGeo
         ? _geo.label
-        : (LocationService.instance.lastFix?.address ?? 'Choose your area');
+        : (_geo.pincode == LocationService.instance.lastFix?.pincode
+              ? LocationService.instance.lastFix!.address
+              : (_geo.isEverywhere ? 'Choose your area' : _geo.label));
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
@@ -249,36 +248,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ],
                       ),
                       const SizedBox(height: 1),
-                      GestureDetector(
-                        onTap: _chooseLocation,
-                        behavior: HitTestBehavior.opaque,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                location,
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  color: AppColors.inkSoft,
-                                  height: 1.35,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: LocationLink(
+                              label: location,
+                              onTap: _chooseLocation,
+                              fontSize: 11.5,
+                              maxLines: 2,
                             ),
-                            if (_locationLoading) ...[
-                              const SizedBox(width: 6),
-                              const SizedBox(
-                                width: 12,
-                                height: 12,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.8,
-                                  color: AppColors.blueDeep,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -297,6 +277,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   borderRadius: BorderRadius.circular(adBannerRadius),
                   child: Stack(
                     children: [
+                      const Positioned.fill(
+                        child: ColoredBox(color: AppColors.blueSoft),
+                      ),
                       NotificationListener<ScrollNotification>(
                         onNotification: (notification) {
                           if (notification.metrics.axis != Axis.horizontal) {

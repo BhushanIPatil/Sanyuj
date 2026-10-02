@@ -22,7 +22,7 @@ import {
  * selection while the visitor is still on the default location.
  */
 export function useFilters(defaultSort: string) {
-  const { geo: detectedGeo } = useUserLocation();
+  const { geo: detectedGeo, manual } = useUserLocation();
   const [state, setState] = useState<FilterState>(() => makeFilterState(EMPTY_GEO));
   const [defaultGeo, setDefaultGeo] = useState<GeoFilter>(EMPTY_GEO);
   const [sort, setSort] = useState(defaultSort);
@@ -30,16 +30,16 @@ export function useFilters(defaultSort: string) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const defaultGeoRef = useRef<GeoFilter>(EMPTY_GEO);
 
-  const adoptDefaultGeo = useCallback((geo: GeoFilter) => {
+  const adoptDefaultGeo = useCallback((geo: GeoFilter, force = false) => {
     const previous = defaultGeoRef.current;
     defaultGeoRef.current = geo;
     setDefaultGeo(geo);
-    setState((prev) => (sameGeo(prev.geo, previous) ? { ...prev, geo } : prev));
+    setState((prev) => (force || sameGeo(prev.geo, previous) ? { ...prev, geo } : prev));
   }, []);
 
   // Adopt externally detected location while preserving manual filter selection.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { adoptDefaultGeo(detectedGeo); }, [detectedGeo, adoptDefaultGeo]);
+  useEffect(() => { adoptDefaultGeo(detectedGeo, manual); }, [detectedGeo, manual, adoptDefaultGeo]);
 
   const toggle = useCallback((groupId: string, value: string) => {
     setState((prev) => toggleFilter(prev, groupId, value));

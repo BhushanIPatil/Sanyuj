@@ -1,5 +1,5 @@
-# Keep Flutter / Supabase / Play Core classes
--keep class io.flutter.** { *; }
+# Flutter and plugins supply their consumer rules. Do not retain the entire
+# embedding: that retains unused Play Store deferred-component integration.
 -keep class com.supabase.** { *; }
 -dontwarn com.supabase.**
 -keep class com.google.firebase.** { *; }

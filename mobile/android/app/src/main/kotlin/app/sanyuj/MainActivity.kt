@@ -17,10 +17,8 @@ class MainActivity : FlutterActivity() {
         val manager = getSystemService(NotificationManager::class.java) ?: return
         val id = "sanyuj_default"
         val existing = manager.getNotificationChannel(id)
-        // Importance cannot be raised in place — recreate if FCM already made a silent channel.
-        if (existing != null && existing.importance < NotificationManager.IMPORTANCE_HIGH) {
-            manager.deleteNotificationChannel(id)
-        }
+        // Channel settings belong to the user, including silent/disabled states.
+        if (existing != null) return
         val channel = NotificationChannel(
             id,
             "Sanyuj",

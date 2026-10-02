@@ -240,8 +240,8 @@ export function GeoFilterFields({
           />
           {locality.trim() ? (
             <>
-              <p className="pt-2 text-[11px] font-bold text-ink-soft">Area / colony</p>
               <AreaPicker
+                key={`${pincode}|${locality}`}
                 pincode={pincode}
                 locality={locality}
                 value={geo.areaId}

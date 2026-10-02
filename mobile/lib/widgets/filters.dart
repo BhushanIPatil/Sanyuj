@@ -9,6 +9,7 @@ import 'area_picker.dart';
 import 'common.dart';
 import 'date_range_filter.dart';
 import 'locality_picker.dart';
+import 'location_picker.dart';
 
 /// One checkable value inside a [FilterGroup].
 @immutable
@@ -326,6 +327,7 @@ class FilterToolbar extends StatelessWidget {
     required this.resultCount,
     required this.resultNoun,
     this.searchResultLabel,
+    this.onChooseLocation,
     this.animatedHint = false,
     this.onCreateRequest,
     this.requestLabel = 'New request',
@@ -337,6 +339,7 @@ class FilterToolbar extends StatelessWidget {
 
   /// Trails the result count, e.g. "near Kothrud, 411038".
   final String subtitle;
+  final VoidCallback? onChooseLocation;
   final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
   final String searchHint;
@@ -382,38 +385,78 @@ class FilterToolbar extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.nunito(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        height: 1.15,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    RichText(
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      text: TextSpan(
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.inkSoft,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: '$resultCount ',
-                            style: const TextStyle(
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.nunito(
+                              fontSize: 20,
                               fontWeight: FontWeight.w800,
-                              color: AppColors.ink,
+                              height: 1.15,
                             ),
                           ),
-                          TextSpan(text: resultNoun),
-                          if (subtitle.trim().isNotEmpty)
-                            TextSpan(text: ' · ${subtitle.trim()}'),
+                        ),
+                        if (onChooseLocation != null) ...[
+                          const SizedBox(width: 16),
+                          Flexible(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.blueSoft,
+                                borderRadius: BorderRadius.circular(100),
+                              ),
+                              child: Text(
+                                '$resultCount $resultNoun',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.blueDeep,
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
-                      ),
+                      ],
                     ),
+                    const SizedBox(height: 3),
+                    if (onChooseLocation != null)
+                      LocationLink(
+                        label: subtitle,
+                        onTap: onChooseLocation!,
+                        fontSize: 12,
+                      )
+                    else
+                      RichText(
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        text: TextSpan(
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.inkSoft,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: '$resultCount ',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.ink,
+                              ),
+                            ),
+                            TextSpan(text: resultNoun),
+                            if (subtitle.trim().isNotEmpty)
+                              TextSpan(text: ' · ${subtitle.trim()}'),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -923,9 +966,10 @@ Future<String?> showSortSheet(
   );
 }
 
-/// Full-height filter sheet: category/location tabs on the left, options on the right.
-///
-/// Returns the edited state when the visitor applies it, or `null` on dismiss.
+typedef DetectedLocation = ({GeoFilter geo, String address});
+
+/// Full-height filter sheet with location and optional category tabs.
+/// Returns the edited state when applied, or `null` on dismiss.
 Future<FilterState?> showFilterSheet(
   BuildContext context, {
   required List<FilterGroup> groups,
@@ -935,6 +979,7 @@ Future<FilterState?> showFilterSheet(
 
   /// Live result count for a candidate state, or `null` when it needs a refetch.
   int? Function(FilterState state)? previewCount,
+  Future<DetectedLocation?> Function()? onUseCurrentLocation,
 }) {
   return showModalBottomSheet<FilterState>(
     context: context,
@@ -946,6 +991,7 @@ Future<FilterState?> showFilterSheet(
       defaultGeo: defaultGeo,
       resultNoun: resultNoun,
       previewCount: previewCount,
+      onUseCurrentLocation: onUseCurrentLocation,
     ),
   );
 }
@@ -957,6 +1003,7 @@ class _FilterSheet extends StatefulWidget {
     required this.defaultGeo,
     required this.resultNoun,
     this.previewCount,
+    this.onUseCurrentLocation,
   });
 
   final List<FilterGroup> groups;
@@ -964,6 +1011,7 @@ class _FilterSheet extends StatefulWidget {
   final GeoFilter defaultGeo;
   final String resultNoun;
   final int? Function(FilterState state)? previewCount;
+  final Future<DetectedLocation?> Function()? onUseCurrentLocation;
 
   @override
   State<_FilterSheet> createState() => _FilterSheetState();
@@ -972,6 +1020,37 @@ class _FilterSheet extends StatefulWidget {
 class _FilterSheetState extends State<_FilterSheet> {
   late FilterState _draft = widget.initial;
   int _tab = 0;
+  bool _locating = false;
+  String? _locationError;
+  String? _detectedAddress;
+
+  Future<void> _useCurrentLocation() async {
+    if (_locating) return;
+    setState(() {
+      _locating = true;
+      _locationError = null;
+      _detectedAddress = null;
+    });
+    try {
+      final location = await widget.onUseCurrentLocation!();
+      if (mounted && location != null) {
+        setState(() {
+          _draft = _draft.withGeo(location.geo);
+          _detectedAddress = location.address.trim().isEmpty
+              ? location.geo.label
+              : location.address;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _locationError = 'Location is unavailable. Choose your area manually or try again.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
 
   List<FilterGroup> get _groups => widget.groups
       .where((g) => g.options.isNotEmpty || g.id == 'dateRange')
@@ -982,7 +1061,10 @@ class _FilterSheetState extends State<_FilterSheet> {
   }
 
   void _setGeo(GeoFilter geo) {
-    setState(() => _draft = _draft.withGeo(geo));
+    setState(() {
+      _draft = _draft.withGeo(geo);
+      _detectedAddress = null;
+    });
   }
 
   @override
@@ -1023,7 +1105,9 @@ class _FilterSheetState extends State<_FilterSheet> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Filters',
+                        widget.onUseCurrentLocation == null
+                            ? 'Filters'
+                            : 'Update location',
                         style: GoogleFonts.nunito(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
@@ -1031,12 +1115,12 @@ class _FilterSheetState extends State<_FilterSheet> {
                       ),
                     ),
                     TextButton(
-                      onPressed: activeCount == 0
+                      onPressed: _locating || activeCount == 0
                           ? null
-                          : () => setState(
-                              () =>
-                                  _draft = FilterState(geo: widget.defaultGeo),
-                            ),
+                          : () => setState(() {
+                              _draft = FilterState(geo: widget.defaultGeo);
+                              _detectedAddress = null;
+                            }),
                       child: Text(
                         'Clear all',
                         style: TextStyle(
@@ -1052,44 +1136,100 @@ class _FilterSheetState extends State<_FilterSheet> {
                 ),
               ),
               const Divider(height: 1, color: AppColors.line),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                child: Row(
-                  children: [
-                    _FilterTab(
-                      label: 'Location',
-                      selected: _tab == 0,
-                      badge: _draft.geo == widget.defaultGeo ? 0 : 1,
-                      onTap: () => setState(() => _tab = 0),
-                    ),
-                    for (var i = 0; i < groups.length; i++)
+              if (groups.isNotEmpty) ...[
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  child: Row(
+                    children: [
                       _FilterTab(
-                        label: groups[i].label,
-                        selected: _tab == i + 1,
-                        badge: _draft.valuesOf(groups[i].id).length,
-                        onTap: () => setState(() => _tab = i + 1),
+                        label: 'Location',
+                        selected: _tab == 0,
+                        badge: _draft.geo == widget.defaultGeo ? 0 : 1,
+                        onTap: () => setState(() => _tab = 0),
                       ),
-                  ],
+                      for (var i = 0; i < groups.length; i++)
+                        _FilterTab(
+                          label: groups[i].label,
+                          selected: _tab == i + 1,
+                          badge: _draft.valuesOf(groups[i].id).length,
+                          onTap: () => setState(() => _tab = i + 1),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              const Divider(height: 1, color: AppColors.line),
-              Expanded(
-                child: _tab == 0
-                    ? _GeoPane(
-                        geo: _draft.geo,
-                        defaultGeo: widget.defaultGeo,
-                        onChanged: _setGeo,
-                      )
-                    : _OptionsPane(
-                        key: ValueKey(groups[_tab - 1].id),
-                        group: groups[_tab - 1],
-                        state: _draft,
-                        onToggle: _toggle,
+                const Divider(height: 1, color: AppColors.line),
+              ],
+              if (_tab == 0 && widget.onUseCurrentLocation != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextButton.icon(
+                        onPressed: _locating ? null : _useCurrentLocation,
+                        icon: _locating
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.my_location, size: 18),
+                        label: Text(
+                          _locating
+                              ? 'Finding pincode...'
+                              : 'Use current pincode',
+                        ),
                       ),
+                      if (_detectedAddress != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            'Current pincode: ${_draft.geo.pincode}\n$_detectedAddress',
+                            style: const TextStyle(
+                              color: AppColors.ink,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      if (_locationError != null)
+                        Text(
+                          _locationError!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      const Text(
+                        'Or choose your area manually',
+                        style: TextStyle(
+                          color: AppColors.inkSoft,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: AbsorbPointer(
+                  absorbing: _locating,
+                  child: _tab == 0
+                      ? _GeoPane(
+                          geo: _draft.geo,
+                          defaultGeo: widget.defaultGeo,
+                          onChanged: _setGeo,
+                        )
+                      : _OptionsPane(
+                          key: ValueKey(groups[_tab - 1].id),
+                          group: groups[_tab - 1],
+                          state: _draft,
+                          onToggle: _toggle,
+                        ),
+                ),
               ),
               const Divider(height: 1, color: AppColors.line),
               Padding(
@@ -1123,7 +1263,9 @@ class _FilterSheetState extends State<_FilterSheet> {
                     Expanded(
                       flex: 2,
                       child: FilledButton(
-                        onPressed: () => Navigator.pop(context, _draft),
+                        onPressed: _locating
+                            ? null
+                            : () => Navigator.pop(context, _draft),
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.blueDeep,
                           foregroundColor: Colors.white,
@@ -1140,7 +1282,9 @@ class _FilterSheetState extends State<_FilterSheet> {
                         ),
                         child: Text(
                           preview == null
-                              ? 'Apply filters'
+                              ? (widget.onUseCurrentLocation == null
+                                    ? 'Apply filters'
+                                    : 'Apply location')
                               : 'Apply ($preview)',
                         ),
                       ),
@@ -1363,6 +1507,17 @@ class _GeoPaneState extends State<_GeoPane> {
   );
 
   @override
+  void didUpdateWidget(covariant _GeoPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_pin.text != widget.geo.pincode) {
+      _pin.value = TextEditingValue(
+        text: widget.geo.pincode,
+        selection: TextSelection.collapsed(offset: widget.geo.pincode.length),
+      );
+    }
+  }
+
+  @override
   void dispose() {
     _pin.dispose();
     super.dispose();
@@ -1425,6 +1580,7 @@ class _GeoPaneState extends State<_GeoPane> {
           ),
           if (geo.locality.isNotEmpty)
             AreaPicker(
+              key: ValueKey('${geo.pincode}|${geo.locality}'),
               pincode: geo.pincode,
               locality: geo.locality,
               value: geo.areaId.isEmpty ? null : geo.areaId,

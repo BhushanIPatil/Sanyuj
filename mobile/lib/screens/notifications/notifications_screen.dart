@@ -9,6 +9,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/ad_detail_sheet.dart';
 import '../../widgets/common.dart';
 import '../../widgets/filters.dart';
+import '../../widgets/location_picker.dart';
 import '../../widgets/notice_detail_sheet.dart';
 import '../../widgets/notice_card.dart';
 
@@ -82,6 +83,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   String _sort = 'featured';
   bool _loading = true;
   int _loadId = 0;
+  bool _choosingLocation = false;
 
   @override
   void initState() {
@@ -98,7 +100,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   void _onLocation() {
-    if (!mounted) return;
+    if (!mounted || _choosingLocation || ref.read(manualGeoProvider) != null) {
+      return;
+    }
     final pin = LocationService.instance.lastFix?.pincode;
     if (pin == null) return;
     final geo = GeoFilter(pincode: pin);
@@ -117,12 +121,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       try {
         cats = await ref.read(repoProvider).fetchContentCategories('notice');
       } catch (_) {}
-      final geo = GeoFilter(
+      final detectedGeo = GeoFilter(
         pincode: LocationService.instance.lastFix?.pincode ?? '',
       );
       if (!mounted) return;
+      final geo = ref.read(manualGeoProvider) ?? detectedGeo;
       setState(() {
-        _defaultGeo = geo;
+        _defaultGeo = detectedGeo;
         _filters = _filters.withGeo(geo);
         _categories = cats;
       });
@@ -256,6 +261,18 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     return matched;
   }
 
+  Future<void> _chooseLocation() async {
+    _choosingLocation = true;
+    final GeoFilter? geo;
+    try {
+      geo = await showLocationSheet(context, value: _filters.geo);
+    } finally {
+      _choosingLocation = false;
+    }
+    if (geo == null || !mounted) return;
+    _setGeo(geo);
+  }
+
   Future<void> _openFilters() async {
     final result = await showFilterSheet(
       context,
@@ -269,6 +286,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     if (result == null || !mounted) return;
     final geoChanged = result.geo != _appliedGeo;
     setState(() => _filters = result);
+    if (geoChanged) ref.read(manualGeoProvider.notifier).state = result.geo;
     if (geoChanged) await _load(result.geo);
   }
 
@@ -283,6 +301,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   void _setGeo(GeoFilter geo) {
+    ref.read(manualGeoProvider.notifier).state = geo;
     setState(() => _filters = _filters.withGeo(geo));
     if (geo != _appliedGeo) _load(geo);
   }
@@ -291,7 +310,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     _query.clear();
     final geoChanged = _filters.geo != _defaultGeo;
     setState(() => _filters = FilterState(geo: _defaultGeo));
-    if (geoChanged) _load(_defaultGeo);
+    if (geoChanged) {
+      ref.read(manualGeoProvider.notifier).state = _defaultGeo;
+      _load(_defaultGeo);
+    }
   }
 
   void _clearCategories() {
@@ -324,6 +346,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       children: [
         FilterToolbar(
           title: 'Notify',
+          onChooseLocation: _chooseLocation,
           subtitle: _filters.geo.isEverywhere
               ? 'across all areas'
               : 'for ${_filters.geo.label}',

@@ -5,7 +5,6 @@ import 'screens/offerly/offerly_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/requests/requests_screen.dart';
 import 'screens/sanyuj/sanyuj_screen.dart';
-import 'widgets/location_session.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/shell/app_shell.dart';
 
@@ -28,8 +27,7 @@ GoRouter createRouter({
       : '/home',
   routes: [
     ShellRoute(
-      builder: (context, state, child) =>
-          LocationSession(child: AppShell(child: child)),
+      builder: (context, state, child) => AppShell(child: child),
       routes: [
         GoRoute(
           path: '/requests',

@@ -32,6 +32,7 @@ export default function RequestsPage() {
     {selected ? <section className="mt-6 rounded-[24px] border border-line bg-white p-5 shadow-card sm:p-7">
       <h2 className="font-display text-xl font-extrabold">{selected.title}</h2>
       <p className="mt-2 text-sm leading-6 text-ink-soft">Fill in the Google Form to send your request. Our team will review your details and follow up with you.</p>
+      <p className="mt-3 text-sm leading-6 text-ink-soft">Browsing is free for viewers. Providers pay offline for publication under terms agreed with our team. Submitting this form does not create a payment obligation. Read our <a href="/terms" className="font-semibold text-blue-deep underline">Terms of Use</a> and <a href="/privacy" className="font-semibold text-blue-deep underline">Privacy Policy</a>.</p>
       {selected.url ? <a href={selected.url} target="_blank" rel="noopener noreferrer" className="btn-primary mt-5 flex items-center justify-center gap-2"><ExternalLink size={18} />Open {kind === "offer" ? "offer" : "notification"} request form</a> : <p className="mt-5 text-sm text-ink-soft">This form is temporarily unavailable. Please try again later.</p>}
       <p className="mt-3 text-xs text-ink-soft">Opens Google Forms in a new tab.</p>
     </section> : <p className="mt-6 text-center text-sm text-ink-soft">Choose an option above to get started.</p>}

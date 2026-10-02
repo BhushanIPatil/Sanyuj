@@ -39,7 +39,7 @@ class AppConfig {
   /// Notification APIs hosted by the webapp (Vercel in production).
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.161.151.171:3000',
+    defaultValue: 'https://sanyuj.vercel.app',
   );
 
   static const privacyUrl = String.fromEnvironment(
@@ -66,32 +66,6 @@ class AppConfig {
   static const playStoreUrl = String.fromEnvironment(
     'PLAY_STORE_URL',
     defaultValue: 'https://play.google.com/store/apps/details?id=app.sanyuj',
-  );
-
-  // Placeholder links; set the official profiles in env/dev.json and env/prod.json.
-  static const linkedinUrl = String.fromEnvironment(
-    'LINKEDIN_URL',
-    defaultValue: 'https://example.com/sanyuj/linkedin',
-  );
-
-  static const instagramUrl = String.fromEnvironment(
-    'INSTAGRAM_URL',
-    defaultValue: 'https://example.com/sanyuj/instagram',
-  );
-
-  static const xUrl = String.fromEnvironment(
-    'X_URL',
-    defaultValue: 'https://example.com/sanyuj/x',
-  );
-
-  static const facebookUrl = String.fromEnvironment(
-    'FACEBOOK_URL',
-    defaultValue: 'https://example.com/sanyuj/facebook',
-  );
-
-  static const youtubeUrl = String.fromEnvironment(
-    'YOUTUBE_URL',
-    defaultValue: 'https://example.com/sanyuj/youtube',
   );
 
   static const faqUrl = String.fromEnvironment(

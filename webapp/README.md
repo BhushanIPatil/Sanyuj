@@ -16,6 +16,6 @@ Google Forms: configure `NEXT_PUBLIC_OFFER_REQUEST_FORM_URL`, `NEXT_PUBLIC_NOTIF
 
 ## Footer and public links
 
-Update `NEXT_PUBLIC_CONTACT_FORM_URL`, `NEXT_PUBLIC_PLAY_STORE_URL`, `NEXT_PUBLIC_LINKEDIN_URL`, `NEXT_PUBLIC_INSTAGRAM_URL`, `NEXT_PUBLIC_X_URL`, `NEXT_PUBLIC_FACEBOOK_URL`, and `NEXT_PUBLIC_YOUTUBE_URL` in `.env.local` or the hosting environment. Social URLs currently point to `example.com` placeholders; replace them with official profiles. The Google Play listing is also a placeholder until published. All support links use the contact form. Set `NEXT_PUBLIC_SITE_URL` to the canonical website origin for SEO metadata, sitemap and robots. These values are bundled at build time, so rebuild/redeploy after changes.
+Configure `NEXT_PUBLIC_CONTACT_FORM_URL`, `NEXT_PUBLIC_PLAY_STORE_URL` and `NEXT_PUBLIC_SITE_URL` in the hosting environment. Social links have been removed. Rebuild/redeploy after changing public configuration.
 
 The About page and `/faq` contain searchable product information; FAQ structured data is generated from the same answers displayed on the page.

@@ -2,6 +2,8 @@
 
 Offers and local notifications, available without a public account.
 
+See the [third-party services and billing audit](BILLING_AUDIT.md) before deployment. Zero-charge operation still requires verified free account plans and suitable hosting for commercial use.
+
 | Directory | Purpose |
 | --- | --- |
 | [webapp](webapp) | Public Home/Offerly/Notifications website and notification APIs |
