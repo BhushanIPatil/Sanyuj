@@ -331,10 +331,14 @@ class FilterToolbar extends StatelessWidget {
     this.animatedHint = false,
     this.onCreateRequest,
     this.requestLabel = 'New request',
+    this.onToggleFavorites,
+    this.favoritesOnly = false,
   });
 
   final VoidCallback? onCreateRequest;
   final String requestLabel;
+  final VoidCallback? onToggleFavorites;
+  final bool favoritesOnly;
   final String title;
 
   /// Trails the result count, e.g. "near Kothrud, 411038".
@@ -461,6 +465,20 @@ class FilterToolbar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
+              if (onToggleFavorites != null) ...[
+                IconButton.filledTonal(
+                  onPressed: onToggleFavorites,
+                  tooltip: favoritesOnly ? 'Show all results' : 'Favorites only',
+                  isSelected: favoritesOnly,
+                  icon: const Icon(Icons.favorite_border_rounded),
+                  selectedIcon: const Icon(Icons.favorite_rounded),
+                  style: IconButton.styleFrom(
+                    foregroundColor: favoritesOnly ? Colors.white : AppColors.blueDeep,
+                    backgroundColor: favoritesOnly ? AppColors.blueDeep : AppColors.blueSoft,
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
               _SearchIconButton(
                 active: query.isNotEmpty,
                 onTap: () => showFloatingSearch(

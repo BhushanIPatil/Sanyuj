@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers.dart';
+import '../../services/favorites.dart';
 import '../../services/location.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
@@ -60,6 +61,7 @@ const _extraGroup = FilterGroup(
   id: 'extras',
   label: 'More',
   options: [
+    FilterOption(value: 'favorites', label: 'Favorites only'),
     FilterOption(value: 'photo', label: 'Has a photo'),
     FilterOption(value: 'details', label: 'Has full details'),
   ],
@@ -220,6 +222,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
 
     final matched = _notices.where((notice) {
+      if (extras.contains('favorites') &&
+          !(ref.read(favoritesProvider).valueOrNull ?? <String>{})
+              .contains(favoriteKey('notice', notice.id))) {
+        return false;
+      }
       if (!overlapsDateRange(
         notice.eventStartsAt ?? notice.createdAt,
         notice.eventEndsAt,
@@ -337,6 +344,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(favoritesProvider);
     final results = _results(_filters);
     final filtered =
         _filters.activeCount(_defaultGeo) > 0 || _query.text.trim().isNotEmpty;
@@ -361,6 +369,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           onOpenSort: _openSort,
           filterCount: _filters.activeCount(_defaultGeo),
           onOpenFilters: _openFilters,
+          favoritesOnly: _filters.valuesOf('extras').contains('favorites'),
+          onToggleFavorites: () => setState(
+            () => _filters = _filters.toggle('extras', 'favorites'),
+          ),
           onCreateRequest: () => context.go('/requests?kind=notice'),
           requestLabel: 'Request a notification',
           chips: buildActiveFilters(

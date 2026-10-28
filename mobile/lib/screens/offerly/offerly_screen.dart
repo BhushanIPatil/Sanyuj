@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../providers.dart';
+import '../../services/favorites.dart';
 import '../../services/location.dart';
 import '../../models/models.dart';
 import '../../theme/app_theme.dart';
@@ -11,6 +12,7 @@ import '../../utils/format.dart';
 import '../../widgets/ad_detail_sheet.dart';
 import '../../widgets/common.dart';
 import '../../widgets/filters.dart';
+import '../../widgets/favorite_button.dart';
 import '../../widgets/location_picker.dart';
 
 const _sortOptions = [
@@ -60,6 +62,7 @@ const _extraGroup = FilterGroup(
   id: 'extras',
   label: 'More',
   options: [
+    FilterOption(value: 'favorites', label: 'Favorites only'),
     FilterOption(value: 'new', label: 'Added this week'),
     FilterOption(value: 'cta', label: 'Has an action link'),
     FilterOption(value: 'photo', label: 'Has a photo'),
@@ -244,6 +247,11 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
     }
 
     final matched = _ads.where((ad) {
+      if (extras.contains('favorites') &&
+          !(ref.read(favoritesProvider).valueOrNull ?? <String>{})
+              .contains(favoriteKey('offer', ad.id))) {
+        return false;
+      }
       if (!overlapsDateRange(
         ad.offerStartsAt ?? ad.createdAt,
         ad.offerEndsAt,
@@ -368,6 +376,7 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(favoritesProvider);
     final groups = _filterGroups;
     final results = _results(_filters);
     final filtered =
@@ -393,6 +402,10 @@ class _OfferlyScreenState extends ConsumerState<OfferlyScreen> {
           onOpenSort: _openSort,
           filterCount: _filters.activeCount(_defaultGeo),
           onOpenFilters: _openFilters,
+          favoritesOnly: _filters.valuesOf('extras').contains('favorites'),
+          onToggleFavorites: () => setState(
+            () => _filters = _filters.toggle('extras', 'favorites'),
+          ),
           onCreateRequest: () => context.go('/requests?kind=offer'),
           requestLabel: 'Request an offer',
           chips: buildActiveFilters(
@@ -511,7 +524,7 @@ class _OfferlyCard extends StatelessWidget {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -541,7 +554,7 @@ class _OfferlyCard extends StatelessWidget {
                           CategoryTintChip(category: ad.category!),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Text(
                       ad.title,
                       style: GoogleFonts.nunito(
@@ -550,17 +563,8 @@ class _OfferlyCard extends StatelessWidget {
                         height: 1.25,
                       ),
                     ),
-                    if (when.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        when,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.inkFaint,
-                        ),
-                      ),
-                    ],
+                    const SizedBox(height: 12),
+                    FavoriteDateRow(when: when, kind: 'offer', id: ad.id),
                   ],
                 ),
               ),

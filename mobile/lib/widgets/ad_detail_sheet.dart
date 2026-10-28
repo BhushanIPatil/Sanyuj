@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../utils/format.dart';
 
 import '../widgets/common.dart';
+import 'favorite_button.dart';
 
 Future<void> showAdDetailSheet(
   BuildContext context, {
@@ -155,8 +156,10 @@ class _AdDetailSheet extends StatelessWidget {
                           style: eyebrowStyle(color: AppColors.inkSoft),
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          when,
+                        FavoriteDateRow(
+                          when: when,
+                          kind: 'offer',
+                          id: ad.id,
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -167,6 +170,8 @@ class _AdDetailSheet extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (when.isEmpty)
+                  FavoriteDateRow(when: when, kind: 'offer', id: ad.id),
                 if ((ad.ctaLabel ?? '').trim().isNotEmpty && onCta != null) ...[
                   const SizedBox(height: 22),
                   SizedBox(

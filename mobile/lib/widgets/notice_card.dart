@@ -5,6 +5,7 @@ import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
 import 'common.dart';
+import 'favorite_button.dart';
 
 class NoticeCard extends StatelessWidget {
   const NoticeCard({super.key, required this.notice, required this.onTap});
@@ -47,13 +48,13 @@ class NoticeCard extends StatelessWidget {
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (notice.category != null) ...[
                       CategoryTintChip(category: notice.category!),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                     ],
                     Text(
                       notice.title,
@@ -64,7 +65,7 @@ class NoticeCard extends StatelessWidget {
                       ),
                     ),
                     if ((notice.body ?? '').trim().isNotEmpty) ...[
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 12),
                       Text(
                         notice.body!.trim(),
                         maxLines: 3,
@@ -76,17 +77,8 @@ class NoticeCard extends StatelessWidget {
                         ),
                       ),
                     ],
-                    if (when.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        when,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.inkFaint,
-                        ),
-                      ),
-                    ],
+                    const SizedBox(height: 12),
+                    FavoriteDateRow(when: when, kind: 'notice', id: notice.id),
                   ],
                 ),
               ),

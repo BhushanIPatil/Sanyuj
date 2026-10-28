@@ -5,6 +5,7 @@ import '../models/models.dart';
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
 import '../widgets/common.dart';
+import 'favorite_button.dart';
 
 Future<void> showNoticeDetailSheet(
   BuildContext context, {
@@ -121,14 +122,18 @@ class _NoticeDetailSheet extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          when,
+                        FavoriteDateRow(
+                          when: when,
+                          kind: 'notice',
+                          id: notice.id,
                           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
                         ),
                       ],
                     ),
                   ),
                 ],
+                if (when.isEmpty)
+                  FavoriteDateRow(when: when, kind: 'notice', id: notice.id),
                 if (ctaUrl.isNotEmpty && onCta != null) ...[
                   const SizedBox(height: 22),
                   SizedBox(
